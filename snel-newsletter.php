@@ -23,6 +23,7 @@ require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/cpt.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/subscribers/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/campaigns/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/ses/index.php';
+require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/sender/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/settings/index.php';
 
 // Create tables on activation.

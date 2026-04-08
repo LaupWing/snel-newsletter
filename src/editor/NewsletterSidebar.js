@@ -7,6 +7,15 @@ import EmailPreviewModal from './EmailPreviewModal';
 
 const TAGS = window.snelNewsletterEditor?.tags || [];
 const SUBSCRIBER_COUNT = window.snelNewsletterEditor?.subscriberCount || 0;
+const API_URL = window.snelNewsletterEditor?.restUrl || '';
+const NONCE = window.snelNewsletterEditor?.nonce || '';
+
+function api( path, opts = {} ) {
+    return fetch( `${ API_URL }${ path }`, {
+        headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+        ...opts,
+    } ).then( ( r ) => r.json() );
+}
 
 function RecipientPanel() {
     const [ audience, setAudience ] = useState( 'all' );
@@ -84,20 +93,41 @@ function SendPanel() {
     const [ testEmail, setTestEmail ] = useState( '' );
     const [ testSending, setTestSending ] = useState( false );
     const [ testSent, setTestSent ] = useState( false );
+    const [ testError, setTestError ] = useState( '' );
     const [ previewText, setPreviewText ] = useState( '' );
     const [ showPreview, setShowPreview ] = useState( false );
 
+    const postId = useSelect( ( select ) => select( 'core/editor' ).getCurrentPostId(), [] );
     const postTitle = useSelect( ( select ) => select( 'core/editor' ).getEditedPostAttribute( 'title' ), [] );
     const postContent = useSelect( ( select ) => select( 'core/editor' ).getEditedPostContent(), [] );
 
     const handleTestSend = () => {
-        if ( ! testEmail ) return;
+        if ( ! testEmail || ! postId ) return;
         setTestSending( true );
+        setTestError( '' );
+
+        // Save the post first, then send test.
+        const saveBtn = document.querySelector( '.editor-post-save-draft' );
+        if ( saveBtn ) saveBtn.click();
+
         setTimeout( () => {
-            setTestSending( false );
-            setTestSent( true );
-            setTimeout( () => setTestSent( false ), 3000 );
-        }, 1500 );
+            api( `/campaigns/${ postId }/send-test`, {
+                method: 'POST',
+                body: JSON.stringify( { email: testEmail } ),
+            } ).then( ( data ) => {
+                setTestSending( false );
+                if ( data?.success ) {
+                    setTestSent( true );
+                    setTimeout( () => setTestSent( false ), 3000 );
+                } else {
+                    setTestError( data?.message || 'Failed to send test email.' );
+                    setTimeout( () => setTestError( '' ), 5000 );
+                }
+            } ).catch( () => {
+                setTestSending( false );
+                setTestError( 'Connection error.' );
+            } );
+        }, 1000 );
     };
 
     return (
@@ -177,6 +207,9 @@ function SendPanel() {
                             { testSending ? __( 'Sending...', 'snel-newsletter' ) : testSent ? __( 'Sent!', 'snel-newsletter' ) : __( 'Send Test', 'snel-newsletter' ) }
                         </button>
                     </div>
+                    { testError && (
+                        <p className="snel-nl-hint" style={ { color: '#ef4444' } }>{ testError }</p>
+                    ) }
                 </div>
             </div>
 
