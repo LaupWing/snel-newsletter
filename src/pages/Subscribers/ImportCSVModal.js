@@ -1,150 +1,8 @@
 import { useState, useRef, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Users, Search, Plus, Upload, X, Tag, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Trash2, MoreHorizontal, FileUp, ArrowRight, Sparkles, Loader2, Check, AlertCircle, CheckCircle, XCircle, MinusCircle } from 'lucide-react';
-import Select from '../components/Select';
-
-// Mock data — will be replaced with REST API calls.
-const MOCK_TAGS = [ 'fitness', 'nutrition', 'paid', 'free-trial', 'vip' ];
-
-const MOCK_SUBSCRIBERS = [
-    { id: 1, email: 'john@example.com', name: 'John Doe', status: 'active', tags: [ 'fitness', 'paid' ], created_at: '2026-03-15' },
-    { id: 2, email: 'jane@example.com', name: 'Jane Smith', status: 'active', tags: [ 'fitness', 'nutrition' ], created_at: '2026-03-14' },
-    { id: 3, email: 'mike@example.com', name: 'Mike Johnson', status: 'unsubscribed', tags: [ 'fitness' ], created_at: '2026-03-12' },
-    { id: 4, email: 'sarah@example.com', name: 'Sarah Wilson', status: 'active', tags: [ 'nutrition', 'vip' ], created_at: '2026-03-10' },
-    { id: 5, email: 'alex@example.com', name: 'Alex Brown', status: 'bounced', tags: [ 'free-trial' ], created_at: '2026-03-08' },
-    { id: 6, email: 'emma@example.com', name: 'Emma Davis', status: 'active', tags: [ 'fitness', 'nutrition', 'paid' ], created_at: '2026-03-05' },
-    { id: 7, email: 'chris@example.com', name: 'Chris Lee', status: 'active', tags: [ 'fitness' ], created_at: '2026-03-03' },
-    { id: 8, email: 'lisa@example.com', name: '', status: 'active', tags: [], created_at: '2026-03-01' },
-];
-
-const STATUS_STYLES = {
-    active: 'bg-emerald-50 text-emerald-700',
-    unsubscribed: 'bg-gray-100 text-gray-600',
-    bounced: 'bg-red-50 text-red-700',
-};
-
-function TagBadge( { tag, removable, onRemove } ) {
-    return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-purple-50 text-purple-700 rounded-full">
-            { tag }
-            { removable && (
-                <button type="button" onClick={ onRemove } className="hover:text-purple-900 transition-colors">
-                    <X size={ 10 } />
-                </button>
-            ) }
-        </span>
-    );
-}
-
-function AddSubscriberModal( { onClose, allTags } ) {
-    const [ email, setEmail ] = useState( '' );
-    const [ name, setName ] = useState( '' );
-    const [ selectedTags, setSelectedTags ] = useState( [] );
-    const [ tagDropdownOpen, setTagDropdownOpen ] = useState( false );
-    const tagRef = useRef();
-
-    useEffect( () => {
-        const handleClick = ( e ) => {
-            if ( tagRef.current && ! tagRef.current.contains( e.target ) ) setTagDropdownOpen( false );
-        };
-        document.addEventListener( 'mousedown', handleClick );
-        return () => document.removeEventListener( 'mousedown', handleClick );
-    }, [] );
-
-    const toggleTag = ( tag ) => {
-        setSelectedTags( ( prev ) =>
-            prev.includes( tag ) ? prev.filter( ( t ) => t !== tag ) : [ ...prev, tag ]
-        );
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={ onClose }>
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6" onClick={ ( e ) => e.stopPropagation() }>
-                <div className="flex items-center justify-between mb-5">
-                    <h3 className="text-sm font-semibold text-gray-900">{ __( 'Add Subscriber', 'snel-newsletter' ) }</h3>
-                    <button type="button" onClick={ onClose } className="text-gray-400 hover:text-gray-600 transition-colors">
-                        <X size={ 16 } />
-                    </button>
-                </div>
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">{ __( 'Email', 'snel-newsletter' ) } *</label>
-                        <input
-                            type="email"
-                            value={ email }
-                            onChange={ ( e ) => setEmail( e.target.value ) }
-                            placeholder="subscriber@example.com"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:shadow-[0_0_0_1px_#3b82f6]"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">{ __( 'Name', 'snel-newsletter' ) }</label>
-                        <input
-                            type="text"
-                            value={ name }
-                            onChange={ ( e ) => setName( e.target.value ) }
-                            placeholder="John Doe"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:shadow-[0_0_0_1px_#3b82f6]"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">{ __( 'Tags', 'snel-newsletter' ) }</label>
-                        <div className="relative" ref={ tagRef }>
-                            <button
-                                type="button"
-                                onClick={ () => setTagDropdownOpen( ! tagDropdownOpen ) }
-                                className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-500 hover:border-gray-400 transition-colors"
-                            >
-                                { selectedTags.length > 0 ? `${ selectedTags.length } tags selected` : __( 'Select tags...', 'snel-newsletter' ) }
-                                <ChevronDown size={ 14 } className={ `transition-transform ${ tagDropdownOpen ? 'rotate-180' : '' }` } />
-                            </button>
-                            { tagDropdownOpen && (
-                                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1">
-                                    { allTags.map( ( tag ) => (
-                                        <button
-                                            key={ tag }
-                                            type="button"
-                                            onClick={ () => toggleTag( tag ) }
-                                            className={ `w-full text-left px-3 py-1.5 text-sm transition-colors ${ selectedTags.includes( tag )
-                                                ? 'bg-purple-50 text-purple-700'
-                                                : 'text-gray-700 hover:bg-gray-50'
-                                            }` }
-                                        >
-                                            { tag }
-                                        </button>
-                                    ) ) }
-                                </div>
-                            ) }
-                        </div>
-                        { selectedTags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                                { selectedTags.map( ( tag ) => (
-                                    <TagBadge key={ tag } tag={ tag } removable onRemove={ () => toggleTag( tag ) } />
-                                ) ) }
-                            </div>
-                        ) }
-                    </div>
-                </div>
-                <div className="flex items-center justify-end gap-2 mt-6">
-                    <button
-                        type="button"
-                        onClick={ onClose }
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                    >
-                        { __( 'Cancel', 'snel-newsletter' ) }
-                    </button>
-                    <button
-                        type="button"
-                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
-                        disabled={ ! email }
-                    >
-                        { __( 'Add Subscriber', 'snel-newsletter' ) }
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
+import { Upload, X, Tag, ChevronDown, ChevronUp, FileUp, ArrowRight, Sparkles, Loader2, Check, AlertCircle, CheckCircle, XCircle, MinusCircle } from 'lucide-react';
+import Select from '../../components/Select';
+import TagBadge from '../../components/TagBadge';
 
 // Mock CSV data — simulates a parsed CSV file.
 const MOCK_CSV_ROWS = [
@@ -178,12 +36,12 @@ function isValidEmail( email ) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test( email );
 }
 
-function ImportCSVModal( { onClose, allTags } ) {
-    const [ step, setStep ] = useState( 'upload' ); // upload → map → preview → done
+export default function ImportCSVModal( { onClose, allTags } ) {
+    const [ step, setStep ] = useState( 'upload' );
     const [ fileName, setFileName ] = useState( '' );
     const [ csvColumns, setCsvColumns ] = useState( [] );
     const [ csvRows, setCsvRows ] = useState( [] );
-    const [ mapping, setMapping ] = useState( { email: '', name: '', tags: '' } );
+    const [ mapping, setMapping ] = useState( { email: '', name: '', source: '' } );
     const [ importTags, setImportTags ] = useState( [] );
     const [ tagDropdownOpen, setTagDropdownOpen ] = useState( false );
     const [ aiExtract, setAiExtract ] = useState( false );
@@ -204,7 +62,6 @@ function ImportCSVModal( { onClose, allTags } ) {
     }, [] );
 
     const handleFile = () => {
-        // Mock: simulate loading a CSV file
         setFileName( 'subscribers_export.csv' );
         const rows = MOCK_CSV_ROWS;
         const columns = Object.keys( rows[ 0 ] );
@@ -215,7 +72,6 @@ function ImportCSVModal( { onClose, allTags } ) {
     };
 
     const handleMapping = () => {
-        // Build preview from mapping with validation
         const preview = csvRows.map( ( row ) => {
             const email = mapping.email ? row[ mapping.email ] : '';
             const valid = isValidEmail( email );
@@ -236,7 +92,6 @@ function ImportCSVModal( { onClose, allTags } ) {
 
     const handleAiExtract = () => {
         setAiLoading( true );
-        // Mock: simulate AI name extraction with a delay
         setTimeout( () => {
             setPreviewRows( ( prev ) => prev.map( ( row ) => ( {
                 ...row,
@@ -249,10 +104,8 @@ function ImportCSVModal( { onClose, allTags } ) {
     };
 
     const handleImport = () => {
-        // Mock: simulate import
-        const total = previewRows.length;
-        const noName = previewRows.filter( ( r ) => ! r.name ).length;
-        setImportResult( { total, noName } );
+        const total = previewRows.filter( ( r ) => r.valid && ! r.duplicate ).length;
+        setImportResult( { total } );
         setStep( 'done' );
     };
 
@@ -465,7 +318,6 @@ function ImportCSVModal( { onClose, allTags } ) {
                     {/* Step 3: Preview */}
                     { step === 'preview' && (
                         <div className="space-y-4">
-                            {/* AI name extraction banner */}
                             { missingNames > 0 && ! aiExtract && (
                                 <div className="flex items-center justify-between px-4 py-3 bg-purple-50 border border-purple-100 rounded-lg">
                                     <div className="flex items-center gap-3">
@@ -503,7 +355,6 @@ function ImportCSVModal( { onClose, allTags } ) {
                                 </div>
                             ) }
 
-                            {/* Summary stats */}
                             <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-1.5 text-xs">
                                     <CheckCircle size={ 12 } className="text-emerald-500" />
@@ -523,7 +374,6 @@ function ImportCSVModal( { onClose, allTags } ) {
                                 ) }
                             </div>
 
-                            {/* Preview table */}
                             <div className="border border-gray-200 rounded-lg overflow-hidden">
                                 <div className="overflow-x-auto max-h-72 overflow-y-auto">
                                     <table className="w-full">
@@ -666,287 +516,6 @@ function ImportCSVModal( { onClose, allTags } ) {
                     ) }
                 </div>
             </div>
-        </div>
-    );
-}
-
-function SubscriberRow( { subscriber, selected, onSelect } ) {
-    const [ menuOpen, setMenuOpen ] = useState( false );
-
-    return (
-        <tr className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
-            <td className="px-4 py-3">
-                <input
-                    type="checkbox"
-                    checked={ selected }
-                    onChange={ onSelect }
-                    className="rounded border-gray-300"
-                />
-            </td>
-            <td className="px-4 py-3">
-                <p className="text-sm font-medium text-gray-900">{ subscriber.email }</p>
-            </td>
-            <td className="px-4 py-3">
-                <p className="text-sm text-gray-600">{ subscriber.name || <span className="text-gray-300">—</span> }</p>
-            </td>
-            <td className="px-4 py-3">
-                <span className={ `inline-block px-2 py-0.5 text-xs font-medium rounded-full ${ STATUS_STYLES[ subscriber.status ] }` }>
-                    { subscriber.status }
-                </span>
-            </td>
-            <td className="px-4 py-3">
-                <div className="flex flex-wrap gap-1">
-                    { subscriber.tags.length > 0
-                        ? subscriber.tags.map( ( tag ) => <TagBadge key={ tag } tag={ tag } /> )
-                        : <span className="text-xs text-gray-300">—</span>
-                    }
-                </div>
-            </td>
-            <td className="px-4 py-3">
-                <p className="text-xs text-gray-400">{ subscriber.created_at }</p>
-            </td>
-            <td className="px-4 py-3">
-                <div className="relative">
-                    <button
-                        type="button"
-                        onClick={ () => setMenuOpen( ! menuOpen ) }
-                        className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
-                    >
-                        <MoreHorizontal size={ 14 } />
-                    </button>
-                    { menuOpen && (
-                        <>
-                            <div className="fixed inset-0 z-10" onClick={ () => setMenuOpen( false ) } />
-                            <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 w-36">
-                                <button type="button" className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                                    { __( 'Edit', 'snel-newsletter' ) }
-                                </button>
-                                <button type="button" className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                                    { __( 'Manage Tags', 'snel-newsletter' ) }
-                                </button>
-                                <button type="button" className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
-                                    { __( 'Delete', 'snel-newsletter' ) }
-                                </button>
-                            </div>
-                        </>
-                    ) }
-                </div>
-            </td>
-        </tr>
-    );
-}
-
-export default function Subscribers() {
-    const [ subscribers ] = useState( MOCK_SUBSCRIBERS );
-    const [ allTags ] = useState( MOCK_TAGS );
-    const [ search, setSearch ] = useState( '' );
-    const [ filterTag, setFilterTag ] = useState( '' );
-    const [ filterStatus, setFilterStatus ] = useState( '' );
-    const [ selected, setSelected ] = useState( [] );
-    const [ showAddModal, setShowAddModal ] = useState( false );
-    const [ showImportModal, setShowImportModal ] = useState( false );
-    const [ page ] = useState( 1 );
-    const totalPages = 1;
-
-    const filtered = subscribers.filter( ( s ) => {
-        if ( search && ! s.email.toLowerCase().includes( search.toLowerCase() ) && ! s.name.toLowerCase().includes( search.toLowerCase() ) ) return false;
-        if ( filterTag && ! s.tags.includes( filterTag ) ) return false;
-        if ( filterStatus && s.status !== filterStatus ) return false;
-        return true;
-    } );
-
-    const allSelected = filtered.length > 0 && selected.length === filtered.length;
-
-    const toggleAll = () => {
-        setSelected( allSelected ? [] : filtered.map( ( s ) => s.id ) );
-    };
-
-    const toggleOne = ( id ) => {
-        setSelected( ( prev ) => prev.includes( id ) ? prev.filter( ( x ) => x !== id ) : [ ...prev, id ] );
-    };
-
-    const counts = {
-        total: subscribers.length,
-        active: subscribers.filter( ( s ) => s.status === 'active' ).length,
-        unsubscribed: subscribers.filter( ( s ) => s.status === 'unsubscribed' ).length,
-        bounced: subscribers.filter( ( s ) => s.status === 'bounced' ).length,
-    };
-
-    return (
-        <div className="p-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-8">
-                <div>
-                    <h1 className="text-xl font-bold text-gray-900">
-                        Snel <em className="font-serif font-normal italic">Newsletter</em>
-                    </h1>
-                    <p className="text-sm text-gray-500 mt-1">{ __( 'Manage your subscribers', 'snel-newsletter' ) }</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={ () => setShowImportModal( true ) }
-                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
-                    >
-                        <Upload size={ 14 } />
-                        { __( 'Import CSV', 'snel-newsletter' ) }
-                    </button>
-                    <button
-                        type="button"
-                        onClick={ () => setShowAddModal( true ) }
-                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-                    >
-                        <Plus size={ 14 } />
-                        { __( 'Add Subscriber', 'snel-newsletter' ) }
-                    </button>
-                </div>
-            </div>
-
-            {/* Stats bar */}
-            <div className="flex items-center gap-6 mb-6">
-                <div className="flex items-center gap-2">
-                    <Users size={ 14 } className="text-gray-400" />
-                    <span className="text-sm text-gray-600">
-                        <strong className="text-gray-900">{ counts.total }</strong> { __( 'total', 'snel-newsletter' ) }
-                    </span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span className="text-sm text-gray-600">
-                        <strong className="text-gray-900">{ counts.active }</strong> { __( 'active', 'snel-newsletter' ) }
-                    </span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-gray-400" />
-                    <span className="text-sm text-gray-600">
-                        <strong className="text-gray-900">{ counts.unsubscribed }</strong> { __( 'unsubscribed', 'snel-newsletter' ) }
-                    </span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-red-500" />
-                    <span className="text-sm text-gray-600">
-                        <strong className="text-gray-900">{ counts.bounced }</strong> { __( 'bounced', 'snel-newsletter' ) }
-                    </span>
-                </div>
-            </div>
-
-            {/* Filters */}
-            <div className="bg-white border border-gray-200 rounded-lg">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                    <div className="flex items-center gap-3">
-                        {/* Search */}
-                        <div className="relative">
-                            <Search size={ 14 } className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input
-                                type="text"
-                                value={ search }
-                                onChange={ ( e ) => setSearch( e.target.value ) }
-                                placeholder={ __( 'Search subscribers...', 'snel-newsletter' ) }
-                                className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:shadow-[0_0_0_1px_#3b82f6] w-64"
-                            />
-                        </div>
-                        {/* Tag filter */}
-                        <Select
-                            value={ filterTag }
-                            onChange={ setFilterTag }
-                            options={ [
-                                { value: '', label: __( 'All tags', 'snel-newsletter' ) },
-                                ...allTags.map( ( tag ) => ( { value: tag, label: tag } ) ),
-                            ] }
-                        />
-                        {/* Status filter */}
-                        <Select
-                            value={ filterStatus }
-                            onChange={ setFilterStatus }
-                            options={ [
-                                { value: '', label: __( 'All statuses', 'snel-newsletter' ) },
-                                { value: 'active', label: __( 'Active', 'snel-newsletter' ) },
-                                { value: 'unsubscribed', label: __( 'Unsubscribed', 'snel-newsletter' ) },
-                                { value: 'bounced', label: __( 'Bounced', 'snel-newsletter' ) },
-                            ] }
-                        />
-                    </div>
-                    {/* Bulk actions */}
-                    { selected.length > 0 && (
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500">{ selected.length } { __( 'selected', 'snel-newsletter' ) }</span>
-                            <button type="button" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
-                                <Trash2 size={ 12 } />
-                                { __( 'Delete', 'snel-newsletter' ) }
-                            </button>
-                            <button type="button" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
-                                <Tag size={ 12 } />
-                                { __( 'Add Tag', 'snel-newsletter' ) }
-                            </button>
-                        </div>
-                    ) }
-                </div>
-
-                {/* Table */}
-                <table className="w-full">
-                    <thead>
-                        <tr className="border-b border-gray-200 bg-gray-50/50">
-                            <th className="px-4 py-2.5 text-left w-10">
-                                <input
-                                    type="checkbox"
-                                    checked={ allSelected }
-                                    onChange={ toggleAll }
-                                    className="rounded border-gray-300"
-                                />
-                            </th>
-                            <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Email', 'snel-newsletter' ) }</th>
-                            <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Name', 'snel-newsletter' ) }</th>
-                            <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Status', 'snel-newsletter' ) }</th>
-                            <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Tags', 'snel-newsletter' ) }</th>
-                            <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Added', 'snel-newsletter' ) }</th>
-                            <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        { filtered.length > 0 ? (
-                            filtered.map( ( subscriber ) => (
-                                <SubscriberRow
-                                    key={ subscriber.id }
-                                    subscriber={ subscriber }
-                                    selected={ selected.includes( subscriber.id ) }
-                                    onSelect={ () => toggleOne( subscriber.id ) }
-                                />
-                            ) )
-                        ) : (
-                            <tr>
-                                <td colSpan="7" className="px-4 py-12 text-center">
-                                    <Users size={ 32 } className="mx-auto text-gray-300 mb-3" />
-                                    <p className="text-sm text-gray-500">{ __( 'No subscribers found', 'snel-newsletter' ) }</p>
-                                </td>
-                            </tr>
-                        ) }
-                    </tbody>
-                </table>
-
-                {/* Pagination */}
-                { totalPages > 1 && (
-                    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-                        <p className="text-xs text-gray-500">
-                            { __( 'Showing', 'snel-newsletter' ) } { filtered.length } { __( 'of', 'snel-newsletter' ) } { subscribers.length }
-                        </p>
-                        <div className="flex items-center gap-1">
-                            <button type="button" disabled={ page <= 1 } className="p-1.5 text-gray-400 hover:text-gray-600 rounded disabled:opacity-30 transition-colors">
-                                <ChevronLeft size={ 14 } />
-                            </button>
-                            <span className="px-2 text-xs text-gray-500">{ page } / { totalPages }</span>
-                            <button type="button" disabled={ page >= totalPages } className="p-1.5 text-gray-400 hover:text-gray-600 rounded disabled:opacity-30 transition-colors">
-                                <ChevronRight size={ 14 } />
-                            </button>
-                        </div>
-                    </div>
-                ) }
-            </div>
-
-            {/* Add Subscriber Modal */}
-            { showAddModal && <AddSubscriberModal onClose={ () => setShowAddModal( false ) } allTags={ allTags } /> }
-
-            {/* Import CSV Modal */}
-            { showImportModal && <ImportCSVModal onClose={ () => setShowImportModal( false ) } allTags={ allTags } /> }
         </div>
     );
 }

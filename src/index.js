@@ -1,7 +1,7 @@
 import { createRoot } from '@wordpress/element';
 import Dashboard from './pages/Dashboard';
-import Subscribers from './pages/Subscribers';
-import Campaigns from './pages/Campaigns';
+import Subscribers from './pages/Subscribers/index';
+import Campaigns from './pages/Campaigns/index';
 import Settings from './pages/Settings';
 import './styles/main.css';
 

@@ -1,7 +1,8 @@
 import { useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Send, Plus, Search, Eye, MousePointerClick, Users, Clock, MoreHorizontal, ChevronLeft, ChevronRight, Copy, Trash2, BarChart3 } from 'lucide-react';
-import Select from '../components/Select';
+import { Send, Plus, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import Select from '../../components/Select';
+import CampaignRow from './CampaignRow';
 
 const MOCK_CAMPAIGNS = [
     { id: 1, subject: 'Welcome to the Fitness Newsletter!', status: 'sent', recipients: 3842, sent: 3842, opened: 2881, clicked: 921, sent_at: '2026-03-15 10:30', tags: [ 'fitness' ] },
@@ -12,132 +13,6 @@ const MOCK_CAMPAIGNS = [
     { id: 6, subject: 'Summer Body Challenge — Registration Open', status: 'draft', recipients: 0, sent: 0, opened: 0, clicked: 0, sent_at: null, tags: [ 'fitness', 'free-trial' ] },
     { id: 7, subject: 'How Protein Timing Affects Your Gains', status: 'sending', recipients: 3900, sent: 1240, opened: 0, clicked: 0, sent_at: '2026-04-08 14:00', tags: [ 'fitness', 'nutrition' ] },
 ];
-
-const STATUS_STYLES = {
-    sent: { bg: 'bg-emerald-50 text-emerald-700', label: 'Sent' },
-    draft: { bg: 'bg-gray-100 text-gray-600', label: 'Draft' },
-    sending: { bg: 'bg-blue-50 text-blue-700', label: 'Sending' },
-    scheduled: { bg: 'bg-purple-50 text-purple-700', label: 'Scheduled' },
-    failed: { bg: 'bg-red-50 text-red-700', label: 'Failed' },
-};
-
-function CampaignRow( { campaign } ) {
-    const [ menuOpen, setMenuOpen ] = useState( false );
-    const status = STATUS_STYLES[ campaign.status ] || STATUS_STYLES.draft;
-    const openRate = campaign.sent > 0 ? Math.round( ( campaign.opened / campaign.sent ) * 100 ) : 0;
-    const clickRate = campaign.sent > 0 ? Math.round( ( campaign.clicked / campaign.sent ) * 100 ) : 0;
-
-    return (
-        <tr className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
-            <td className="px-4 py-3">
-                <div>
-                    <p className="text-sm font-medium text-gray-900">{ campaign.subject }</p>
-                    <div className="flex items-center gap-2 mt-1">
-                        { campaign.tags.map( ( tag ) => (
-                            <span key={ tag } className="px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-600 rounded">
-                                { tag }
-                            </span>
-                        ) ) }
-                    </div>
-                </div>
-            </td>
-            <td className="px-4 py-3">
-                <span className={ `inline-block px-2 py-0.5 text-xs font-medium rounded-full ${ status.bg }` }>
-                    { status.label }
-                </span>
-                { campaign.status === 'sending' && (
-                    <div className="mt-1.5 w-20">
-                        <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                                className="h-full bg-blue-500 rounded-full transition-all"
-                                style={ { width: `${ Math.round( ( campaign.sent / campaign.recipients ) * 100 ) }%` } }
-                            />
-                        </div>
-                        <p className="text-[10px] text-gray-400 mt-0.5">{ campaign.sent } / { campaign.recipients }</p>
-                    </div>
-                ) }
-            </td>
-            <td className="px-4 py-3">
-                <div className="flex items-center gap-1 text-sm text-gray-600">
-                    <Users size={ 12 } className="text-gray-400" />
-                    { campaign.recipients > 0 ? campaign.recipients.toLocaleString() : '—' }
-                </div>
-            </td>
-            <td className="px-4 py-3">
-                { campaign.sent > 0 ? (
-                    <div className="flex items-center gap-1">
-                        <Eye size={ 12 } className="text-gray-400" />
-                        <span className={ `text-sm font-medium ${ openRate >= 50 ? 'text-emerald-600' : openRate >= 25 ? 'text-amber-600' : 'text-gray-600' }` }>
-                            { openRate }%
-                        </span>
-                        <span className="text-xs text-gray-400">({ campaign.opened.toLocaleString() })</span>
-                    </div>
-                ) : (
-                    <span className="text-xs text-gray-300">—</span>
-                ) }
-            </td>
-            <td className="px-4 py-3">
-                { campaign.sent > 0 ? (
-                    <div className="flex items-center gap-1">
-                        <MousePointerClick size={ 12 } className="text-gray-400" />
-                        <span className={ `text-sm font-medium ${ clickRate >= 10 ? 'text-emerald-600' : clickRate >= 5 ? 'text-amber-600' : 'text-gray-600' }` }>
-                            { clickRate }%
-                        </span>
-                        <span className="text-xs text-gray-400">({ campaign.clicked.toLocaleString() })</span>
-                    </div>
-                ) : (
-                    <span className="text-xs text-gray-300">—</span>
-                ) }
-            </td>
-            <td className="px-4 py-3">
-                { campaign.sent_at ? (
-                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                        <Clock size={ 10 } />
-                        { campaign.sent_at }
-                    </div>
-                ) : (
-                    <span className="text-xs text-gray-300">—</span>
-                ) }
-            </td>
-            <td className="px-4 py-3">
-                <div className="relative">
-                    <button
-                        type="button"
-                        onClick={ () => setMenuOpen( ! menuOpen ) }
-                        className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
-                    >
-                        <MoreHorizontal size={ 14 } />
-                    </button>
-                    { menuOpen && (
-                        <>
-                            <div className="fixed inset-0 z-10" onClick={ () => setMenuOpen( false ) } />
-                            <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 w-40">
-                                { campaign.status === 'draft' && (
-                                    <button type="button" className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2">
-                                        <Send size={ 12 } />
-                                        { __( 'Send', 'snel-newsletter' ) }
-                                    </button>
-                                ) }
-                                <button type="button" className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2">
-                                    <BarChart3 size={ 12 } />
-                                    { __( 'View Stats', 'snel-newsletter' ) }
-                                </button>
-                                <button type="button" className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2">
-                                    <Copy size={ 12 } />
-                                    { __( 'Duplicate', 'snel-newsletter' ) }
-                                </button>
-                                <button type="button" className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2">
-                                    <Trash2 size={ 12 } />
-                                    { __( 'Delete', 'snel-newsletter' ) }
-                                </button>
-                            </div>
-                        </>
-                    ) }
-                </div>
-            </td>
-        </tr>
-    );
-}
 
 export default function Campaigns() {
     const [ campaigns ] = useState( MOCK_CAMPAIGNS );
@@ -161,7 +36,6 @@ export default function Campaigns() {
 
     return (
         <div className="p-6">
-            {/* Header */}
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-xl font-bold text-gray-900">
@@ -178,7 +52,6 @@ export default function Campaigns() {
                 </button>
             </div>
 
-            {/* Stats bar */}
             <div className="flex items-center gap-6 mb-6">
                 <div className="flex items-center gap-2">
                     <Send size={ 14 } className="text-gray-400" />
@@ -208,7 +81,6 @@ export default function Campaigns() {
                 ) }
             </div>
 
-            {/* Table */}
             <div className="bg-white border border-gray-200 rounded-lg">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center gap-3">
@@ -264,7 +136,6 @@ export default function Campaigns() {
                     </tbody>
                 </table>
 
-                {/* Pagination */}
                 { totalPages > 1 && (
                     <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
                         <p className="text-xs text-gray-500">
