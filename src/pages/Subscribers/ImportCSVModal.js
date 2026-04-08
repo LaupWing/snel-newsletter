@@ -4,36 +4,60 @@ import { Upload, X, Tag, ChevronDown, ChevronUp, FileUp, ArrowRight, Sparkles, L
 import Select from '../../components/Select';
 import TagBadge from '../../components/TagBadge';
 
-// Mock CSV data — simulates a parsed CSV file.
-const MOCK_CSV_ROWS = [
-    { 'Email Address': 'peter.wilson@gmail.com', 'Full Name': 'Peter Wilson', 'Signup Source': 'landing-page', 'Date': '2026-01-15' },
-    { 'Email Address': 'anna.kowalski@hotmail.com', 'Full Name': '', 'Signup Source': 'instagram', 'Date': '2026-01-20' },
-    { 'Email Address': 'j.vandenberg@outlook.com', 'Full Name': 'Jan van den Berg', 'Signup Source': 'landing-page', 'Date': '2026-02-03' },
-    { 'Email Address': 'fitness.maria@gmail.com', 'Full Name': '', 'Signup Source': 'twitter', 'Date': '2026-02-10' },
-    { 'Email Address': 'tom.hendriks@yahoo.com', 'Full Name': 'Tom Hendriks', 'Signup Source': 'referral', 'Date': '2026-02-14' },
-    { 'Email Address': 'sarah.johnson123@gmail.com', 'Full Name': '', 'Signup Source': 'landing-page', 'Date': '2026-02-20' },
-    { 'Email Address': 'john@example.com', 'Full Name': 'John Doe', 'Signup Source': 'referral', 'Date': '2026-03-01' },
-    { 'Email Address': 'not-an-email', 'Full Name': 'Bad Entry', 'Signup Source': 'manual', 'Date': '2026-03-02' },
-    { 'Email Address': 'david.martinez@gmail.com', 'Full Name': '', 'Signup Source': 'instagram', 'Date': '2026-03-05' },
-    { 'Email Address': 'lisa.de.vries@outlook.com', 'Full Name': 'Lisa de Vries', 'Signup Source': 'landing-page', 'Date': '2026-03-08' },
-];
+const API_URL = window.snelNewsletter?.restUrl;
+const NONCE = window.snelNewsletter?.nonce;
 
-// Existing subscriber emails — for duplicate detection in mock.
-const EXISTING_EMAILS = [ 'john@example.com', 'jane@example.com', 'mike@example.com', 'sarah@example.com', 'alex@example.com', 'emma@example.com', 'chris@example.com', 'lisa@example.com' ];
-
-const MOCK_AI_NAMES = {
-    'peter.wilson@gmail.com': 'Peter Wilson',
-    'anna.kowalski@hotmail.com': 'Anna Kowalski',
-    'j.vandenberg@outlook.com': 'Jan van den Berg',
-    'fitness.maria@gmail.com': 'Maria',
-    'tom.hendriks@yahoo.com': 'Tom Hendriks',
-    'sarah.johnson123@gmail.com': 'Sarah Johnson',
-    'david.martinez@gmail.com': 'David Martinez',
-    'lisa.de.vries@outlook.com': 'Lisa de Vries',
-};
+function api( path, opts = {} ) {
+    return fetch( `${ API_URL }${ path }`, {
+        headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+        ...opts,
+    } ).then( ( r ) => r.json() );
+}
 
 function isValidEmail( email ) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test( email );
+}
+
+/**
+ * Parse a CSV string into an array of objects.
+ */
+function parseCSV( text ) {
+    const lines = text.split( /\r?\n/ ).filter( ( l ) => l.trim() );
+    if ( lines.length < 2 ) return { columns: [], rows: [] };
+
+    // Parse header — handle quoted values.
+    const parseLine = ( line ) => {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for ( let i = 0; i < line.length; i++ ) {
+            const ch = line[ i ];
+            if ( ch === '"' ) {
+                inQuotes = ! inQuotes;
+            } else if ( ch === ',' && ! inQuotes ) {
+                result.push( current.trim() );
+                current = '';
+            } else {
+                current += ch;
+            }
+        }
+        result.push( current.trim() );
+        return result;
+    };
+
+    const columns = parseLine( lines[ 0 ] );
+    const rows = [];
+
+    for ( let i = 1; i < lines.length; i++ ) {
+        const values = parseLine( lines[ i ] );
+        const row = {};
+        columns.forEach( ( col, j ) => {
+            row[ col ] = values[ j ] || '';
+        } );
+        rows.push( row );
+    }
+
+    return { columns, rows };
 }
 
 export default function ImportCSVModal( { onClose, allTags } ) {
@@ -51,7 +75,10 @@ export default function ImportCSVModal( { onClose, allTags } ) {
     const [ importResult, setImportResult ] = useState( null );
     const [ showAllCsvRows, setShowAllCsvRows ] = useState( false );
     const [ showAllPreviewRows, setShowAllPreviewRows ] = useState( false );
+    const [ existingEmails, setExistingEmails ] = useState( [] );
+    const [ importing, setImporting ] = useState( false );
     const importTagRef = useRef();
+    const fileInputRef = useRef();
 
     useEffect( () => {
         const handleClick = ( e ) => {
@@ -61,24 +88,57 @@ export default function ImportCSVModal( { onClose, allTags } ) {
         return () => document.removeEventListener( 'mousedown', handleClick );
     }, [] );
 
-    const handleFile = () => {
-        setFileName( 'subscribers_export.csv' );
-        const rows = MOCK_CSV_ROWS;
-        const columns = Object.keys( rows[ 0 ] );
-        setCsvColumns( columns );
-        setCsvRows( rows );
-        setMapping( { email: columns[ 0 ], name: columns[ 1 ], source: columns[ 2 ] } );
-        setStep( 'map' );
+    // Load existing emails for duplicate detection.
+    useEffect( () => {
+        api( '/subscribers/emails' ).then( ( data ) => {
+            setExistingEmails( ( data || [] ).map( ( e ) => e.toLowerCase() ) );
+        } );
+    }, [] );
+
+    const processFile = ( file ) => {
+        if ( ! file ) return;
+        setFileName( file.name );
+
+        const reader = new FileReader();
+        reader.onload = ( e ) => {
+            const { columns, rows } = parseCSV( e.target.result );
+            setCsvColumns( columns );
+            setCsvRows( rows );
+
+            // Auto-detect email and name columns.
+            const emailCol = columns.find( ( c ) => /email/i.test( c ) ) || columns[ 0 ];
+            const nameCol = columns.find( ( c ) => /name/i.test( c ) && ! /user/i.test( c ) ) || '';
+            setMapping( { email: emailCol, name: nameCol, source: '' } );
+            setStep( 'map' );
+        };
+        reader.readAsText( file );
+    };
+
+    const handleBrowse = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileInput = ( e ) => {
+        processFile( e.target.files[ 0 ] );
+    };
+
+    const handleDrop = ( e ) => {
+        e.preventDefault();
+        setDragOver( false );
+        const file = e.dataTransfer.files[ 0 ];
+        if ( file && file.name.endsWith( '.csv' ) ) {
+            processFile( file );
+        }
     };
 
     const handleMapping = () => {
         const preview = csvRows.map( ( row ) => {
-            const email = mapping.email ? row[ mapping.email ] : '';
+            const email = mapping.email ? ( row[ mapping.email ] || '' ).trim() : '';
             const valid = isValidEmail( email );
-            const duplicate = EXISTING_EMAILS.includes( email.toLowerCase() );
+            const duplicate = existingEmails.includes( email.toLowerCase() );
             return {
                 email,
-                name: mapping.name ? row[ mapping.name ] : '',
+                name: mapping.name ? ( row[ mapping.name ] || '' ).trim() : '',
                 tags: importTags,
                 source: mapping.source ? row[ mapping.source ] : '',
                 valid,
@@ -92,21 +152,65 @@ export default function ImportCSVModal( { onClose, allTags } ) {
 
     const handleAiExtract = () => {
         setAiLoading( true );
+        // TODO: wire to OpenAI endpoint. For now, extract from email local part.
         setTimeout( () => {
-            setPreviewRows( ( prev ) => prev.map( ( row ) => ( {
-                ...row,
-                name: row.name || MOCK_AI_NAMES[ row.email ] || '',
-                aiGenerated: ! row.name,
-            } ) ) );
+            setPreviewRows( ( prev ) => prev.map( ( row ) => {
+                if ( row.name ) return row;
+                // Simple name extraction from email: john.doe@... → John Doe
+                const local = row.email.split( '@' )[ 0 ] || '';
+                const name = local
+                    .replace( /[._-]/g, ' ' )
+                    .replace( /\d+/g, '' )
+                    .trim()
+                    .split( ' ' )
+                    .map( ( w ) => w.charAt( 0 ).toUpperCase() + w.slice( 1 ).toLowerCase() )
+                    .join( ' ' )
+                    .trim();
+                return { ...row, name: name || '', aiGenerated: true };
+            } ) );
             setAiExtract( true );
             setAiLoading( false );
-        }, 1500 );
+        }, 500 );
     };
 
     const handleImport = () => {
-        const total = previewRows.filter( ( r ) => r.valid && ! r.duplicate ).length;
-        setImportResult( { total } );
-        setStep( 'done' );
+        const toImport = previewRows.filter( ( r ) => r.valid && ! r.duplicate );
+        if ( ! toImport.length ) return;
+
+        setImporting( true );
+
+        // Send in batches of 100.
+        const batchSize = 100;
+        const batches = [];
+        for ( let i = 0; i < toImport.length; i += batchSize ) {
+            batches.push( toImport.slice( i, i + batchSize ) );
+        }
+
+        let totalImported = 0;
+        let totalSkipped = 0;
+
+        const processBatch = ( index ) => {
+            if ( index >= batches.length ) {
+                setImportResult( { imported: totalImported, skipped: totalSkipped } );
+                setImporting( false );
+                setStep( 'done' );
+                return;
+            }
+
+            api( '/subscribers/import', {
+                method: 'POST',
+                body: JSON.stringify( {
+                    subscribers: batches[ index ].map( ( r ) => ( { email: r.email, name: r.name } ) ),
+                    tags: importTags,
+                } ),
+            } ).then( ( data ) => {
+                totalImported += data.imported || 0;
+                totalSkipped += data.skipped || 0;
+                processBatch( index + 1 );
+            } );
+        };
+
+        processBatch( 0 );
     };
 
     const toggleImportTag = ( tag ) => {
@@ -166,14 +270,21 @@ export default function ImportCSVModal( { onClose, allTags } ) {
                             className={ `border-2 border-dashed rounded-lg p-12 text-center transition-colors ${ dragOver ? 'border-blue-400 bg-blue-50/50' : 'border-gray-200 hover:border-gray-300' }` }
                             onDragOver={ ( e ) => { e.preventDefault(); setDragOver( true ); } }
                             onDragLeave={ () => setDragOver( false ) }
-                            onDrop={ ( e ) => { e.preventDefault(); setDragOver( false ); handleFile(); } }
+                            onDrop={ handleDrop }
                         >
+                            <input
+                                ref={ fileInputRef }
+                                type="file"
+                                accept=".csv"
+                                onChange={ handleFileInput }
+                                className="hidden"
+                            />
                             <FileUp size={ 32 } className="mx-auto text-gray-300 mb-3" />
                             <p className="text-sm text-gray-600 mb-1">{ __( 'Drag & drop your CSV file here', 'snel-newsletter' ) }</p>
                             <p className="text-xs text-gray-400 mb-4">{ __( 'or', 'snel-newsletter' ) }</p>
                             <button
                                 type="button"
-                                onClick={ handleFile }
+                                onClick={ handleBrowse }
                                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                             >
                                 <Upload size={ 14 } />
@@ -466,7 +577,10 @@ export default function ImportCSVModal( { onClose, allTags } ) {
                             </div>
                             <h3 className="text-sm font-semibold text-gray-900 mb-1">{ __( 'Import Complete!', 'snel-newsletter' ) }</h3>
                             <p className="text-sm text-gray-500">
-                                { importResult?.total } { __( 'subscribers imported successfully.', 'snel-newsletter' ) }
+                                { importResult?.imported } { __( 'subscribers imported successfully.', 'snel-newsletter' ) }
+                                { importResult?.skipped > 0 && (
+                                    <span className="text-gray-400"> ({ importResult.skipped } { __( 'skipped', 'snel-newsletter' ) })</span>
+                                ) }
                             </p>
                         </div>
                     ) }
@@ -506,10 +620,14 @@ export default function ImportCSVModal( { onClose, allTags } ) {
                                 <button
                                     type="button"
                                     onClick={ handleImport }
-                                    disabled={ previewRows.filter( ( r ) => r.valid && ! r.duplicate ).length === 0 }
+                                    disabled={ previewRows.filter( ( r ) => r.valid && ! r.duplicate ).length === 0 || importing }
                                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
                                 >
-                                    { __( 'Import', 'snel-newsletter' ) } { previewRows.filter( ( r ) => r.valid && ! r.duplicate ).length } { __( 'Subscribers', 'snel-newsletter' ) }
+                                    { importing ? (
+                                        <><Loader2 size={ 14 } className="animate-spin" /> { __( 'Importing...', 'snel-newsletter' ) }</>
+                                    ) : (
+                                        <>{ __( 'Import', 'snel-newsletter' ) } { previewRows.filter( ( r ) => r.valid && ! r.duplicate ).length } { __( 'Subscribers', 'snel-newsletter' ) }</>
+                                    ) }
                                 </button>
                             ) }
                         </>

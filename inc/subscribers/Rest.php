@@ -67,6 +67,18 @@ class Rest {
             'callback'            => array( $this->controller, 'bulk_tag' ),
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
+
+        register_rest_route( $this->namespace, '/subscribers/import', array(
+            'methods'             => 'POST',
+            'callback'            => array( $this->controller, 'import' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
+
+        register_rest_route( $this->namespace, '/subscribers/emails', array(
+            'methods'             => 'GET',
+            'callback'            => array( $this->controller, 'existing_emails' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
     }
 
     public function permission_check() {

@@ -248,6 +248,16 @@ class Model {
     }
 
     /**
+     * Get all subscriber emails (for duplicate checking).
+     */
+    public static function all_emails() {
+        global $wpdb;
+        $table = self::table();
+
+        return $wpdb->get_col( "SELECT email FROM $table" );
+    }
+
+    /**
      * Attach tags array to a list of subscriber rows.
      */
     private static function attach_tags( $rows ) {

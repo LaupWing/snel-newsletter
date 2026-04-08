@@ -126,6 +126,53 @@ class Controller {
     }
 
     /**
+     * Get all existing subscriber emails (for duplicate detection in import).
+     */
+    public function existing_emails() {
+        return rest_ensure_response( Model::all_emails() );
+    }
+
+    /**
+     * Bulk import subscribers.
+     */
+    public function import( \WP_REST_Request $request ) {
+        $params     = $request->get_json_params();
+        $rows       = $params['subscribers'] ?? array();
+        $tags       = array_map( 'sanitize_text_field', $params['tags'] ?? array() );
+        $imported   = 0;
+        $skipped    = 0;
+
+        foreach ( $rows as $row ) {
+            $email = sanitize_email( $row['email'] ?? '' );
+            $name  = sanitize_text_field( $row['name'] ?? '' );
+
+            if ( ! is_email( $email ) ) {
+                $skipped++;
+                continue;
+            }
+
+            $id = Model::create( $email, $name );
+
+            if ( ! $id ) {
+                $skipped++;
+                continue;
+            }
+
+            if ( $tags ) {
+                Model::set_tags( $id, $tags );
+            }
+
+            $imported++;
+        }
+
+        return rest_ensure_response( array(
+            'success'  => true,
+            'imported' => $imported,
+            'skipped'  => $skipped,
+        ) );
+    }
+
+    /**
      * Bulk add tag to multiple subscribers.
      */
     public function bulk_tag( \WP_REST_Request $request ) {
