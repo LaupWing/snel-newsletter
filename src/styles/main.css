@@ -1,0 +1,32 @@
+/**
+ * Tailwind CSS v4
+ *
+ * No prefix — CSS only loads on our plugin pages anyway
+ */
+@import "tailwindcss" important;
+
+/**
+ * Reset WordPress admin defaults inside our plugin
+ */
+.wrap .snel-newsletter-app {
+  margin: 0;
+  position: relative;
+  min-height: 400px;
+}
+
+.wrap:has(.snel-newsletter-app) #wpbody-content,
+#wpbody-content:has(.snel-newsletter-app) {
+  padding-bottom: 10px;
+}
+
+.snel-newsletter-app h1,
+.snel-newsletter-app h2,
+.snel-newsletter-app h3,
+.snel-newsletter-app h4,
+.snel-newsletter-app h5,
+.snel-newsletter-app h6,
+.snel-newsletter-app p {
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
