@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { Users, Search, Plus, Upload, Tag, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import Select from '../../components/Select';
 import SubscriberRow from './SubscriberRow';
+import SubscriberDetail from './SubscriberDetail';
 import AddSubscriberModal from './AddSubscriberModal';
 import ImportCSVModal from './ImportCSVModal';
 
@@ -25,6 +26,7 @@ export default function Subscribers() {
     const [ selected, setSelected ] = useState( [] );
     const [ showAddModal, setShowAddModal ] = useState( false );
     const [ showImportModal, setShowImportModal ] = useState( false );
+    const [ activeSubscriber, setActiveSubscriber ] = useState( null );
     const [ page, setPage ] = useState( 1 );
     const [ totalPages, setTotalPages ] = useState( 1 );
     const [ counts, setCounts ] = useState( { total: 0, active: 0, unsubscribed: 0, bounced: 0 } );
@@ -102,6 +104,26 @@ export default function Subscribers() {
             loadTags();
         } );
     };
+
+    if ( activeSubscriber ) {
+        return (
+            <div className="p-6">
+                <div className="mb-8">
+                    <h1 className="text-xl font-bold text-gray-900">
+                        Snel <em className="font-serif font-normal italic">Newsletter</em>
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-1">{ __( 'Subscriber details', 'snel-newsletter' ) }</p>
+                </div>
+                <SubscriberDetail
+                    subscriber={ activeSubscriber }
+                    allTags={ allTags }
+                    onBack={ () => setActiveSubscriber( null ) }
+                    api={ api }
+                    onRefresh={ () => { loadSubscribers(); loadTags(); } }
+                />
+            </div>
+        );
+    }
 
     return (
         <div className="p-6">
@@ -236,6 +258,7 @@ export default function Subscribers() {
                                     selected={ selected.includes( subscriber.id ) }
                                     onSelect={ () => toggleOne( subscriber.id ) }
                                     onDelete={ () => handleDelete( subscriber.id ) }
+                                    onClick={ () => setActiveSubscriber( subscriber ) }
                                 />
                             ) )
                         ) : (

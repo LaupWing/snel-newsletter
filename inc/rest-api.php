@@ -46,6 +46,15 @@ add_action( 'rest_api_init', function () {
         },
     ) );
 
+    // PUT /subscribers/(?P<id>\d+) — update a subscriber.
+    register_rest_route( $namespace, '/subscribers/(?P<id>\d+)', array(
+        'methods'             => 'PUT',
+        'callback'            => 'snel_newsletter_update_subscriber',
+        'permission_callback' => function () {
+            return current_user_can( 'manage_options' );
+        },
+    ) );
+
     // DELETE /subscribers/(?P<id>\d+) — delete a subscriber.
     register_rest_route( $namespace, '/subscribers/(?P<id>\d+)', array(
         'methods'             => 'DELETE',
@@ -222,6 +231,51 @@ function snel_newsletter_add_subscriber( WP_REST_Request $request ) {
     }
 
     return rest_ensure_response( array( 'success' => true, 'id' => $subscriber_id ) );
+}
+
+/**
+ * Update a subscriber (name, status, tags).
+ */
+function snel_newsletter_update_subscriber( WP_REST_Request $request ) {
+    global $wpdb;
+
+    $id     = (int) $request->get_param( 'id' );
+    $params = $request->get_json_params();
+    $table  = snel_newsletter_subscribers_table();
+
+    $update = array();
+    $format = array();
+
+    if ( isset( $params['name'] ) ) {
+        $update['name'] = sanitize_text_field( $params['name'] );
+        $format[]       = '%s';
+    }
+
+    if ( isset( $params['status'] ) && in_array( $params['status'], array( 'active', 'unsubscribed', 'bounced' ), true ) ) {
+        $update['status'] = $params['status'];
+        $format[]         = '%s';
+    }
+
+    if ( $update ) {
+        $wpdb->update( $table, $update, array( 'id' => $id ), $format, array( '%d' ) );
+    }
+
+    // Replace tags if provided.
+    if ( isset( $params['tags'] ) && is_array( $params['tags'] ) ) {
+        $tags_table = snel_newsletter_tags_table();
+        $wpdb->delete( $tags_table, array( 'subscriber_id' => $id ), array( '%d' ) );
+        foreach ( $params['tags'] as $tag ) {
+            $tag = sanitize_text_field( $tag );
+            if ( $tag ) {
+                $wpdb->insert( $tags_table, array(
+                    'subscriber_id' => $id,
+                    'tag'           => $tag,
+                ), array( '%d', '%s' ) );
+            }
+        }
+    }
+
+    return rest_ensure_response( array( 'success' => true ) );
 }
 
 /**

@@ -11,7 +11,7 @@ const STATUS_STYLES = {
 
 export { STATUS_STYLES };
 
-export default function SubscriberRow( { subscriber, selected, onSelect, onDelete } ) {
+export default function SubscriberRow( { subscriber, selected, onSelect, onDelete, onClick } ) {
     const [ menuOpen, setMenuOpen ] = useState( false );
 
     return (
@@ -24,8 +24,8 @@ export default function SubscriberRow( { subscriber, selected, onSelect, onDelet
                     className="rounded border-gray-300"
                 />
             </td>
-            <td className="px-4 py-3">
-                <p className="text-sm font-medium text-gray-900">{ subscriber.email }</p>
+            <td className="px-4 py-3 cursor-pointer" onClick={ onClick }>
+                <p className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors">{ subscriber.email }</p>
             </td>
             <td className="px-4 py-3">
                 <p className="text-sm text-gray-600">{ subscriber.name || <span className="text-gray-300">—</span> }</p>
