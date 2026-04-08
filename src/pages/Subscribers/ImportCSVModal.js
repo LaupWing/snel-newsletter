@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Upload, X, Tag, ChevronDown, ChevronUp, FileUp, ArrowRight, Sparkles, Loader2, Check, AlertCircle, CheckCircle, XCircle, MinusCircle } from 'lucide-react';
+import { Upload, X, ChevronDown, ChevronUp, FileUp, ArrowRight, Sparkles, Loader2, Check, AlertCircle, CheckCircle, XCircle, MinusCircle } from 'lucide-react';
 import Select from '../../components/Select';
 import TagBadge from '../../components/TagBadge';
+import TagPicker from '../../components/TagPicker';
 
 const API_URL = window.snelNewsletter?.restUrl;
 const NONCE = window.snelNewsletter?.nonce;
@@ -67,7 +68,6 @@ export default function ImportCSVModal( { onClose, allTags } ) {
     const [ csvRows, setCsvRows ] = useState( [] );
     const [ mapping, setMapping ] = useState( { email: '', name: '', source: '' } );
     const [ importTags, setImportTags ] = useState( [] );
-    const [ tagDropdownOpen, setTagDropdownOpen ] = useState( false );
     const [ aiExtract, setAiExtract ] = useState( false );
     const [ aiLoading, setAiLoading ] = useState( false );
     const [ previewRows, setPreviewRows ] = useState( [] );
@@ -77,16 +77,7 @@ export default function ImportCSVModal( { onClose, allTags } ) {
     const [ showAllPreviewRows, setShowAllPreviewRows ] = useState( false );
     const [ existingEmails, setExistingEmails ] = useState( [] );
     const [ importing, setImporting ] = useState( false );
-    const importTagRef = useRef();
     const fileInputRef = useRef();
-
-    useEffect( () => {
-        const handleClick = ( e ) => {
-            if ( importTagRef.current && ! importTagRef.current.contains( e.target ) ) setTagDropdownOpen( false );
-        };
-        document.addEventListener( 'mousedown', handleClick );
-        return () => document.removeEventListener( 'mousedown', handleClick );
-    }, [] );
 
     // Load existing emails for duplicate detection.
     useEffect( () => {
@@ -213,12 +204,6 @@ export default function ImportCSVModal( { onClose, allTags } ) {
         processBatch( 0 );
     };
 
-    const toggleImportTag = ( tag ) => {
-        setImportTags( ( prev ) =>
-            prev.includes( tag ) ? prev.filter( ( t ) => t !== tag ) : [ ...prev, tag ]
-        );
-    };
-
     const missingNames = previewRows.filter( ( r ) => ! r.name ).length;
 
     return (
@@ -336,41 +321,7 @@ export default function ImportCSVModal( { onClose, allTags } ) {
                             {/* Assign tags on import */}
                             <div>
                                 <p className="text-xs font-medium text-gray-700 mb-2">{ __( 'Assign tags to all imported subscribers', 'snel-newsletter' ) }</p>
-                                <div className="relative" ref={ importTagRef }>
-                                    <button
-                                        type="button"
-                                        onClick={ () => setTagDropdownOpen( ! tagDropdownOpen ) }
-                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                                    >
-                                        <Tag size={ 12 } className="text-gray-400" />
-                                        <span className="text-gray-700">{ importTags.length > 0 ? `${ importTags.length } tags` : __( 'Select tags...', 'snel-newsletter' ) }</span>
-                                        <ChevronDown size={ 12 } className={ `text-gray-400 transition-transform ${ tagDropdownOpen ? 'rotate-180' : '' }` } />
-                                    </button>
-                                    { tagDropdownOpen && (
-                                        <div className="absolute left-0 top-full mt-1 bg-white rounded-lg shadow-lg ring-1 ring-black/10 py-1 z-50 min-w-[160px]">
-                                            { allTags.map( ( tag ) => (
-                                                <button
-                                                    key={ tag }
-                                                    type="button"
-                                                    onClick={ () => toggleImportTag( tag ) }
-                                                    className={ `w-full text-left px-3 py-2 text-xs transition-colors ${ importTags.includes( tag )
-                                                        ? 'bg-purple-50 text-purple-700 font-medium'
-                                                        : 'text-gray-600 hover:bg-gray-50'
-                                                    }` }
-                                                >
-                                                    { tag }
-                                                </button>
-                                            ) ) }
-                                        </div>
-                                    ) }
-                                </div>
-                                { importTags.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 mt-2">
-                                        { importTags.map( ( tag ) => (
-                                            <TagBadge key={ tag } tag={ tag } removable onRemove={ () => toggleImportTag( tag ) } />
-                                        ) ) }
-                                    </div>
-                                ) }
+                                <TagPicker allTags={ allTags } selectedTags={ importTags } onChange={ setImportTags } />
                             </div>
 
                             {/* CSV preview table */}
