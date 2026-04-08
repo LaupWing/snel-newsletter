@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Users, Search, Plus, Upload, X, Tag, ChevronDown, ChevronLeft, ChevronRight, Trash2, MoreHorizontal, FileUp, ArrowRight, Sparkles, Loader2, Check, AlertCircle } from 'lucide-react';
+import { Users, Search, Plus, Upload, X, Tag, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Trash2, MoreHorizontal, FileUp, ArrowRight, Sparkles, Loader2, Check, AlertCircle, CheckCircle, XCircle, MinusCircle } from 'lucide-react';
 import Select from '../components/Select';
 
 // Mock data — will be replaced with REST API calls.
@@ -148,13 +148,20 @@ function AddSubscriberModal( { onClose, allTags } ) {
 
 // Mock CSV data — simulates a parsed CSV file.
 const MOCK_CSV_ROWS = [
-    { 'Email Address': 'peter.wilson@gmail.com', 'Full Name': 'Peter Wilson', 'Signup Source': 'landing-page' },
-    { 'Email Address': 'anna.kowalski@hotmail.com', 'Full Name': '', 'Signup Source': 'instagram' },
-    { 'Email Address': 'j.vandenberg@outlook.com', 'Full Name': 'Jan van den Berg', 'Signup Source': 'landing-page' },
-    { 'Email Address': 'fitness.maria@gmail.com', 'Full Name': '', 'Signup Source': 'twitter' },
-    { 'Email Address': 'tom.hendriks@yahoo.com', 'Full Name': 'Tom Hendriks', 'Signup Source': 'referral' },
-    { 'Email Address': 'sarah.johnson123@gmail.com', 'Full Name': '', 'Signup Source': 'landing-page' },
+    { 'Email Address': 'peter.wilson@gmail.com', 'Full Name': 'Peter Wilson', 'Signup Source': 'landing-page', 'Date': '2026-01-15' },
+    { 'Email Address': 'anna.kowalski@hotmail.com', 'Full Name': '', 'Signup Source': 'instagram', 'Date': '2026-01-20' },
+    { 'Email Address': 'j.vandenberg@outlook.com', 'Full Name': 'Jan van den Berg', 'Signup Source': 'landing-page', 'Date': '2026-02-03' },
+    { 'Email Address': 'fitness.maria@gmail.com', 'Full Name': '', 'Signup Source': 'twitter', 'Date': '2026-02-10' },
+    { 'Email Address': 'tom.hendriks@yahoo.com', 'Full Name': 'Tom Hendriks', 'Signup Source': 'referral', 'Date': '2026-02-14' },
+    { 'Email Address': 'sarah.johnson123@gmail.com', 'Full Name': '', 'Signup Source': 'landing-page', 'Date': '2026-02-20' },
+    { 'Email Address': 'john@example.com', 'Full Name': 'John Doe', 'Signup Source': 'referral', 'Date': '2026-03-01' },
+    { 'Email Address': 'not-an-email', 'Full Name': 'Bad Entry', 'Signup Source': 'manual', 'Date': '2026-03-02' },
+    { 'Email Address': 'david.martinez@gmail.com', 'Full Name': '', 'Signup Source': 'instagram', 'Date': '2026-03-05' },
+    { 'Email Address': 'lisa.de.vries@outlook.com', 'Full Name': 'Lisa de Vries', 'Signup Source': 'landing-page', 'Date': '2026-03-08' },
 ];
+
+// Existing subscriber emails — for duplicate detection in mock.
+const EXISTING_EMAILS = [ 'john@example.com', 'jane@example.com', 'mike@example.com', 'sarah@example.com', 'alex@example.com', 'emma@example.com', 'chris@example.com', 'lisa@example.com' ];
 
 const MOCK_AI_NAMES = {
     'peter.wilson@gmail.com': 'Peter Wilson',
@@ -163,7 +170,13 @@ const MOCK_AI_NAMES = {
     'fitness.maria@gmail.com': 'Maria',
     'tom.hendriks@yahoo.com': 'Tom Hendriks',
     'sarah.johnson123@gmail.com': 'Sarah Johnson',
+    'david.martinez@gmail.com': 'David Martinez',
+    'lisa.de.vries@outlook.com': 'Lisa de Vries',
 };
+
+function isValidEmail( email ) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test( email );
+}
 
 function ImportCSVModal( { onClose, allTags } ) {
     const [ step, setStep ] = useState( 'upload' ); // upload → map → preview → done
@@ -178,6 +191,8 @@ function ImportCSVModal( { onClose, allTags } ) {
     const [ previewRows, setPreviewRows ] = useState( [] );
     const [ dragOver, setDragOver ] = useState( false );
     const [ importResult, setImportResult ] = useState( null );
+    const [ showAllCsvRows, setShowAllCsvRows ] = useState( false );
+    const [ showAllPreviewRows, setShowAllPreviewRows ] = useState( false );
     const importTagRef = useRef();
 
     useEffect( () => {
@@ -195,19 +210,27 @@ function ImportCSVModal( { onClose, allTags } ) {
         const columns = Object.keys( rows[ 0 ] );
         setCsvColumns( columns );
         setCsvRows( rows );
-        setMapping( { email: columns[ 0 ], name: columns[ 1 ], tags: '' } );
+        setMapping( { email: columns[ 0 ], name: columns[ 1 ], source: columns[ 2 ] } );
         setStep( 'map' );
     };
 
     const handleMapping = () => {
-        // Build preview from mapping
-        const preview = csvRows.map( ( row ) => ( {
-            email: mapping.email ? row[ mapping.email ] : '',
-            name: mapping.name ? row[ mapping.name ] : '',
-            tags: importTags,
-            source: mapping.tags ? row[ mapping.tags ] : '',
-        } ) );
+        // Build preview from mapping with validation
+        const preview = csvRows.map( ( row ) => {
+            const email = mapping.email ? row[ mapping.email ] : '';
+            const valid = isValidEmail( email );
+            const duplicate = EXISTING_EMAILS.includes( email.toLowerCase() );
+            return {
+                email,
+                name: mapping.name ? row[ mapping.name ] : '',
+                tags: importTags,
+                source: mapping.source ? row[ mapping.source ] : '',
+                valid,
+                duplicate,
+            };
+        } );
         setPreviewRows( preview );
+        setShowAllPreviewRows( false );
         setStep( 'preview' );
     };
 
@@ -388,12 +411,16 @@ function ImportCSVModal( { onClose, allTags } ) {
 
                             {/* CSV preview table */}
                             <div>
-                                <p className="text-xs font-medium text-gray-700 mb-2">{ __( 'CSV Preview', 'snel-newsletter' ) }</p>
+                                <div className="flex items-center justify-between mb-2">
+                                    <p className="text-xs font-medium text-gray-700">{ __( 'CSV Preview', 'snel-newsletter' ) }</p>
+                                    <span className="text-xs text-gray-400">{ csvRows.length } { __( 'rows', 'snel-newsletter' ) }</span>
+                                </div>
                                 <div className="border border-gray-200 rounded-lg overflow-hidden">
-                                    <div className="overflow-x-auto">
+                                    <div className="overflow-x-auto max-h-64 overflow-y-auto">
                                         <table className="w-full">
-                                            <thead>
+                                            <thead className="sticky top-0">
                                                 <tr className="bg-gray-50">
+                                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 w-8">#</th>
                                                     { csvColumns.map( ( col ) => (
                                                         <th key={ col } className="px-3 py-2 text-left text-xs font-medium text-gray-500">
                                                             { col }
@@ -404,8 +431,9 @@ function ImportCSVModal( { onClose, allTags } ) {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                { csvRows.slice( 0, 3 ).map( ( row, i ) => (
+                                                { ( showAllCsvRows ? csvRows : csvRows.slice( 0, 3 ) ).map( ( row, i ) => (
                                                     <tr key={ i } className="border-t border-gray-100">
+                                                        <td className="px-3 py-2 text-xs text-gray-300">{ i + 1 }</td>
                                                         { csvColumns.map( ( col ) => (
                                                             <td key={ col } className="px-3 py-2 text-xs text-gray-600">
                                                                 { row[ col ] || <span className="text-gray-300">—</span> }
@@ -417,9 +445,17 @@ function ImportCSVModal( { onClose, allTags } ) {
                                         </table>
                                     </div>
                                     { csvRows.length > 3 && (
-                                        <div className="px-3 py-1.5 bg-gray-50 border-t border-gray-100 text-xs text-gray-400">
-                                            + { csvRows.length - 3 } { __( 'more rows', 'snel-newsletter' ) }
-                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={ () => setShowAllCsvRows( ! showAllCsvRows ) }
+                                            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-50 border-t border-gray-100 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                                        >
+                                            { showAllCsvRows ? (
+                                                <><ChevronUp size={ 12 } /> { __( 'Show less', 'snel-newsletter' ) }</>
+                                            ) : (
+                                                <><ChevronDown size={ 12 } /> { __( 'Show all', 'snel-newsletter' ) } { csvRows.length } { __( 'rows', 'snel-newsletter' ) }</>
+                                            ) }
+                                        </button>
                                     ) }
                                 </div>
                             </div>
@@ -467,53 +503,107 @@ function ImportCSVModal( { onClose, allTags } ) {
                                 </div>
                             ) }
 
-                            {/* Preview table */}
-                            <div className="border border-gray-200 rounded-lg overflow-hidden">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="bg-gray-50">
-                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">{ __( 'Email', 'snel-newsletter' ) }</th>
-                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">{ __( 'Name', 'snel-newsletter' ) }</th>
-                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">{ __( 'Tags', 'snel-newsletter' ) }</th>
-                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">{ __( 'Status', 'snel-newsletter' ) }</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        { previewRows.map( ( row, i ) => (
-                                            <tr key={ i } className="border-t border-gray-100">
-                                                <td className="px-3 py-2 text-xs text-gray-900 font-medium">{ row.email }</td>
-                                                <td className="px-3 py-2 text-xs">
-                                                    { row.name ? (
-                                                        <span className={ row.aiGenerated ? 'text-purple-700' : 'text-gray-600' }>
-                                                            { row.name }
-                                                            { row.aiGenerated && <Sparkles size={ 10 } className="inline ml-1 text-purple-400" /> }
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-gray-300">—</span>
-                                                    ) }
-                                                </td>
-                                                <td className="px-3 py-2">
-                                                    <div className="flex flex-wrap gap-1">
-                                                        { row.tags.length > 0
-                                                            ? row.tags.map( ( tag ) => <TagBadge key={ tag } tag={ tag } /> )
-                                                            : <span className="text-xs text-gray-300">—</span>
-                                                        }
-                                                    </div>
-                                                </td>
-                                                <td className="px-3 py-2">
-                                                    <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700">
-                                                        { __( 'new', 'snel-newsletter' ) }
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ) ) }
-                                    </tbody>
-                                </table>
+                            {/* Summary stats */}
+                            <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-1.5 text-xs">
+                                    <CheckCircle size={ 12 } className="text-emerald-500" />
+                                    <span className="text-gray-600"><strong className="text-gray-900">{ previewRows.filter( ( r ) => r.valid && ! r.duplicate ).length }</strong> { __( 'will be imported', 'snel-newsletter' ) }</span>
+                                </div>
+                                { previewRows.some( ( r ) => r.duplicate ) && (
+                                    <div className="flex items-center gap-1.5 text-xs">
+                                        <MinusCircle size={ 12 } className="text-amber-500" />
+                                        <span className="text-gray-600"><strong className="text-gray-900">{ previewRows.filter( ( r ) => r.duplicate ).length }</strong> { __( 'duplicates skipped', 'snel-newsletter' ) }</span>
+                                    </div>
+                                ) }
+                                { previewRows.some( ( r ) => ! r.valid ) && (
+                                    <div className="flex items-center gap-1.5 text-xs">
+                                        <XCircle size={ 12 } className="text-red-500" />
+                                        <span className="text-gray-600"><strong className="text-gray-900">{ previewRows.filter( ( r ) => ! r.valid ).length }</strong> { __( 'invalid emails', 'snel-newsletter' ) }</span>
+                                    </div>
+                                ) }
                             </div>
 
-                            <div className="flex items-center gap-2 text-xs text-gray-400">
-                                <AlertCircle size={ 12 } />
-                                { __( 'Duplicate emails will be skipped automatically.', 'snel-newsletter' ) }
+                            {/* Preview table */}
+                            <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                                    <table className="w-full">
+                                        <thead className="sticky top-0">
+                                            <tr className="bg-gray-50">
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 w-8">#</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">{ __( 'Email', 'snel-newsletter' ) }</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">{ __( 'Name', 'snel-newsletter' ) }</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">{ __( 'Tags', 'snel-newsletter' ) }</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">{ __( 'Source', 'snel-newsletter' ) }</th>
+                                                <th className="px-3 py-2 text-center text-xs font-medium text-gray-500">{ __( 'Valid', 'snel-newsletter' ) }</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">{ __( 'Action', 'snel-newsletter' ) }</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            { ( showAllPreviewRows ? previewRows : previewRows.slice( 0, 4 ) ).map( ( row, i ) => (
+                                                <tr key={ i } className={ `border-t border-gray-100 ${ ! row.valid ? 'bg-red-50/50' : row.duplicate ? 'bg-amber-50/30' : '' }` }>
+                                                    <td className="px-3 py-2 text-xs text-gray-300">{ i + 1 }</td>
+                                                    <td className="px-3 py-2 text-xs font-medium">
+                                                        <span className={ ! row.valid ? 'text-red-600' : 'text-gray-900' }>{ row.email }</span>
+                                                    </td>
+                                                    <td className="px-3 py-2 text-xs">
+                                                        { row.name ? (
+                                                            <span className={ row.aiGenerated ? 'text-purple-700' : 'text-gray-600' }>
+                                                                { row.name }
+                                                                { row.aiGenerated && <Sparkles size={ 10 } className="inline ml-1 text-purple-400" /> }
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-gray-300">—</span>
+                                                        ) }
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                        <div className="flex flex-wrap gap-1">
+                                                            { row.tags.length > 0
+                                                                ? row.tags.map( ( tag ) => <TagBadge key={ tag } tag={ tag } /> )
+                                                                : <span className="text-xs text-gray-300">—</span>
+                                                            }
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-3 py-2 text-xs text-gray-500">{ row.source || '—' }</td>
+                                                    <td className="px-3 py-2 text-center">
+                                                        { ! row.valid ? (
+                                                            <XCircle size={ 14 } className="inline text-red-400" />
+                                                        ) : (
+                                                            <CheckCircle size={ 14 } className="inline text-emerald-400" />
+                                                        ) }
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                        { ! row.valid ? (
+                                                            <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-red-50 text-red-600">
+                                                                { __( 'skip — invalid', 'snel-newsletter' ) }
+                                                            </span>
+                                                        ) : row.duplicate ? (
+                                                            <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-amber-50 text-amber-700">
+                                                                { __( 'skip — duplicate', 'snel-newsletter' ) }
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700">
+                                                                { __( 'import', 'snel-newsletter' ) }
+                                                            </span>
+                                                        ) }
+                                                    </td>
+                                                </tr>
+                                            ) ) }
+                                        </tbody>
+                                    </table>
+                                </div>
+                                { previewRows.length > 4 && (
+                                    <button
+                                        type="button"
+                                        onClick={ () => setShowAllPreviewRows( ! showAllPreviewRows ) }
+                                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-50 border-t border-gray-100 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                                    >
+                                        { showAllPreviewRows ? (
+                                            <><ChevronUp size={ 12 } /> { __( 'Show less', 'snel-newsletter' ) }</>
+                                        ) : (
+                                            <><ChevronDown size={ 12 } /> { __( 'Show all', 'snel-newsletter' ) } { previewRows.length } { __( 'rows', 'snel-newsletter' ) }</>
+                                        ) }
+                                    </button>
+                                ) }
                             </div>
                         </div>
                     ) }
@@ -566,9 +656,10 @@ function ImportCSVModal( { onClose, allTags } ) {
                                 <button
                                     type="button"
                                     onClick={ handleImport }
-                                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                                    disabled={ previewRows.filter( ( r ) => r.valid && ! r.duplicate ).length === 0 }
+                                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
                                 >
-                                    { __( 'Import', 'snel-newsletter' ) } { previewRows.length } { __( 'Subscribers', 'snel-newsletter' ) }
+                                    { __( 'Import', 'snel-newsletter' ) } { previewRows.filter( ( r ) => r.valid && ! r.duplicate ).length } { __( 'Subscribers', 'snel-newsletter' ) }
                                 </button>
                             ) }
                         </>
