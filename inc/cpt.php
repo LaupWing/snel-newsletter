@@ -34,14 +34,15 @@ add_action( 'init', function () {
 } );
 
 /**
- * Keep submenu_file correct so "Campaigns" stays highlighted when editing.
+ * Redirect the default CPT list (edit.php?post_type=snel_newsletter)
+ * to our React campaigns page.
  */
-add_filter( 'submenu_file', function ( $submenu_file ) {
-    global $post_type;
-    if ( $post_type === 'snel_newsletter' ) {
-        return 'snel-newsletter-campaigns';
+add_action( 'admin_init', function () {
+    global $pagenow;
+    if ( $pagenow === 'edit.php' && isset( $_GET['post_type'] ) && $_GET['post_type'] === 'snel_newsletter' ) {
+        wp_safe_redirect( admin_url( 'admin.php?page=snel-newsletter-campaigns' ) );
+        exit;
     }
-    return $submenu_file;
 } );
 
 /**
