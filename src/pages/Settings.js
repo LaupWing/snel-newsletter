@@ -65,6 +65,33 @@ function InputField( { label, hint, type = 'text', value, onChange, placeholder,
 }
 
 function SesSettings( { settings, setSettings } ) {
+    const [ testEmail, setTestEmail ] = useState( '' );
+    const [ testSending, setTestSending ] = useState( false );
+    const [ testResult, setTestResult ] = useState( null ); // { success: bool, message: string }
+
+    const allFieldsFilled = settings.ses_access_key && settings.ses_secret_key && settings.ses_region;
+
+    const handleTestSend = () => {
+        if ( ! testEmail || ! allFieldsFilled ) return;
+        setTestSending( true );
+        setTestResult( null );
+        api( '/settings/test-email', {
+            method: 'POST',
+            body: JSON.stringify( { email: testEmail } ),
+        } ).then( ( data ) => {
+            setTestSending( false );
+            if ( data?.success ) {
+                setTestResult( { success: true, message: __( 'Test email sent! Check your inbox.', 'snel-newsletter' ) } );
+            } else {
+                setTestResult( { success: false, message: data?.message || __( 'Failed to send. Check your credentials.', 'snel-newsletter' ) } );
+            }
+            setTimeout( () => setTestResult( null ), 5000 );
+        } ).catch( () => {
+            setTestSending( false );
+            setTestResult( { success: false, message: __( 'Connection error.', 'snel-newsletter' ) } );
+        } );
+    };
+
     return (
         <div className="space-y-6">
             <div className="bg-white border border-gray-200 rounded-lg p-5">
@@ -102,6 +129,7 @@ function SesSettings( { settings, setSettings } ) {
                         <Select
                             value={ settings.ses_region }
                             onChange={ ( v ) => setSettings( { ...settings, ses_region: v } ) }
+                            fullWidth
                             options={ [
                                 { value: '', label: __( 'Select region...', 'snel-newsletter' ) },
                                 ...SES_REGIONS,
@@ -111,17 +139,52 @@ function SesSettings( { settings, setSettings } ) {
                     </div>
                 </div>
 
-                { settings.ses_access_key && settings.ses_secret_key && settings.ses_region && (
+                { allFieldsFilled && (
                     <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-emerald-50 border border-emerald-100 rounded-lg">
                         <CheckCircle size={ 14 } className="text-emerald-600" />
                         <p className="text-xs text-emerald-700">{ __( 'SES credentials configured. Connection will be verified on first send.', 'snel-newsletter' ) }</p>
                     </div>
                 ) }
 
-                { ( settings.ses_access_key || settings.ses_secret_key ) && ! ( settings.ses_access_key && settings.ses_secret_key && settings.ses_region ) && (
+                { ( settings.ses_access_key || settings.ses_secret_key ) && ! allFieldsFilled && (
                     <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-amber-50 border border-amber-100 rounded-lg">
                         <AlertTriangle size={ 14 } className="text-amber-600" />
                         <p className="text-xs text-amber-700">{ __( 'Please fill in all required fields.', 'snel-newsletter' ) }</p>
+                    </div>
+                ) }
+
+                {/* Test email */}
+                { allFieldsFilled && (
+                    <div className="mt-5 pt-4 border-t border-gray-100">
+                        <p className="text-xs font-medium text-gray-700 mb-2">{ __( 'Test connection', 'snel-newsletter' ) }</p>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="email"
+                                value={ testEmail }
+                                onChange={ ( e ) => setTestEmail( e.target.value ) }
+                                placeholder="you@example.com"
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:shadow-[0_0_0_1px_#3b82f6]"
+                            />
+                            <button
+                                type="button"
+                                onClick={ handleTestSend }
+                                disabled={ ! testEmail || testSending }
+                                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors disabled:opacity-50 shrink-0"
+                            >
+                                { testSending ? (
+                                    <><Loader2 size={ 14 } className="animate-spin" /> { __( 'Sending...', 'snel-newsletter' ) }</>
+                                ) : (
+                                    <><Mail size={ 14 } /> { __( 'Send Test', 'snel-newsletter' ) }</>
+                                ) }
+                            </button>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1.5">{ __( 'Save settings first, then send a test email to verify your SES configuration.', 'snel-newsletter' ) }</p>
+                        { testResult && (
+                            <div className={ `flex items-center gap-2 mt-2 px-3 py-2 rounded-lg ${ testResult.success ? 'bg-emerald-50 border border-emerald-100' : 'bg-red-50 border border-red-100' }` }>
+                                { testResult.success ? <CheckCircle size={ 14 } className="text-emerald-600" /> : <AlertTriangle size={ 14 } className="text-red-600" /> }
+                                <p className={ `text-xs ${ testResult.success ? 'text-emerald-700' : 'text-red-700' }` }>{ testResult.message }</p>
+                            </div>
+                        ) }
                     </div>
                 ) }
             </div>
