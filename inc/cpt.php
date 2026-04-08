@@ -46,6 +46,44 @@ add_action( 'admin_init', function () {
 } );
 
 /**
+ * Register newsletter block category.
+ */
+add_filter( 'block_categories_all', function ( $categories, $context ) {
+    if ( isset( $context->post ) && $context->post->post_type === 'snel_newsletter' ) {
+        array_unshift( $categories, array(
+            'slug'  => 'snel-newsletter',
+            'title' => __( 'Newsletter', 'snel-newsletter' ),
+            'icon'  => 'email',
+        ) );
+    }
+    return $categories;
+}, 10, 2 );
+
+/**
+ * Restrict available blocks in the newsletter editor.
+ */
+add_filter( 'allowed_block_types_all', function ( $allowed, $context ) {
+    if ( ! isset( $context->post ) || $context->post->post_type !== 'snel_newsletter' ) {
+        return $allowed;
+    }
+
+    return array(
+        'core/paragraph',
+        'core/heading',
+        'core/image',
+        'core/list',
+        'core/list-item',
+        'core/quote',
+        'core/separator',
+        'core/spacer',
+        'core/buttons',
+        'core/button',
+        'snel/newsletter-button',
+        'snel/newsletter-download',
+    );
+}, 10, 2 );
+
+/**
  * Keep the Newsletter menu highlighted when editing a newsletter post.
  */
 add_filter( 'parent_file', function ( $parent_file ) {

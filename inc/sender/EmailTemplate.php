@@ -117,6 +117,53 @@ class EmailTemplate {
     }
 
     /**
+     * Render a newsletter-button block as email-safe HTML.
+     */
+    public static function render_button_block( $attributes ) {
+        $text       = esc_html( $attributes['text'] ?? 'Click here' );
+        $url        = esc_url( $attributes['url'] ?? '#' );
+        $bg         = esc_attr( $attributes['backgroundColor'] ?? '#3b82f6' );
+        $color      = esc_attr( $attributes['textColor'] ?? '#ffffff' );
+        $align      = $attributes['align'] ?? 'center';
+        $radius     = (int) ( $attributes['borderRadius'] ?? 6 );
+
+        return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 16px 0;">
+            <tr>
+                <td align="' . esc_attr( $align ) . '">
+                    <a href="' . $url . '" target="_blank" style="display: inline-block; background-color: ' . $bg . '; color: ' . $color . '; padding: 12px 28px; border-radius: ' . $radius . 'px; text-decoration: none; font-weight: bold; font-size: 15px; font-family: Arial, Helvetica, sans-serif;">'
+                        . $text .
+                    '</a>
+                </td>
+            </tr>
+        </table>';
+    }
+
+    /**
+     * Render a newsletter-download block as email-safe HTML.
+     */
+    public static function render_download_block( $attributes ) {
+        $title      = esc_html( $attributes['title'] ?? 'Free Download' );
+        $desc       = esc_html( $attributes['description'] ?? '' );
+        $btn_text   = esc_html( $attributes['buttonText'] ?? 'Download Now' );
+        $url        = esc_url( $attributes['url'] ?? '#' );
+        $icon_map   = array( 'pdf' => '&#128196;', 'video' => '&#127908;', 'ebook' => '&#128218;', 'template' => '&#128203;', 'checklist' => '&#9989;', 'workout' => '&#128170;' );
+        $icon       = $icon_map[ $attributes['iconType'] ?? 'pdf' ] ?? '&#128196;';
+
+        return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 16px 0;">
+            <tr>
+                <td style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px; text-align: center;">
+                    <p style="font-size: 32px; margin: 0 0 8px; line-height: 1;">' . $icon . '</p>
+                    <h3 style="color: #111827; font-size: 17px; font-weight: bold; margin: 0 0 6px; font-family: Arial, Helvetica, sans-serif;">' . $title . '</h3>
+                    <p style="color: #6b7280; font-size: 14px; margin: 0 0 16px; font-family: Arial, Helvetica, sans-serif;">' . $desc . '</p>
+                    <a href="' . $url . '" target="_blank" style="display: inline-block; background-color: #7c3aed; color: #ffffff; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; font-family: Arial, Helvetica, sans-serif;">'
+                        . $btn_text .
+                    '</a>
+                </td>
+            </tr>
+        </table>';
+    }
+
+    /**
      * Convert Gutenberg HTML to email-safe inline CSS.
      */
     private static function convert_content( $html ) {

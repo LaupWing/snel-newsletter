@@ -1,0 +1,35 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "snel/newsletter-download",
+	"version": "1.0.0",
+	"title": "Newsletter Download",
+	"category": "snel-newsletter",
+	"icon": "download",
+	"description": "Free download link with icon for newsletters. Give away PDFs, guides, etc.",
+	"keywords": ["download", "freebie", "link", "pdf", "newsletter"],
+	"textdomain": "snel-newsletter",
+	"editorScript": "file:./index.js",
+	"attributes": {
+		"title": {
+			"type": "string",
+			"default": "Free Download"
+		},
+		"description": {
+			"type": "string",
+			"default": "Click below to get your free guide."
+		},
+		"buttonText": {
+			"type": "string",
+			"default": "Download Now"
+		},
+		"url": {
+			"type": "string",
+			"default": ""
+		},
+		"iconType": {
+			"type": "string",
+			"default": "pdf"
+		}
+	}
+}

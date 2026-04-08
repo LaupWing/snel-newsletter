@@ -6,6 +6,10 @@ import NewsletterSidebar from './editor/NewsletterSidebar';
 import PrePublishPreview from './editor/PrePublishPreview';
 import './editor/editor.css';
 
+// Register newsletter-only blocks.
+import './blocks/newsletter-button/index';
+import './blocks/newsletter-download/index';
+
 registerPlugin( 'snel-newsletter-sidebar', {
     render: NewsletterSidebar,
     icon: null,
