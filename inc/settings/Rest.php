@@ -31,6 +31,12 @@ class Rest {
             'callback'            => array( $this->controller, 'save' ),
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
+
+        register_rest_route( $this->namespace, '/settings/test-email', array(
+            'methods'             => 'POST',
+            'callback'            => array( $this->controller, 'test_email' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
     }
 
     public function permission_check() {
