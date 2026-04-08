@@ -3,6 +3,16 @@
  * Scoped to .snel-newsletter-panel to avoid conflicts with Gutenberg.
  */
 
+/* Hide panels not relevant for newsletters */
+.editor-post-visibility,
+.editor-post-url,
+.editor-post-link,
+.editor-post-format,
+.editor-post-taxonomies,
+.editor-page-attributes {
+    display: none !important;
+}
+
 .snel-newsletter-panel {
     display: flex;
     flex-direction: column;

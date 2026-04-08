@@ -23,7 +23,17 @@ registerPlugin( 'snel-newsletter-cleanup', {
     render: function CleanupPanels() {
         const { removeEditorPanel } = useDispatch( 'core/editor' );
         useEffect( () => {
-            removeEditorPanel( 'post-status' ); // Visibility
+            // Try all known panel IDs for visibility.
+            removeEditorPanel( 'post-status' );
+            removeEditorPanel( 'post-visibility' );
+            removeEditorPanel( 'taxonomy-panel-category' );
+            removeEditorPanel( 'taxonomy-panel-post_tag' );
+            removeEditorPanel( 'featured-image' );
+            removeEditorPanel( 'post-excerpt' );
+            removeEditorPanel( 'discussion-panel' );
+            removeEditorPanel( 'post-link' );
+            removeEditorPanel( 'page-attributes' );
+            removeEditorPanel( 'template' );
         }, [] );
         return null;
     },

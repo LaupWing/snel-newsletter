@@ -1,11 +1,12 @@
 import { useState } from '@wordpress/element';
+import { createPortal } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Eye, X, Monitor, Smartphone } from 'lucide-react';
+import { X, Monitor, Smartphone } from 'lucide-react';
 
 export default function EmailPreviewModal( { onClose, title, previewText, content } ) {
     const [ device, setDevice ] = useState( 'desktop' );
 
-    return (
+    return createPortal(
         <div className="snel-nl-preview-overlay" onClick={ onClose }>
             <div className="snel-nl-preview-modal" onClick={ ( e ) => e.stopPropagation() }>
                 <div className="snel-nl-preview-header">
@@ -82,6 +83,7 @@ export default function EmailPreviewModal( { onClose, title, previewText, conten
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
