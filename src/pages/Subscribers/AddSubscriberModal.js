@@ -3,7 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { X, ChevronDown } from 'lucide-react';
 import TagBadge from '../../components/TagBadge';
 
-export default function AddSubscriberModal( { onClose, allTags } ) {
+export default function AddSubscriberModal( { onClose, allTags, onAdd } ) {
     const [ email, setEmail ] = useState( '' );
     const [ name, setName ] = useState( '' );
     const [ selectedTags, setSelectedTags ] = useState( [] );
@@ -102,6 +102,7 @@ export default function AddSubscriberModal( { onClose, allTags } ) {
                     </button>
                     <button
                         type="button"
+                        onClick={ () => onAdd && onAdd( { email, name, tags: selectedTags } ) }
                         className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
                         disabled={ ! email }
                     >

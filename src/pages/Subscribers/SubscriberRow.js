@@ -11,7 +11,7 @@ const STATUS_STYLES = {
 
 export { STATUS_STYLES };
 
-export default function SubscriberRow( { subscriber, selected, onSelect } ) {
+export default function SubscriberRow( { subscriber, selected, onSelect, onDelete } ) {
     const [ menuOpen, setMenuOpen ] = useState( false );
 
     return (
@@ -65,7 +65,7 @@ export default function SubscriberRow( { subscriber, selected, onSelect } ) {
                                 <button type="button" className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                                     { __( 'Manage Tags', 'snel-newsletter' ) }
                                 </button>
-                                <button type="button" className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                                <button type="button" onClick={ () => { setMenuOpen( false ); onDelete && onDelete(); } } className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
                                     { __( 'Delete', 'snel-newsletter' ) }
                                 </button>
                             </div>
