@@ -1,37 +1,58 @@
-import { useState } from '@wordpress/element';
+import { useState, useEffect, useCallback } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Send, Plus, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Send, Plus, Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import Select from '../../components/Select';
 import CampaignRow from './CampaignRow';
 
-const MOCK_CAMPAIGNS = [
-    { id: 1, subject: 'Welcome to the Fitness Newsletter!', status: 'sent', recipients: 3842, sent: 3842, opened: 2881, clicked: 921, sent_at: '2026-03-15 10:30', tags: [ 'fitness' ] },
-    { id: 2, subject: '5 Exercises You Can Do at Home', status: 'sent', recipients: 3910, sent: 3910, opened: 2738, clicked: 1564, sent_at: '2026-03-08 09:00', tags: [ 'fitness', 'nutrition' ] },
-    { id: 3, subject: 'New Year, New Goals — Your 2026 Plan', status: 'sent', recipients: 4012, sent: 4012, opened: 3210, clicked: 802, sent_at: '2026-01-02 08:00', tags: [ 'fitness' ] },
-    { id: 4, subject: 'Premium Workout Plan — Early Access', status: 'sent', recipients: 512, sent: 512, opened: 410, clicked: 245, sent_at: '2026-02-14 12:00', tags: [ 'paid' ] },
-    { id: 5, subject: 'Weekly Nutrition Tips #12', status: 'draft', recipients: 0, sent: 0, opened: 0, clicked: 0, sent_at: null, tags: [ 'nutrition' ] },
-    { id: 6, subject: 'Summer Body Challenge — Registration Open', status: 'draft', recipients: 0, sent: 0, opened: 0, clicked: 0, sent_at: null, tags: [ 'fitness', 'free-trial' ] },
-    { id: 7, subject: 'How Protein Timing Affects Your Gains', status: 'sending', recipients: 3900, sent: 1240, opened: 0, clicked: 0, sent_at: '2026-04-08 14:00', tags: [ 'fitness', 'nutrition' ] },
-];
+const API_URL = window.snelNewsletter?.restUrl;
+const NONCE = window.snelNewsletter?.nonce;
+
+function api( path, opts = {} ) {
+    return fetch( `${ API_URL }${ path }`, {
+        headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+        ...opts,
+    } ).then( ( r ) => r.json() );
+}
 
 export default function Campaigns() {
-    const [ campaigns ] = useState( MOCK_CAMPAIGNS );
+    const [ campaigns, setCampaigns ] = useState( [] );
     const [ search, setSearch ] = useState( '' );
     const [ filterStatus, setFilterStatus ] = useState( '' );
-    const [ page ] = useState( 1 );
-    const totalPages = 1;
+    const [ page, setPage ] = useState( 1 );
+    const [ totalPages, setTotalPages ] = useState( 1 );
+    const [ counts, setCounts ] = useState( { total: 0, sent: 0, draft: 0, sending: 0, scheduled: 0 } );
+    const [ loading, setLoading ] = useState( true );
 
-    const filtered = campaigns.filter( ( c ) => {
-        if ( search && ! c.subject.toLowerCase().includes( search.toLowerCase() ) ) return false;
-        if ( filterStatus && c.status !== filterStatus ) return false;
-        return true;
-    } );
+    const loadCampaigns = useCallback( () => {
+        setLoading( true );
+        const params = new URLSearchParams( { page, per_page: 20 } );
+        if ( search ) params.set( 'search', search );
+        if ( filterStatus ) params.set( 'status', filterStatus );
 
-    const counts = {
-        total: campaigns.length,
-        sent: campaigns.filter( ( c ) => c.status === 'sent' ).length,
-        draft: campaigns.filter( ( c ) => c.status === 'draft' ).length,
-        sending: campaigns.filter( ( c ) => c.status === 'sending' ).length,
+        api( `/campaigns?${ params }` ).then( ( data ) => {
+            setCampaigns( data.campaigns || [] );
+            setTotalPages( data.pages || 1 );
+            setCounts( data.counts || counts );
+            setLoading( false );
+        } );
+    }, [ page, search, filterStatus ] );
+
+    useEffect( () => { loadCampaigns(); }, [ loadCampaigns ] );
+
+    // Debounce search.
+    const [ searchInput, setSearchInput ] = useState( '' );
+    useEffect( () => {
+        const timer = setTimeout( () => { setSearch( searchInput ); setPage( 1 ); }, 300 );
+        return () => clearTimeout( timer );
+    }, [ searchInput ] );
+
+    const handleDelete = ( id ) => {
+        if ( ! confirm( __( 'Are you sure you want to delete this campaign?', 'snel-newsletter' ) ) ) return;
+        api( `/campaigns/${ id }`, { method: 'DELETE' } ).then( () => loadCampaigns() );
+    };
+
+    const handleDuplicate = ( id ) => {
+        api( `/campaigns/${ id }/duplicate`, { method: 'POST' } ).then( () => loadCampaigns() );
     };
 
     return (
@@ -79,6 +100,14 @@ export default function Campaigns() {
                         </span>
                     </div>
                 ) }
+                { counts.scheduled > 0 && (
+                    <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-purple-500" />
+                        <span className="text-sm text-gray-600">
+                            <strong className="text-gray-900">{ counts.scheduled }</strong> { __( 'scheduled', 'snel-newsletter' ) }
+                        </span>
+                    </div>
+                ) }
             </div>
 
             <div className="bg-white border border-gray-200 rounded-lg">
@@ -88,15 +117,15 @@ export default function Campaigns() {
                             <Search size={ 14 } className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input
                                 type="text"
-                                value={ search }
-                                onChange={ ( e ) => setSearch( e.target.value ) }
+                                value={ searchInput }
+                                onChange={ ( e ) => setSearchInput( e.target.value ) }
                                 placeholder={ __( 'Search campaigns...', 'snel-newsletter' ) }
                                 className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:shadow-[0_0_0_1px_#3b82f6] w-64"
                             />
                         </div>
                         <Select
                             value={ filterStatus }
-                            onChange={ setFilterStatus }
+                            onChange={ ( v ) => { setFilterStatus( v ); setPage( 1 ); } }
                             options={ [
                                 { value: '', label: __( 'All statuses', 'snel-newsletter' ) },
                                 { value: 'sent', label: __( 'Sent', 'snel-newsletter' ) },
@@ -121,15 +150,33 @@ export default function Campaigns() {
                         </tr>
                     </thead>
                     <tbody>
-                        { filtered.length > 0 ? (
-                            filtered.map( ( campaign ) => (
-                                <CampaignRow key={ campaign.id } campaign={ campaign } />
+                        { ! loading && campaigns.length > 0 ? (
+                            campaigns.map( ( campaign ) => (
+                                <CampaignRow
+                                    key={ campaign.id }
+                                    campaign={ campaign }
+                                    onDelete={ () => handleDelete( campaign.id ) }
+                                    onDuplicate={ () => handleDuplicate( campaign.id ) }
+                                />
                             ) )
                         ) : (
                             <tr>
                                 <td colSpan="7" className="px-4 py-12 text-center">
-                                    <Send size={ 32 } className="mx-auto text-gray-300 mb-3" />
-                                    <p className="text-sm text-gray-500">{ __( 'No campaigns found', 'snel-newsletter' ) }</p>
+                                    { loading ? (
+                                        <Loader2 size={ 20 } className="mx-auto animate-spin text-gray-400" />
+                                    ) : (
+                                        <>
+                                            <Send size={ 32 } className="mx-auto text-gray-300 mb-3" />
+                                            <p className="text-sm text-gray-500">{ __( 'No campaigns yet', 'snel-newsletter' ) }</p>
+                                            <a
+                                                href="post-new.php?post_type=snel_newsletter"
+                                                className="inline-flex items-center gap-2 mt-3 px-4 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors no-underline"
+                                            >
+                                                <Plus size={ 14 } />
+                                                { __( 'Create your first campaign', 'snel-newsletter' ) }
+                                            </a>
+                                        </>
+                                    ) }
                                 </td>
                             </tr>
                         ) }
@@ -139,14 +186,14 @@ export default function Campaigns() {
                 { totalPages > 1 && (
                     <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
                         <p className="text-xs text-gray-500">
-                            { __( 'Showing', 'snel-newsletter' ) } { filtered.length } { __( 'of', 'snel-newsletter' ) } { campaigns.length }
+                            { __( 'Page', 'snel-newsletter' ) } { page } { __( 'of', 'snel-newsletter' ) } { totalPages }
                         </p>
                         <div className="flex items-center gap-1">
-                            <button type="button" disabled={ page <= 1 } className="p-1.5 text-gray-400 hover:text-gray-600 rounded disabled:opacity-30 transition-colors">
+                            <button type="button" onClick={ () => setPage( ( p ) => Math.max( 1, p - 1 ) ) } disabled={ page <= 1 } className="p-1.5 text-gray-400 hover:text-gray-600 rounded disabled:opacity-30 transition-colors">
                                 <ChevronLeft size={ 14 } />
                             </button>
                             <span className="px-2 text-xs text-gray-500">{ page } / { totalPages }</span>
-                            <button type="button" disabled={ page >= totalPages } className="p-1.5 text-gray-400 hover:text-gray-600 rounded disabled:opacity-30 transition-colors">
+                            <button type="button" onClick={ () => setPage( ( p ) => Math.min( totalPages, p + 1 ) ) } disabled={ page >= totalPages } className="p-1.5 text-gray-400 hover:text-gray-600 rounded disabled:opacity-30 transition-colors">
                                 <ChevronRight size={ 14 } />
                             </button>
                         </div>

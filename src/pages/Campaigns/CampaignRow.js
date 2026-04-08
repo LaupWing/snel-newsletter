@@ -12,7 +12,7 @@ const STATUS_STYLES = {
 
 export { STATUS_STYLES };
 
-export default function CampaignRow( { campaign } ) {
+export default function CampaignRow( { campaign, onDelete, onDuplicate } ) {
     const [ menuOpen, setMenuOpen ] = useState( false );
     const status = STATUS_STYLES[ campaign.status ] || STATUS_STYLES.draft;
     const openRate = campaign.sent > 0 ? Math.round( ( campaign.opened / campaign.sent ) * 100 ) : 0;
@@ -22,7 +22,11 @@ export default function CampaignRow( { campaign } ) {
         <tr className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
             <td className="px-4 py-3">
                 <div>
-                    <p className="text-sm font-medium text-gray-900">{ campaign.subject }</p>
+                    { campaign.edit_url ? (
+                        <a href={ campaign.edit_url } className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors no-underline">{ campaign.subject }</a>
+                    ) : (
+                        <p className="text-sm font-medium text-gray-900">{ campaign.subject }</p>
+                    ) }
                     <div className="flex items-center gap-2 mt-1">
                         { campaign.tags.map( ( tag ) => (
                             <span key={ tag } className="px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-600 rounded">
@@ -104,21 +108,21 @@ export default function CampaignRow( { campaign } ) {
                         <>
                             <div className="fixed inset-0 z-10" onClick={ () => setMenuOpen( false ) } />
                             <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 w-40">
-                                { campaign.status === 'draft' && (
-                                    <button type="button" className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2">
+                                { campaign.status === 'draft' && campaign.edit_url && (
+                                    <a href={ campaign.edit_url } className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2 no-underline">
                                         <Send size={ 12 } />
-                                        { __( 'Send', 'snel-newsletter' ) }
-                                    </button>
+                                        { __( 'Edit', 'snel-newsletter' ) }
+                                    </a>
                                 ) }
                                 <button type="button" className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2">
                                     <BarChart3 size={ 12 } />
                                     { __( 'View Stats', 'snel-newsletter' ) }
                                 </button>
-                                <button type="button" className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2">
+                                <button type="button" onClick={ () => { setMenuOpen( false ); onDuplicate && onDuplicate(); } } className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2">
                                     <Copy size={ 12 } />
                                     { __( 'Duplicate', 'snel-newsletter' ) }
                                 </button>
-                                <button type="button" className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2">
+                                <button type="button" onClick={ () => { setMenuOpen( false ); onDelete && onDelete(); } } className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2">
                                     <Trash2 size={ 12 } />
                                     { __( 'Delete', 'snel-newsletter' ) }
                                 </button>

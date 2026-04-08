@@ -86,12 +86,21 @@ add_action( 'enqueue_block_editor_assets', function () {
         $asset['version']
     );
 
-    // Mock tags for now — will come from DB later.
+    // Fetch real tags and subscriber count from DB.
+    $tags  = array();
+    $count = 0;
+    if ( class_exists( 'Snel\Newsletter\Subscribers\Model' ) ) {
+        $tag_rows = \Snel\Newsletter\Subscribers\Model::all_tags();
+        $tags     = wp_list_pluck( $tag_rows, 'tag' );
+        $counts   = \Snel\Newsletter\Subscribers\Model::counts();
+        $count    = $counts['active'] ?? 0;
+    }
+
     wp_localize_script( 'snel-newsletter-editor', 'snelNewsletterEditor', array(
-        'restUrl'       => rest_url( 'snel-newsletter/v1' ),
-        'nonce'         => wp_create_nonce( 'wp_rest' ),
-        'subscriberCount' => 4012,
-        'tags'          => array( 'fitness', 'nutrition', 'paid', 'free-trial', 'vip' ),
+        'restUrl'         => rest_url( 'snel-newsletter/v1' ),
+        'nonce'           => wp_create_nonce( 'wp_rest' ),
+        'subscriberCount' => $count,
+        'tags'            => $tags,
     ) );
 } );
 

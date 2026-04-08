@@ -21,6 +21,7 @@ define( 'SNEL_NEWSLETTER_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/admin.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/cpt.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/subscribers/index.php';
+require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/campaigns/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/settings/index.php';
 
 // Create tables on activation.
