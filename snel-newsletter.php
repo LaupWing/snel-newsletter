@@ -19,3 +19,4 @@ define( 'SNEL_NEWSLETTER_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
 // Load modules.
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/admin.php';
+require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/cpt.php';

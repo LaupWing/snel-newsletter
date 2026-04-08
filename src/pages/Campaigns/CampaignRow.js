@@ -33,14 +33,10 @@ export default function CampaignRow( { campaign } ) {
                 </div>
             </td>
             <td className="px-4 py-3">
-                <div className="flex items-center gap-1.5">
-                    <span className={ `inline-block px-2 py-0.5 text-xs font-medium rounded-full ${ status.bg }` }>
-                        { status.label }
-                    </span>
-                    { campaign.status === 'sending' && (
-                        <Loader2 size={ 12 } className="animate-spin text-blue-500" />
-                    ) }
-                </div>
+                <span className={ `inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${ status.bg }` }>
+                    { campaign.status === 'sending' && <Loader2 size={ 10 } className="animate-spin" /> }
+                    { status.label }
+                </span>
                 { campaign.status === 'sending' && (
                     <div className="mt-1.5 w-20">
                         <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">

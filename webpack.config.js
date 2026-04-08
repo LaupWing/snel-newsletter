@@ -4,5 +4,6 @@ module.exports = {
     ...defaultConfig,
     entry: {
         index: './src/index.js',
+        editor: './src/editor.js',
     },
 };

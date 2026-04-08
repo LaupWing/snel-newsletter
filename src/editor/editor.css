@@ -1,0 +1,171 @@
+/**
+ * Newsletter editor sidebar styles.
+ * Scoped to .snel-newsletter-panel to avoid conflicts with Gutenberg.
+ */
+
+.snel-newsletter-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.snel-nl-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.snel-nl-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6b7280;
+}
+
+.snel-nl-input {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #1f2937;
+    background: #fff;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.snel-nl-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.snel-nl-input::placeholder {
+    color: #9ca3af;
+}
+
+.snel-nl-hint {
+    font-size: 11px;
+    color: #9ca3af;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.snel-nl-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.snel-nl-radio {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+}
+
+.snel-nl-radio input[type="radio"] {
+    margin: 0;
+    accent-color: #3b82f6;
+}
+
+.snel-nl-count {
+    margin-left: auto;
+    font-size: 11px;
+    color: #9ca3af;
+    background: #f3f4f6;
+    padding: 1px 6px;
+    border-radius: 10px;
+}
+
+.snel-nl-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.snel-nl-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #6b7280;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.snel-nl-tag:hover {
+    background: #ede9fe;
+    color: #7c3aed;
+    border-color: #ddd6fe;
+}
+
+.snel-nl-tag.is-active {
+    background: #ede9fe;
+    color: #7c3aed;
+    border-color: #c4b5fd;
+}
+
+.snel-nl-subject-preview {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #1f2937;
+    font-weight: 500;
+}
+
+.snel-nl-divider {
+    height: 1px;
+    background: #e5e7eb;
+    margin: 4px 0;
+}
+
+.snel-nl-test-row {
+    display: flex;
+    gap: 6px;
+}
+
+.snel-nl-test-row .snel-nl-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.snel-nl-test-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #7c3aed;
+    background: #ede9fe;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+
+.snel-nl-test-btn:hover {
+    background: #ddd6fe;
+}
+
+.snel-nl-test-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
