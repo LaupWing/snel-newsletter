@@ -169,3 +169,212 @@
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+/* Preview email button */
+.snel-nl-preview-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f2937;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.snel-nl-preview-btn:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+
+/* Preview modal overlay */
+.snel-nl-preview-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100000;
+}
+
+.snel-nl-preview-modal {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+    width: 90vw;
+    max-width: 800px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.snel-nl-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.snel-nl-preview-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+}
+
+.snel-nl-preview-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.snel-nl-device-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #fff;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.snel-nl-device-btn:hover {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.snel-nl-device-btn.is-active {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #3b82f6;
+}
+
+.snel-nl-preview-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: #9ca3af;
+    cursor: pointer;
+    margin-left: 8px;
+    transition: all 0.15s;
+}
+
+.snel-nl-preview-close:hover {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.snel-nl-preview-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    background: #f3f4f6;
+}
+
+.snel-nl-preview-frame {
+    max-width: 600px;
+    margin: 0 auto;
+    transition: max-width 0.3s ease;
+}
+
+.snel-nl-preview-frame.is-mobile {
+    max-width: 375px;
+}
+
+/* Inbox preview row */
+.snel-nl-inbox-preview {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+}
+
+.snel-nl-inbox-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.snel-nl-inbox-sender {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.snel-nl-inbox-date {
+    font-size: 11px;
+    color: #9ca3af;
+}
+
+.snel-nl-inbox-subject {
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.snel-nl-inbox-preview-text {
+    font-size: 12px;
+    color: #9ca3af;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Email body preview */
+.snel-nl-email-preview {
+    background: #e5e7eb;
+    border-radius: 8px;
+    padding: 20px;
+    border: 1px solid #d1d5db;
+}
+
+.snel-nl-email-content {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #374151;
+}
+
+.snel-nl-email-content p {
+    margin: 0 0 12px;
+}
+
+.snel-nl-email-content h1,
+.snel-nl-email-content h2,
+.snel-nl-email-content h3 {
+    margin: 0 0 8px;
+    color: #1f2937;
+}
+
+.snel-nl-email-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+}
+
+.snel-nl-email-content a {
+    color: #3b82f6;
+}

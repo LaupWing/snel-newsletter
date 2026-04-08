@@ -34,17 +34,15 @@ add_action( 'init', function () {
 } );
 
 /**
- * Add "Compose" submenu linking to the CPT new post screen.
+ * Keep submenu_file correct so "Campaigns" stays highlighted when editing.
  */
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'snel-newsletter',
-        __( 'Compose', 'snel-newsletter' ),
-        __( 'Compose', 'snel-newsletter' ),
-        'manage_options',
-        'post-new.php?post_type=snel_newsletter'
-    );
-}, 20 );
+add_filter( 'submenu_file', function ( $submenu_file ) {
+    global $post_type;
+    if ( $post_type === 'snel_newsletter' ) {
+        return 'snel-newsletter-campaigns';
+    }
+    return $submenu_file;
+} );
 
 /**
  * Keep the Newsletter menu highlighted when editing a newsletter post.
@@ -98,23 +96,22 @@ add_action( 'enqueue_block_editor_assets', function () {
 
 /**
  * Change "Publish" to "Send Newsletter" on the newsletter CPT.
+ * Only hooks in on the newsletter edit screen to avoid performance issues.
  */
-add_filter( 'gettext', function ( $translation, $text, $domain ) {
+add_action( 'admin_head', function () {
     global $post_type;
     if ( $post_type !== 'snel_newsletter' ) {
-        return $translation;
+        return;
     }
 
-    $replacements = array(
-        'Publish'          => __( 'Send Newsletter', 'snel-newsletter' ),
-        'Update'           => __( 'Update Campaign', 'snel-newsletter' ),
-        'Schedule'         => __( 'Schedule Send', 'snel-newsletter' ),
-        'Submit for Review' => __( 'Save Campaign', 'snel-newsletter' ),
-    );
+    add_filter( 'gettext', function ( $translation, $text ) {
+        static $replacements = array(
+            'Publish'           => 'Send Newsletter',
+            'Update'            => 'Update Campaign',
+            'Schedule'          => 'Schedule Send',
+            'Submit for Review' => 'Save Campaign',
+        );
 
-    if ( isset( $replacements[ $text ] ) ) {
-        return $replacements[ $text ];
-    }
-
-    return $translation;
-}, 10, 3 );
+        return $replacements[ $text ] ?? $translation;
+    }, 10, 2 );
+} );

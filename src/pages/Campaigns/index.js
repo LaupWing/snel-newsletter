@@ -43,13 +43,13 @@ export default function Campaigns() {
                     </h1>
                     <p className="text-sm text-gray-500 mt-1">{ __( 'Create and manage campaigns', 'snel-newsletter' ) }</p>
                 </div>
-                <button
-                    type="button"
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                <a
+                    href="post-new.php?post_type=snel_newsletter"
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors no-underline"
                 >
                     <Plus size={ 14 } />
                     { __( 'New Campaign', 'snel-newsletter' ) }
-                </button>
+                </a>
             </div>
 
             <div className="flex items-center gap-6 mb-6">
