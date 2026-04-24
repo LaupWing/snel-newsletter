@@ -4,6 +4,7 @@ import { Send, Plus, Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-r
 import Select from '../../components/Select';
 import CampaignRow from './CampaignRow';
 import CampaignDetail from './CampaignDetail';
+import WarmupButton from './WarmupButton';
 
 const API_URL = window.snelNewsletter?.restUrl;
 const NONCE = window.snelNewsletter?.nonce;
@@ -17,6 +18,7 @@ function api( path, opts = {} ) {
 
 export default function Campaigns() {
     const [ selectedCampaign, setSelectedCampaign ] = useState( null );
+    const [ warmupActive, setWarmupActive ] = useState( () => localStorage.getItem( 'snel_warmup' ) === '1' );
     const [ campaigns, setCampaigns ] = useState( [] );
     const [ search, setSearch ] = useState( '' );
     const [ filterStatus, setFilterStatus ] = useState( '' );
@@ -70,13 +72,22 @@ export default function Campaigns() {
                     </h1>
                     <p className="text-sm text-gray-500 mt-1">{ __( 'Create and manage campaigns', 'snel-newsletter' ) }</p>
                 </div>
-                <a
-                    href="post-new.php?post_type=snel_newsletter"
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors no-underline"
-                >
-                    <Plus size={ 14 } />
-                    { __( 'New Campaign', 'snel-newsletter' ) }
-                </a>
+                <div className="flex items-center gap-2">
+                    <WarmupButton
+                        active={ warmupActive }
+                        onToggle={ ( val ) => {
+                            setWarmupActive( val );
+                            localStorage.setItem( 'snel_warmup', val ? '1' : '0' );
+                        } }
+                    />
+                    <a
+                        href="post-new.php?post_type=snel_newsletter"
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors no-underline"
+                    >
+                        <Plus size={ 14 } />
+                        { __( 'New Campaign', 'snel-newsletter' ) }
+                    </a>
+                </div>
             </div>
 
             <div className="flex items-center gap-6 mb-6">
