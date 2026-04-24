@@ -113,15 +113,12 @@ class Controller {
             $email = sanitize_email( $event['email'] ?? '' );
             if ( ! $email ) continue;
 
-            if ( $event['type'] === 'bounce' || $event['type'] === 'complaint' ) {
-                $wpdb->update(
-                    $table,
-                    array( 'status' => 'bounced' ),
-                    array( 'email' => $email ),
-                    array( '%s' ),
-                    array( '%s' )
-                );
+            if ( $event['type'] === 'bounce' ) {
+                $wpdb->update( $table, array( 'status' => 'bounced' ), array( 'email' => $email ), array( '%s' ), array( '%s' ) );
+            } elseif ( $event['type'] === 'complaint' ) {
+                $wpdb->update( $table, array( 'status' => 'complained' ), array( 'email' => $email ), array( '%s' ), array( '%s' ) );
             }
+            // soft_bounce: temporary failure — do not change subscriber status.
         }
 
         return rest_ensure_response( array( 'success' => true, 'processed' => count( $events ) ) );

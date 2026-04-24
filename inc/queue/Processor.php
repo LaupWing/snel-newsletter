@@ -181,6 +181,14 @@ class Processor {
             }
         }
 
+        // Refresh open/click stats for all campaigns touched in this batch.
+        $campaign_ids = array_unique( array_column( (array) $rows, 'campaign_id' ) );
+        foreach ( $campaign_ids as $cid ) {
+            $stats = \Snel\Newsletter\Tracking\Model::campaign_stats( $cid );
+            update_post_meta( $cid, '_snel_nl_opened', $stats['opens'] );
+            update_post_meta( $cid, '_snel_nl_clicked', $stats['unique_clicks'] );
+        }
+
         // Schedule next batch.
         wp_schedule_single_event( time() + self::CRON_INTERVAL, self::CRON_HOOK );
     }

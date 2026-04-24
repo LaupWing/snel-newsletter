@@ -63,6 +63,11 @@ class SESAdapter implements AdapterInterface {
             return array();
         }
 
+        // Verify SNS signature before processing any notification.
+        if ( ! $this->verify_sns_signature( $data ) ) {
+            return array();
+        }
+
         // Actual notification — the Message field is a JSON string.
         if ( ! isset( $data['Message'] ) ) {
             return array();
@@ -77,9 +82,13 @@ class SESAdapter implements AdapterInterface {
         $type   = $message['notificationType'] ?? $message['eventType'] ?? '';
 
         if ( $type === 'Bounce' && isset( $message['bounce']['bouncedRecipients'] ) ) {
+            // Transient = soft bounce (temporary), Permanent = hard bounce.
+            $bounce_type = $message['bounce']['bounceType'] ?? 'Permanent';
+            $event_type  = ( strtolower( $bounce_type ) === 'transient' ) ? 'soft_bounce' : 'bounce';
+
             foreach ( $message['bounce']['bouncedRecipients'] as $recipient ) {
                 $events[] = array(
-                    'type'   => 'bounce',
+                    'type'   => $event_type,
                     'email'  => $recipient['emailAddress'] ?? '',
                     'reason' => $recipient['diagnosticCode'] ?? 'bounced',
                 );
@@ -97,6 +106,53 @@ class SESAdapter implements AdapterInterface {
         }
 
         return $events;
+    }
+
+    /**
+     * Verify AWS SNS message signature.
+     * Prevents fake bounce/complaint events from external attackers.
+     */
+    private function verify_sns_signature( $data ) {
+        if ( empty( $data['SignatureCertURL'] ) || empty( $data['Signature'] ) ) {
+            return false;
+        }
+
+        // Certificate must come from AWS SNS.
+        if ( ! preg_match( '#^https://sns\.[a-z0-9\-]+\.amazonaws\.com/#', $data['SignatureCertURL'] ) ) {
+            return false;
+        }
+
+        $response = wp_remote_get( $data['SignatureCertURL'], array( 'timeout' => 10 ) );
+        if ( is_wp_error( $response ) ) {
+            return false;
+        }
+
+        $cert = wp_remote_retrieve_body( $response );
+        if ( ! $cert ) {
+            return false;
+        }
+
+        // Fields to sign differ by message type.
+        $type = $data['Type'] ?? '';
+        if ( $type === 'Notification' ) {
+            $fields = array( 'Message', 'MessageId', 'Subject', 'Timestamp', 'TopicArn', 'Type' );
+        } else {
+            $fields = array( 'Message', 'MessageId', 'SubscribeURL', 'Timestamp', 'Token', 'TopicArn', 'Type' );
+        }
+
+        $string_to_sign = '';
+        foreach ( $fields as $field ) {
+            if ( isset( $data[ $field ] ) ) {
+                $string_to_sign .= $field . "\n" . $data[ $field ] . "\n";
+            }
+        }
+
+        $pub_key   = openssl_get_publickey( $cert );
+        $signature = base64_decode( $data['Signature'] );
+        $algorithm = ( ( $data['SignatureVersion'] ?? '1' ) === '2' ) ? OPENSSL_ALGO_SHA256 : OPENSSL_ALGO_SHA1;
+        $valid     = openssl_verify( $string_to_sign, $signature, $pub_key, $algorithm );
+
+        return $valid === 1;
     }
 
     // ─── Stats: SES has no stats API — we calculate from our tracking table ─────

@@ -99,6 +99,7 @@ class Model {
             'active'       => (int) $wpdb->get_var( "SELECT COUNT(*) FROM $table WHERE status = 'active'" ),
             'unsubscribed' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM $table WHERE status = 'unsubscribed'" ),
             'bounced'      => (int) $wpdb->get_var( "SELECT COUNT(*) FROM $table WHERE status = 'bounced'" ),
+            'complained'   => (int) $wpdb->get_var( "SELECT COUNT(*) FROM $table WHERE status = 'complained'" ),
         );
     }
 
@@ -142,7 +143,7 @@ class Model {
             $format[]       = '%s';
         }
 
-        if ( isset( $data['status'] ) && in_array( $data['status'], array( 'active', 'unsubscribed', 'bounced' ), true ) ) {
+        if ( isset( $data['status'] ) && in_array( $data['status'], array( 'active', 'unsubscribed', 'bounced', 'complained' ), true ) ) {
             $update['status'] = $data['status'];
             $format[]         = '%s';
         }
