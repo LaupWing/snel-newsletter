@@ -19,31 +19,34 @@
   padding-bottom: 10px;
 }
 
-@keyframes flame-flicker {
-  0%   { transform: scale(1.00, 1.00) rotate(-0.3deg); filter: brightness(1.00); }
-  15%  { transform: scale(1.02, 0.97) rotate( 0.4deg); filter: brightness(1.06); }
-  30%  { transform: scale(0.98, 1.03) rotate(-0.5deg); filter: brightness(0.96); }
-  45%  { transform: scale(1.03, 0.98) rotate( 0.2deg); filter: brightness(1.04); }
-  60%  { transform: scale(0.99, 1.02) rotate(-0.4deg); filter: brightness(0.98); }
-  75%  { transform: scale(1.01, 0.99) rotate( 0.5deg); filter: brightness(1.03); }
-  100% { transform: scale(1.00, 1.00) rotate(-0.3deg); filter: brightness(1.00); }
+/* Spinning gradient clipped to text — same ring trick as snel-btn-gradient */
+@property --warmup-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
 }
 
+@keyframes warmup-spin {
+  to { --warmup-angle: 360deg; }
+}
+
+.warmup-flame-text {
+  background: conic-gradient(
+    from var(--warmup-angle),
+    #fbbf24, #f97316, #dc2626, #9a3412, #dc2626, #f97316, #fbbf24
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: warmup-spin 3s linear infinite;
+  display: inline-block;
+}
+
+/* Solid flame gradient — used for the modal CTA button */
 .warmup-active {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
+  background: linear-gradient(90deg, #dc2626, #ea580c, #f97316);
   color: #fff;
   border-color: transparent;
-}
-
-.warmup-active::before {
-  content: '';
-  position: absolute;
-  inset: -4px;
-  background: radial-gradient(ellipse at 50% 130%, #fbbf24 0%, #f97316 35%, #dc2626 65%, #7f1d1d 100%);
-  animation: flame-flicker 0.75s ease-in-out infinite;
-  z-index: -1;
 }
 
 .warmup-active:hover {

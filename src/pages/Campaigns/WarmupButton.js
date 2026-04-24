@@ -152,10 +152,13 @@ export default function WarmupButton( { active, onToggle } ) {
             <button
                 type="button"
                 onClick={ () => setModalOpen( true ) }
-                className={ `inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg border transition-all ${ active ? 'warmup-active' : 'text-gray-600 border-gray-300 bg-white hover:border-orange-300 hover:text-orange-600' }` }
+                className={ `inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg border transition-all ${ active ? 'border-orange-200 bg-white hover:border-orange-300' : 'text-gray-600 border-gray-300 bg-white hover:border-orange-300 hover:text-orange-600' }` }
             >
-                <Flame size={ 14 } className={ active ? '' : 'text-gray-400' } />
-                { active ? __( 'Warmup on', 'snel-newsletter' ) : __( 'Warmup', 'snel-newsletter' ) }
+                <Flame size={ 14 } className={ active ? 'text-orange-500 shrink-0' : 'text-gray-400 shrink-0' } />
+                { active
+                    ? <span className="warmup-flame-text">{ __( 'Warmup on', 'snel-newsletter' ) }</span>
+                    : __( 'Warmup', 'snel-newsletter' )
+                }
             </button>
         </>
     );
