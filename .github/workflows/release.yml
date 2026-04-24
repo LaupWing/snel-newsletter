@@ -1,0 +1,72 @@
+name: Build Release Zip
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from plugin file
+        id: version
+        run: |
+          VERSION=$(grep -oP "Version:\s*\K[0-9.]+" snel-newsletter.php)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if release already exists
+        id: check
+        run: |
+          if gh release view "${{ steps.version.outputs.tag }}" > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        if: steps.check.outputs.exists == 'false'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        if: steps.check.outputs.exists == 'false'
+        run: npm install
+
+      - name: Build assets
+        if: steps.check.outputs.exists == 'false'
+        run: npm run build
+
+      - name: Create plugin zip
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          mkdir -p /tmp/snel-newsletter
+          rsync -a --exclude='.git' \
+                   --exclude='.github' \
+                   --exclude='node_modules' \
+                   --exclude='.gitignore' \
+                   --exclude='.env' \
+                   --exclude='package.json' \
+                   --exclude='package-lock.json' \
+                   --exclude='postcss.config.js' \
+                   --exclude='src' \
+                   ./ /tmp/snel-newsletter/
+          cd /tmp && zip -r snel-newsletter.zip snel-newsletter/
+
+      - name: Create release and upload zip
+        if: steps.check.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          files: /tmp/snel-newsletter.zip
+          generate_release_notes: true
