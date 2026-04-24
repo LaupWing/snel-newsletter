@@ -68,6 +68,11 @@ class Processor {
 
         $total = count( $ids );
 
+        // Apply subscriber cooldowns if warmup is enabled.
+        if ( \Snel\Newsletter\Warmup\Settings::is_enabled() ) {
+            \Snel\Newsletter\Warmup\Guard::apply_cooldowns( $campaign_id );
+        }
+
         // Update campaign meta.
         update_post_meta( $campaign_id, '_snel_nl_send_status', 'sending' );
         update_post_meta( $campaign_id, '_snel_nl_total_recipients', $total );
@@ -100,15 +105,42 @@ class Processor {
             return;
         }
 
-        // Get a batch of pending emails.
+        // Check daily warmup cap before fetching rows.
+        $warmup_on   = \Snel\Newsletter\Warmup\Settings::is_enabled();
+        $batch_limit = self::BATCH_SIZE;
+
+        if ( $warmup_on ) {
+            $remaining = \Snel\Newsletter\Warmup\Guard::daily_remaining();
+
+            if ( $remaining === 0 ) {
+                $day = \Snel\Newsletter\Warmup\Settings::current_day();
+                $cap = \Snel\Newsletter\Warmup\Ramp::cap_for_day( $day );
+
+                \Snel\Newsletter\Logger\Logger::info( 'warmup', 'Daily cap reached — pausing until tomorrow', array(
+                    'warmup_day' => $day,
+                    'cap'        => $cap,
+                ) );
+
+                wp_schedule_single_event( strtotime( 'tomorrow midnight' ) + 60, self::CRON_HOOK );
+                return;
+            }
+
+            if ( $remaining !== null ) {
+                $batch_limit = min( self::BATCH_SIZE, $remaining );
+            }
+        }
+
+        // Get a batch of pending emails. Also picks up delayed rows whose wait has expired.
         $rows = $wpdb->get_results( $wpdb->prepare(
             "SELECT q.*, s.email, s.name, s.unsubscribe_token
              FROM $queue q
              INNER JOIN {$wpdb->prefix}snel_subscribers s ON s.id = q.subscriber_id
              WHERE q.status IN ('pending', 'retrying')
+                OR (q.status = 'delayed' AND q.delayed_until <= %s)
              ORDER BY q.id ASC
              LIMIT %d",
-            self::BATCH_SIZE
+            current_time( 'mysql' ),
+            $batch_limit
         ) );
 
         if ( empty( $rows ) ) {
@@ -171,6 +203,11 @@ class Processor {
                     "UPDATE {$wpdb->postmeta} SET meta_value = meta_value + 1 WHERE post_id = %d AND meta_key = '_snel_nl_sent_count'",
                     $row->campaign_id
                 ) );
+
+                // Track against the warmup daily cap.
+                if ( $warmup_on ) {
+                    \Snel\Newsletter\Warmup\Guard::increment_daily();
+                }
             } else {
                 $retries = $row->retries + 1;
                 $status  = $retries >= self::MAX_RETRIES ? 'failed' : 'retrying';
@@ -236,9 +273,10 @@ class Processor {
 
         $queue = self::table();
 
-        // Find campaigns that are "sending" but have no pending/retrying emails.
+        // Find campaigns that still have active (unsent) queue rows.
+        // 'delayed' rows that haven't fired yet count as active.
         $campaign_ids = $wpdb->get_col(
-            "SELECT DISTINCT campaign_id FROM $queue WHERE status IN ('pending', 'retrying')"
+            "SELECT DISTINCT campaign_id FROM $queue WHERE status IN ('pending', 'retrying', 'delayed')"
         );
 
         // Get all campaigns currently marked as sending.

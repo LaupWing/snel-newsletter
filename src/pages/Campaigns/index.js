@@ -18,7 +18,11 @@ function api( path, opts = {} ) {
 
 export default function Campaigns() {
     const [ selectedCampaign, setSelectedCampaign ] = useState( null );
-    const [ warmupActive, setWarmupActive ] = useState( () => localStorage.getItem( 'snel_warmup' ) === '1' );
+    const [ warmupActive, setWarmupActive ] = useState( false );
+
+    useEffect( () => {
+        api( '/warmup' ).then( ( data ) => setWarmupActive( !! data.enabled ) );
+    }, [] );
     const [ campaigns, setCampaigns ] = useState( [] );
     const [ search, setSearch ] = useState( '' );
     const [ filterStatus, setFilterStatus ] = useState( '' );
@@ -77,7 +81,7 @@ export default function Campaigns() {
                         active={ warmupActive }
                         onToggle={ ( val ) => {
                             setWarmupActive( val );
-                            localStorage.setItem( 'snel_warmup', val ? '1' : '0' );
+                            api( `/warmup/${ val ? 'enable' : 'disable' }`, { method: 'POST' } );
                         } }
                     />
                     <a
