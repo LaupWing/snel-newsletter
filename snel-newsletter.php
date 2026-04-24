@@ -29,6 +29,11 @@ require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/tracking/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/queue/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/settings/index.php';
 
+// WP-CLI commands.
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+    require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/cli.php';
+}
+
 // Create tables on activation.
 register_activation_hook( __FILE__, function () {
     Snel\Newsletter\Subscribers\Install::create_tables();
