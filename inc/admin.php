@@ -27,6 +27,7 @@ add_action( 'admin_menu', function () {
 } );
 
 function snel_newsletter_render_page( $page ) {
+    error_log( '[snel-newsletter] render_page: ' . $page );
     printf( '<div id="snel-newsletter-root" class="wrap" data-page="%s"></div>', esc_attr( $page ) );
 }
 
@@ -45,11 +46,17 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
     }
 
     $asset_file = SNEL_NEWSLETTER_PLUGIN_DIR . 'build/index.asset.php';
+    error_log( '[snel-newsletter] enqueue_scripts hook fired, hook: ' . $hook );
+    error_log( '[snel-newsletter] asset file path: ' . $asset_file );
+    error_log( '[snel-newsletter] asset file exists: ' . ( file_exists( $asset_file ) ? 'yes' : 'NO' ) );
+
     if ( ! file_exists( $asset_file ) ) {
+        error_log( '[snel-newsletter] ABORTING — build/index.asset.php not found' );
         return;
     }
 
     $asset = require $asset_file;
+    error_log( '[snel-newsletter] asset version: ' . $asset['version'] );
 
     wp_enqueue_script( 'snel-newsletter-admin', SNEL_NEWSLETTER_PLUGIN_URL . 'build/index.js', $asset['dependencies'], $asset['version'], true );
     wp_enqueue_style( 'snel-newsletter-admin', SNEL_NEWSLETTER_PLUGIN_URL . 'build/index.css', array( 'wp-components' ), $asset['version'] );
@@ -59,4 +66,5 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
         'nonce'   => wp_create_nonce( 'wp_rest' ),
         'version' => SNEL_NEWSLETTER_VERSION,
     ) );
+    error_log( '[snel-newsletter] scripts enqueued successfully' );
 } );

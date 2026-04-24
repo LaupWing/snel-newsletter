@@ -13,18 +13,36 @@ const PAGES = {
 };
 
 function mountApp() {
+    console.log( '[snel-newsletter] mountApp called' );
+    console.log( '[snel-newsletter] snelNewsletter global:', window.snelNewsletter );
+
     const container = document.getElementById( 'snel-newsletter-root' );
-    if ( ! container ) return;
+    console.log( '[snel-newsletter] root container:', container );
+
+    if ( ! container ) {
+        console.error( '[snel-newsletter] Root element #snel-newsletter-root not found' );
+        return;
+    }
 
     const page = container.dataset.page || 'dashboard';
-    const PageComponent = PAGES[ page ] || Dashboard;
+    console.log( '[snel-newsletter] mounting page:', page );
 
-    createRoot( container ).render(
-        <div className="snel-newsletter-app">
-            <PageComponent />
-        </div>
-    );
+    const PageComponent = PAGES[ page ] || Dashboard;
+    console.log( '[snel-newsletter] PageComponent:', PageComponent );
+
+    try {
+        createRoot( container ).render(
+            <div className="snel-newsletter-app">
+                <PageComponent />
+            </div>
+        );
+        console.log( '[snel-newsletter] render complete' );
+    } catch ( e ) {
+        console.error( '[snel-newsletter] render failed:', e );
+    }
 }
+
+console.log( '[snel-newsletter] script loaded, readyState:', document.readyState );
 
 if ( document.readyState === 'loading' ) {
     document.addEventListener( 'DOMContentLoaded', mountApp );
