@@ -1,6 +1,6 @@
 import { useState, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Settings as SettingsIcon, Mail, Cloud, Save, Loader2, CheckCircle, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { Settings as SettingsIcon, Mail, Cloud, Save, Loader2, CheckCircle, AlertTriangle, Eye, EyeOff, ScrollText, Download } from 'lucide-react';
 import Select from '../components/Select';
 import Tabs from '../components/Tabs';
 
@@ -251,9 +251,95 @@ function SenderSettings( { settings, setSettings } ) {
     );
 }
 
+function LogsTab() {
+    const [ logs, setLogs ]       = useState( null );
+    const [ loading, setLoading ] = useState( true );
+
+    useEffect( () => {
+        api( '/logs' )
+            .then( ( data ) => setLogs( data?.logs || [] ) )
+            .finally( () => setLoading( false ) );
+    }, [] );
+
+    const handleDownload = () => {
+        const url = `${ API_URL }logs/download&_wpnonce=${ NONCE }`;
+        window.location.href = url;
+    };
+
+    const statusColor = ( status ) =>
+        status === 'failed' ? 'text-red-600 bg-red-50' : 'text-amber-600 bg-amber-50';
+
+    return (
+        <div className="space-y-4">
+            <div className="bg-white border border-gray-200 rounded-lg p-5">
+                <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center">
+                            <ScrollText size={ 16 } className="text-gray-600" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-semibold text-gray-900">{ __( 'Error Logs', 'snel-newsletter' ) }</h2>
+                            <p className="text-xs text-gray-400">{ __( 'Failed and retrying sends from the queue', 'snel-newsletter' ) }</p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={ handleDownload }
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    >
+                        <Download size={ 12 } />
+                        { __( 'Download CSV', 'snel-newsletter' ) }
+                    </button>
+                </div>
+
+                { loading ? (
+                    <div className="flex items-center justify-center py-8">
+                        <Loader2 size={ 18 } className="animate-spin text-gray-400" />
+                    </div>
+                ) : ! logs?.length ? (
+                    <div className="flex items-center gap-2 px-3 py-4 bg-emerald-50 border border-emerald-100 rounded-lg">
+                        <CheckCircle size={ 14 } className="text-emerald-600" />
+                        <p className="text-xs text-emerald-700">{ __( 'No errors found. Everything looks good!', 'snel-newsletter' ) }</p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                            <thead>
+                                <tr className="border-b border-gray-100">
+                                    <th className="text-left py-2 pr-4 font-medium text-gray-500">{ __( 'Email', 'snel-newsletter' ) }</th>
+                                    <th className="text-left py-2 pr-4 font-medium text-gray-500">{ __( 'Campaign', 'snel-newsletter' ) }</th>
+                                    <th className="text-left py-2 pr-4 font-medium text-gray-500">{ __( 'Status', 'snel-newsletter' ) }</th>
+                                    <th className="text-left py-2 pr-4 font-medium text-gray-500">{ __( 'Error', 'snel-newsletter' ) }</th>
+                                    <th className="text-left py-2 font-medium text-gray-500">{ __( 'Date', 'snel-newsletter' ) }</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                { logs.map( ( log ) => (
+                                    <tr key={ log.id } className="border-b border-gray-50 hover:bg-gray-50">
+                                        <td className="py-2 pr-4 text-gray-700 font-mono">{ log.email }</td>
+                                        <td className="py-2 pr-4 text-gray-600">{ log.campaign || '—' }</td>
+                                        <td className="py-2 pr-4">
+                                            <span className={ `inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${ statusColor( log.status ) }` }>
+                                                { log.status }
+                                            </span>
+                                        </td>
+                                        <td className="py-2 pr-4 text-gray-500 max-w-xs truncate" title={ log.error_message }>{ log.error_message || '—' }</td>
+                                        <td className="py-2 text-gray-400">{ log.created_at }</td>
+                                    </tr>
+                                ) ) }
+                            </tbody>
+                        </table>
+                    </div>
+                ) }
+            </div>
+        </div>
+    );
+}
+
 const TABS = [
     { id: 'ses', label: __( 'AWS SES', 'snel-newsletter' ), icon: Cloud },
     { id: 'sender', label: __( 'Sender', 'snel-newsletter' ), icon: Mail },
+    { id: 'logs', label: __( 'Logs', 'snel-newsletter' ), icon: ScrollText },
 ];
 
 export default function Settings() {
@@ -329,6 +415,7 @@ export default function Settings() {
                 <>
                     { activeTab === 'ses' && <SesSettings settings={ settings } setSettings={ setSettings } /> }
                     { activeTab === 'sender' && <SenderSettings settings={ settings } setSettings={ setSettings } /> }
+                    { activeTab === 'logs' && <LogsTab /> }
                 </>
             ) }
         </div>
