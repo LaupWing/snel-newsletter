@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { Send, Plus, Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import Select from '../../components/Select';
 import CampaignRow from './CampaignRow';
+import CampaignDetail from './CampaignDetail';
 
 const API_URL = window.snelNewsletter?.restUrl;
 const NONCE = window.snelNewsletter?.nonce;
@@ -15,6 +16,7 @@ function api( path, opts = {} ) {
 }
 
 export default function Campaigns() {
+    const [ selectedCampaign, setSelectedCampaign ] = useState( null );
     const [ campaigns, setCampaigns ] = useState( [] );
     const [ search, setSearch ] = useState( '' );
     const [ filterStatus, setFilterStatus ] = useState( '' );
@@ -56,6 +58,10 @@ export default function Campaigns() {
     };
 
     return (
+        <>
+        { selectedCampaign && (
+            <CampaignDetail campaignId={ selectedCampaign } onClose={ () => setSelectedCampaign( null ) } />
+        ) }
         <div className="p-6">
             <div className="flex items-center justify-between mb-8">
                 <div>
@@ -157,6 +163,7 @@ export default function Campaigns() {
                                     campaign={ campaign }
                                     onDelete={ () => handleDelete( campaign.id ) }
                                     onDuplicate={ () => handleDuplicate( campaign.id ) }
+                                    onViewStats={ () => setSelectedCampaign( campaign.id ) }
                                 />
                             ) )
                         ) : (
@@ -201,5 +208,6 @@ export default function Campaigns() {
                 ) }
             </div>
         </div>
+        </>
     );
 }

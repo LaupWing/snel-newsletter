@@ -43,6 +43,12 @@ class Rest {
             'callback'            => array( $this->controller, 'duplicate' ),
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
+
+        register_rest_route( $this->namespace, '/campaigns/(?P<id>\d+)/stats', array(
+            'methods'             => 'GET',
+            'callback'            => array( $this->controller, 'stats' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
     }
 
     public function permission_check() {

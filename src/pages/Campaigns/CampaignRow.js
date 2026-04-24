@@ -12,7 +12,7 @@ const STATUS_STYLES = {
 
 export { STATUS_STYLES };
 
-export default function CampaignRow( { campaign, onDelete, onDuplicate } ) {
+export default function CampaignRow( { campaign, onDelete, onDuplicate, onViewStats } ) {
     const [ menuOpen, setMenuOpen ] = useState( false );
     const status = STATUS_STYLES[ campaign.status ] || STATUS_STYLES.draft;
     const openRate = campaign.sent > 0 ? Math.round( ( campaign.opened / campaign.sent ) * 100 ) : 0;
@@ -114,7 +114,7 @@ export default function CampaignRow( { campaign, onDelete, onDuplicate } ) {
                                         { __( 'Edit', 'snel-newsletter' ) }
                                     </a>
                                 ) }
-                                <button type="button" className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2">
+                                <button type="button" onClick={ () => { setMenuOpen( false ); onViewStats && onViewStats(); } } className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2">
                                     <BarChart3 size={ 12 } />
                                     { __( 'View Stats', 'snel-newsletter' ) }
                                 </button>
