@@ -1,6 +1,6 @@
 import { useState, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Settings as SettingsIcon, Mail, Cloud, Save, Loader2, CheckCircle, AlertTriangle, Eye, EyeOff, ScrollText, Download } from 'lucide-react';
+import { Mail, Cloud, Save, Loader2, CheckCircle, AlertTriangle, Eye, EyeOff, ScrollText, Download } from 'lucide-react';
 import Select from '../components/Select';
 import Tabs from '../components/Tabs';
 
@@ -251,23 +251,36 @@ function SenderSettings( { settings, setSettings } ) {
     );
 }
 
+const LEVEL_COLORS = {
+    info:    'text-blue-600 bg-blue-50',
+    warning: 'text-amber-600 bg-amber-50',
+    error:   'text-red-600 bg-red-50',
+};
+
 function LogsTab() {
     const [ logs, setLogs ]       = useState( null );
     const [ loading, setLoading ] = useState( true );
+    const [ level, setLevel ]     = useState( '' );
+    const [ context, setContext ] = useState( '' );
 
-    useEffect( () => {
-        api( '/logs' )
+    const fetchLogs = ( lvl, ctx ) => {
+        setLoading( true );
+        const params = new URLSearchParams();
+        if ( lvl ) params.set( 'level', lvl );
+        if ( ctx ) params.set( 'context', ctx );
+        api( `/logs?${ params.toString() }` )
             .then( ( data ) => setLogs( data?.logs || [] ) )
             .finally( () => setLoading( false ) );
-    }, [] );
-
-    const handleDownload = () => {
-        const url = `${ API_URL }logs/download&_wpnonce=${ NONCE }`;
-        window.location.href = url;
     };
 
-    const statusColor = ( status ) =>
-        status === 'failed' ? 'text-red-600 bg-red-50' : 'text-amber-600 bg-amber-50';
+    useEffect( () => { fetchLogs( level, context ); }, [ level, context ] );
+
+    const handleDownload = () => {
+        const params = new URLSearchParams();
+        if ( level ) params.set( 'level', level );
+        if ( context ) params.set( 'context', context );
+        window.location.href = `${ API_URL }logs/download?${ params.toString() }&_wpnonce=${ NONCE }`;
+    };
 
     return (
         <div className="space-y-4">
@@ -278,8 +291,8 @@ function LogsTab() {
                             <ScrollText size={ 16 } className="text-gray-600" />
                         </div>
                         <div>
-                            <h2 className="text-sm font-semibold text-gray-900">{ __( 'Error Logs', 'snel-newsletter' ) }</h2>
-                            <p className="text-xs text-gray-400">{ __( 'Failed and retrying sends from the queue', 'snel-newsletter' ) }</p>
+                            <h2 className="text-sm font-semibold text-gray-900">{ __( 'Logs', 'snel-newsletter' ) }</h2>
+                            <p className="text-xs text-gray-400">{ __( 'All plugin activity — sends, webhooks, errors', 'snel-newsletter' ) }</p>
                         </div>
                     </div>
                     <button
@@ -292,6 +305,40 @@ function LogsTab() {
                     </button>
                 </div>
 
+                { /* Filters */ }
+                <div className="flex items-center gap-3 mb-4">
+                    <select
+                        value={ level }
+                        onChange={ ( e ) => setLevel( e.target.value ) }
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:border-blue-500"
+                    >
+                        <option value="">{ __( 'All levels', 'snel-newsletter' ) }</option>
+                        <option value="info">Info</option>
+                        <option value="warning">Warning</option>
+                        <option value="error">Error</option>
+                    </select>
+                    <select
+                        value={ context }
+                        onChange={ ( e ) => setContext( e.target.value ) }
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:border-blue-500"
+                    >
+                        <option value="">{ __( 'All contexts', 'snel-newsletter' ) }</option>
+                        <option value="ses">SES</option>
+                        <option value="queue">Queue</option>
+                        <option value="webhook">Webhook</option>
+                        <option value="settings">Settings</option>
+                    </select>
+                    { ( level || context ) && (
+                        <button
+                            type="button"
+                            onClick={ () => { setLevel( '' ); setContext( '' ); } }
+                            className="text-xs text-gray-400 hover:text-gray-600"
+                        >
+                            { __( 'Clear filters', 'snel-newsletter' ) }
+                        </button>
+                    ) }
+                </div>
+
                 { loading ? (
                     <div className="flex items-center justify-center py-8">
                         <Loader2 size={ 18 } className="animate-spin text-gray-400" />
@@ -299,32 +346,32 @@ function LogsTab() {
                 ) : ! logs?.length ? (
                     <div className="flex items-center gap-2 px-3 py-4 bg-emerald-50 border border-emerald-100 rounded-lg">
                         <CheckCircle size={ 14 } className="text-emerald-600" />
-                        <p className="text-xs text-emerald-700">{ __( 'No errors found. Everything looks good!', 'snel-newsletter' ) }</p>
+                        <p className="text-xs text-emerald-700">{ __( 'No logs found.', 'snel-newsletter' ) }</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-xs">
                             <thead>
                                 <tr className="border-b border-gray-100">
-                                    <th className="text-left py-2 pr-4 font-medium text-gray-500">{ __( 'Email', 'snel-newsletter' ) }</th>
-                                    <th className="text-left py-2 pr-4 font-medium text-gray-500">{ __( 'Campaign', 'snel-newsletter' ) }</th>
-                                    <th className="text-left py-2 pr-4 font-medium text-gray-500">{ __( 'Status', 'snel-newsletter' ) }</th>
-                                    <th className="text-left py-2 pr-4 font-medium text-gray-500">{ __( 'Error', 'snel-newsletter' ) }</th>
+                                    <th className="text-left py-2 pr-3 font-medium text-gray-500">{ __( 'Level', 'snel-newsletter' ) }</th>
+                                    <th className="text-left py-2 pr-3 font-medium text-gray-500">{ __( 'Context', 'snel-newsletter' ) }</th>
+                                    <th className="text-left py-2 pr-3 font-medium text-gray-500">{ __( 'Message', 'snel-newsletter' ) }</th>
+                                    <th className="text-left py-2 pr-3 font-medium text-gray-500">{ __( 'Data', 'snel-newsletter' ) }</th>
                                     <th className="text-left py-2 font-medium text-gray-500">{ __( 'Date', 'snel-newsletter' ) }</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 { logs.map( ( log ) => (
                                     <tr key={ log.id } className="border-b border-gray-50 hover:bg-gray-50">
-                                        <td className="py-2 pr-4 text-gray-700 font-mono">{ log.email }</td>
-                                        <td className="py-2 pr-4 text-gray-600">{ log.campaign || '—' }</td>
-                                        <td className="py-2 pr-4">
-                                            <span className={ `inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${ statusColor( log.status ) }` }>
-                                                { log.status }
+                                        <td className="py-2 pr-3">
+                                            <span className={ `inline-flex px-1.5 py-0.5 rounded font-medium ${ LEVEL_COLORS[ log.level ] || 'text-gray-600 bg-gray-50' }` }>
+                                                { log.level }
                                             </span>
                                         </td>
-                                        <td className="py-2 pr-4 text-gray-500 max-w-xs truncate" title={ log.error_message }>{ log.error_message || '—' }</td>
-                                        <td className="py-2 text-gray-400">{ log.created_at }</td>
+                                        <td className="py-2 pr-3 text-gray-500 font-mono">{ log.context }</td>
+                                        <td className="py-2 pr-3 text-gray-700">{ log.message }</td>
+                                        <td className="py-2 pr-3 text-gray-400 max-w-xs truncate font-mono" title={ log.data }>{ log.data || '—' }</td>
+                                        <td className="py-2 text-gray-400 whitespace-nowrap">{ log.created_at }</td>
                                     </tr>
                                 ) ) }
                             </tbody>

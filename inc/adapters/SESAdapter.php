@@ -65,6 +65,10 @@ class SESAdapter implements AdapterInterface {
 
         // Verify SNS signature before processing any notification.
         if ( ! $this->verify_sns_signature( $data ) ) {
+            \Snel\Newsletter\Logger\Logger::warning( 'webhook', 'SNS signature verification failed — request rejected', array(
+                'type'     => $data['Type'] ?? 'unknown',
+                'cert_url' => $data['SignatureCertURL'] ?? 'missing',
+            ) );
             return array();
         }
 

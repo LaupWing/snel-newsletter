@@ -120,66 +120,82 @@ class Controller {
     }
 
     /**
-     * Get error logs from the send queue.
+     * Get logs with optional level/context filters.
      */
     public function get_logs( \WP_REST_Request $request ) {
         global $wpdb;
 
-        $queue = $wpdb->prefix . 'snel_send_queue';
-        $subs  = $wpdb->prefix . 'snel_subscribers';
+        $table   = $wpdb->prefix . 'snel_newsletter_logs';
+        $level   = sanitize_text_field( $request->get_param( 'level' ) ?? '' );
+        $context = sanitize_text_field( $request->get_param( 'context' ) ?? '' );
 
-        $rows = $wpdb->get_results(
-            "SELECT q.id, q.status, q.retries, q.error_message, q.created_at, q.sent_at,
-                    s.email, p.post_title AS campaign
-             FROM $queue q
-             LEFT JOIN $subs s ON s.id = q.subscriber_id
-             LEFT JOIN {$wpdb->posts} p ON p.ID = q.campaign_id
-             WHERE q.status IN ('failed', 'retrying')
-             ORDER BY q.created_at DESC
-             LIMIT 200"
-        );
+        $where  = array( '1=1' );
+        $values = array();
+
+        if ( $level ) {
+            $where[]  = 'level = %s';
+            $values[] = $level;
+        }
+
+        if ( $context ) {
+            $where[]  = 'context = %s';
+            $values[] = $context;
+        }
+
+        $where_sql = implode( ' AND ', $where );
+        $sql       = "SELECT * FROM $table WHERE $where_sql ORDER BY created_at DESC LIMIT 500";
+        $rows      = $values
+            ? $wpdb->get_results( $wpdb->prepare( $sql, $values ) )
+            : $wpdb->get_results( $sql );
 
         return rest_ensure_response( array( 'logs' => $rows ?: array() ) );
     }
 
     /**
-     * Download error logs as CSV.
+     * Download all logs as CSV.
      */
     public function download_logs( \WP_REST_Request $request ) {
         global $wpdb;
 
-        $queue = $wpdb->prefix . 'snel_send_queue';
-        $subs  = $wpdb->prefix . 'snel_subscribers';
+        $table   = $wpdb->prefix . 'snel_newsletter_logs';
+        $level   = sanitize_text_field( $request->get_param( 'level' ) ?? '' );
+        $context = sanitize_text_field( $request->get_param( 'context' ) ?? '' );
 
-        $rows = $wpdb->get_results(
-            "SELECT q.id, q.status, q.retries, q.error_message, q.created_at, q.sent_at,
-                    s.email, p.post_title AS campaign
-             FROM $queue q
-             LEFT JOIN $subs s ON s.id = q.subscriber_id
-             LEFT JOIN {$wpdb->posts} p ON p.ID = q.campaign_id
-             WHERE q.status IN ('failed', 'retrying')
-             ORDER BY q.created_at DESC"
-        );
+        $where  = array( '1=1' );
+        $values = array();
 
-        $filename = 'snel-newsletter-errors-' . gmdate( 'Y-m-d' ) . '.csv';
+        if ( $level ) {
+            $where[]  = 'level = %s';
+            $values[] = $level;
+        }
+        if ( $context ) {
+            $where[]  = 'context = %s';
+            $values[] = $context;
+        }
+
+        $where_sql = implode( ' AND ', $where );
+        $sql       = "SELECT * FROM $table WHERE $where_sql ORDER BY created_at DESC";
+        $rows      = $values
+            ? $wpdb->get_results( $wpdb->prepare( $sql, $values ) )
+            : $wpdb->get_results( $sql );
+
+        $filename = 'snel-newsletter-logs-' . gmdate( 'Y-m-d' ) . '.csv';
 
         header( 'Content-Type: text/csv' );
         header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
         header( 'Pragma: no-cache' );
 
         $out = fopen( 'php://output', 'w' );
-        fputcsv( $out, array( 'ID', 'Campaign', 'Email', 'Status', 'Retries', 'Error', 'Created', 'Sent At' ) );
+        fputcsv( $out, array( 'ID', 'Level', 'Context', 'Message', 'Data', 'Created At' ) );
 
         foreach ( $rows as $row ) {
             fputcsv( $out, array(
                 $row->id,
-                $row->campaign,
-                $row->email,
-                $row->status,
-                $row->retries,
-                $row->error_message,
+                $row->level,
+                $row->context,
+                $row->message,
+                $row->data,
                 $row->created_at,
-                $row->sent_at,
             ) );
         }
 

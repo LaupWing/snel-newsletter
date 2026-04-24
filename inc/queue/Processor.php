@@ -117,6 +117,8 @@ class Processor {
             return;
         }
 
+        \Snel\Newsletter\Logger\Logger::info( 'queue', 'Batch started', array( 'count' => count( $rows ) ) );
+
         $inject_tracking = ! $adapter->handles_open_tracking() || ! $adapter->handles_click_tracking();
 
         foreach ( $rows as $row ) {
@@ -172,14 +174,25 @@ class Processor {
             } else {
                 $retries = $row->retries + 1;
                 $status  = $retries >= self::MAX_RETRIES ? 'failed' : 'retrying';
+                $error   = $result['error'] ?? 'Unknown error';
 
                 $wpdb->update( $queue, array(
                     'status'        => $status,
                     'retries'       => $retries,
-                    'error_message' => $result['error'] ?? 'Unknown error',
+                    'error_message' => $error,
                 ), array( 'id' => $row->id ) );
+
+                $level = $status === 'failed' ? 'error' : 'warning';
+                \Snel\Newsletter\Logger\Logger::$level( 'queue', 'Send ' . $status, array(
+                    'to'          => $row->email,
+                    'campaign_id' => $row->campaign_id,
+                    'retries'     => $retries,
+                    'error'       => $error,
+                ) );
             }
         }
+
+        \Snel\Newsletter\Logger\Logger::info( 'queue', 'Batch finished', array( 'count' => count( $rows ) ) );
 
         // Refresh open/click stats for all campaigns touched in this batch.
         $campaign_ids = array_unique( array_column( (array) $rows, 'campaign_id' ) );

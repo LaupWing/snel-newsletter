@@ -80,10 +80,15 @@ class Client {
         $result = $this->request( $params );
 
         if ( is_wp_error( $result ) ) {
+            $error = $result->get_error_message();
+            \Snel\Newsletter\Logger\Logger::error( 'ses', 'Send failed', array(
+                'to'    => $to_email,
+                'error' => $error,
+            ) );
             return array(
                 'success'    => false,
                 'message_id' => null,
-                'error'      => $result->get_error_message(),
+                'error'      => $error,
             );
         }
 
@@ -92,6 +97,11 @@ class Client {
         if ( preg_match( '/<MessageId>(.+?)<\/MessageId>/', $result, $matches ) ) {
             $message_id = $matches[1];
         }
+
+        \Snel\Newsletter\Logger\Logger::info( 'ses', 'Email sent', array(
+            'to'         => $to_email,
+            'message_id' => $message_id,
+        ) );
 
         return array(
             'success'    => true,

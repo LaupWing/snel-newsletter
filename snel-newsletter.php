@@ -18,6 +18,7 @@ define( 'SNEL_NEWSLETTER_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SNEL_NEWSLETTER_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
 // Load modules.
+require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/logger/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/admin.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/cpt.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/subscribers/index.php';
@@ -39,6 +40,7 @@ register_activation_hook( __FILE__, function () {
     Snel\Newsletter\Subscribers\Install::create_tables();
     Snel\Newsletter\Tracking\Install::create_tables();
     Snel\Newsletter\Queue\Install::create_tables();
+    Snel\Newsletter\Logger\Install::create_tables();
 } );
 
 // Auto-create tables on version update.
@@ -48,6 +50,7 @@ add_action( 'admin_init', function () {
         Snel\Newsletter\Subscribers\Install::create_tables();
         Snel\Newsletter\Tracking\Install::create_tables();
         Snel\Newsletter\Queue\Install::create_tables();
+        Snel\Newsletter\Logger\Install::create_tables();
         update_option( 'snel_newsletter_db_version', SNEL_NEWSLETTER_VERSION );
     }
 } );

@@ -107,6 +107,11 @@ class Controller {
         $adapter = \Snel\Newsletter\Adapters\Manager::get_active();
         $events  = $adapter->parse_webhook( $request );
 
+        \Snel\Newsletter\Logger\Logger::info( 'webhook', 'SNS notification received', array(
+            'events' => count( $events ),
+            'slug'   => $request->get_param( 'slug' ),
+        ) );
+
         $table = $wpdb->prefix . 'snel_subscribers';
 
         foreach ( $events as $event ) {
@@ -115,10 +120,13 @@ class Controller {
 
             if ( $event['type'] === 'bounce' ) {
                 $wpdb->update( $table, array( 'status' => 'bounced' ), array( 'email' => $email ), array( '%s' ), array( '%s' ) );
+                \Snel\Newsletter\Logger\Logger::warning( 'webhook', 'Hard bounce — subscriber marked bounced', array( 'email' => $email, 'reason' => $event['reason'] ?? '' ) );
             } elseif ( $event['type'] === 'complaint' ) {
                 $wpdb->update( $table, array( 'status' => 'complained' ), array( 'email' => $email ), array( '%s' ), array( '%s' ) );
+                \Snel\Newsletter\Logger\Logger::warning( 'webhook', 'Spam complaint — subscriber marked complained', array( 'email' => $email ) );
+            } elseif ( $event['type'] === 'soft_bounce' ) {
+                \Snel\Newsletter\Logger\Logger::info( 'webhook', 'Soft bounce — no action taken', array( 'email' => $email, 'reason' => $event['reason'] ?? '' ) );
             }
-            // soft_bounce: temporary failure — do not change subscriber status.
         }
 
         return rest_ensure_response( array( 'success' => true, 'processed' => count( $events ) ) );
