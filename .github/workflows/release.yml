@@ -31,6 +31,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install Composer dependencies
+        if: steps.check.outputs.exists == 'false'
+        run: composer install --no-dev --optimize-autoloader
+
       - name: Setup Node.js
         if: steps.check.outputs.exists == 'false'
         uses: actions/setup-node@v4
@@ -58,6 +62,8 @@ jobs:
                    --exclude='package.json' \
                    --exclude='package-lock.json' \
                    --exclude='postcss.config.js' \
+                   --exclude='composer.json' \
+                   --exclude='composer.lock' \
                    --exclude='src' \
                    ./ /tmp/snel-newsletter/
           cd /tmp && zip -r snel-newsletter.zip snel-newsletter/
