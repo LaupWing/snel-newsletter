@@ -252,6 +252,7 @@ function SenderSettings( { settings, setSettings } ) {
 }
 
 const LEVEL_COLORS = {
+    debug:   'text-gray-600 bg-gray-50',
     info:    'text-blue-600 bg-blue-50',
     warning: 'text-amber-600 bg-amber-50',
     error:   'text-red-600 bg-red-50',
@@ -313,6 +314,7 @@ function LogsTab() {
                         className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:border-blue-500"
                     >
                         <option value="">{ __( 'All levels', 'snel-newsletter' ) }</option>
+                        <option value="debug">Debug</option>
                         <option value="info">Info</option>
                         <option value="warning">Warning</option>
                         <option value="error">Error</option>

@@ -16,6 +16,10 @@ defined( 'ABSPATH' ) || exit;
 
 class Logger {
 
+    public static function debug( $context, $message, $data = array() ) {
+        self::write( 'debug', $context, $message, $data );
+    }
+
     public static function info( $context, $message, $data = array() ) {
         self::write( 'info', $context, $message, $data );
     }
@@ -26,6 +30,16 @@ class Logger {
 
     public static function error( $context, $message, $data = array() ) {
         self::write( 'error', $context, $message, $data );
+    }
+
+    public static function exception( $context, $message, \Throwable $e, $data = array() ) {
+        self::write( 'error', $context, $message, array_merge( $data, array(
+            'exception' => get_class( $e ),
+            'message'   => $e->getMessage(),
+            'file'      => $e->getFile(),
+            'line'      => $e->getLine(),
+            'trace'     => $e->getTraceAsString(),
+        ) ) );
     }
 
     private static function write( $level, $context, $message, $data = array() ) {
