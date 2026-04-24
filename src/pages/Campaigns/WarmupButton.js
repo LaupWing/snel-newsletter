@@ -15,11 +15,11 @@ function WarmupModal( { active, onEnable, onDisable, onClose } ) {
     return (
         <>
             <div className="fixed inset-0 bg-black/50 z-40" onClick={ onClose } />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-6 pointer-events-none">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg pointer-events-auto">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-6 pointer-events-none" style={ { paddingTop: '52px' } }>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg pointer-events-auto flex flex-col max-h-full">
 
                 { /* Header */ }
-                <div className="flex items-start justify-between px-6 pt-6 pb-4">
+                <div className="flex items-start justify-between px-6 pt-6 pb-4 shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-orange-50">
                             <Flame size={ 20 } className="text-orange-500" />
@@ -38,7 +38,7 @@ function WarmupModal( { active, onEnable, onDisable, onClose } ) {
                     </button>
                 </div>
 
-                <div className="px-6 pb-6 space-y-5">
+                <div className="px-6 pb-6 space-y-5 overflow-y-auto">
 
                     { /* Why warmup */ }
                     <div className="space-y-3">
