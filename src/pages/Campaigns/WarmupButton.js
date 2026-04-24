@@ -15,8 +15,8 @@ function WarmupModal( { active, onEnable, onDisable, onClose } ) {
     return (
         <>
             <div className="fixed inset-0 bg-black/50 z-40" onClick={ onClose } />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-6 pointer-events-none" style={ { paddingTop: '52px' } }>
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg pointer-events-auto flex flex-col max-h-full">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-6 pointer-events-none">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg pointer-events-auto flex flex-col max-h-[80vh]">
 
                 { /* Header */ }
                 <div className="flex items-start justify-between px-6 pt-6 pb-4 shrink-0">
