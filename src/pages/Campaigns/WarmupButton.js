@@ -38,7 +38,7 @@ function WarmupModal( { active, onEnable, onDisable, onClose } ) {
                     </button>
                 </div>
 
-                <div className="px-6 pb-6 space-y-5 overflow-y-auto">
+                <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1">
 
                     { /* Why warmup */ }
                     <div className="space-y-3">
@@ -88,7 +88,10 @@ function WarmupModal( { active, onEnable, onDisable, onClose } ) {
                         </div>
                     </div>
 
-                    { /* CTA */ }
+                </div>
+
+                { /* Footer CTA */ }
+                <div className="px-6 py-4 border-t border-gray-100 shrink-0">
                     { active ? (
                         <div className="flex items-center gap-3">
                             <div className="flex-1 bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
