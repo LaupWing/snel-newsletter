@@ -1,4 +1,8 @@
 {
+    "name": "snelstack/snel-newsletter",
+    "config": {
+        "autoloader-suffix": "SnelNewsletter"
+    },
     "require": {
         "yahnis-elsts/plugin-update-checker": "^5.6"
     }

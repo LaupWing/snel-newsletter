@@ -57,12 +57,12 @@ class Processor {
         foreach ( $ids as $id ) {
             $values[] = $campaign_id;
             $values[] = (int) $id;
-            $place[]  = '(%d, %d, %s)';
+            $place[]  = '(%d, %d)';
         }
 
         $place_sql = implode( ', ', $place );
         $wpdb->query( $wpdb->prepare(
-            "INSERT IGNORE INTO $queue (campaign_id, subscriber_id, status) VALUES $place_sql",
+            "INSERT IGNORE INTO $queue (campaign_id, subscriber_id) VALUES $place_sql",
             $values
         ) );
 
