@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Snel Newsletter
  * Description: Lightweight newsletter toolkit by Snelstack. Send, track, grow.
- * Version: 1.4.2
+ * Version: 1.4.3
  * Author: Snelstack
  * Author URI: https://snelstack.com
  * License: GPL v2 or later
@@ -24,7 +24,7 @@ if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
     );
 }
 
-define( 'SNEL_NEWSLETTER_VERSION', '1.4.2' );
+define( 'SNEL_NEWSLETTER_VERSION', '1.4.3' );
 define( 'SNEL_NEWSLETTER_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SNEL_NEWSLETTER_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
@@ -68,5 +68,24 @@ add_action( 'admin_init', function () {
         Snel\Newsletter\Logger\Install::create_tables();
         Snel\Newsletter\Warmup\Install::maybe_add_columns();
         update_option( 'snel_newsletter_db_version', SNEL_NEWSLETTER_VERSION );
+    }
+} );
+
+// Self-heal: reschedule the queue cron if it's gone but rows are still waiting.
+add_action( 'admin_init', function () {
+    if ( wp_next_scheduled( Snel\Newsletter\Queue\Processor::CRON_HOOK ) ) {
+        return;
+    }
+
+    global $wpdb;
+    $has_work = $wpdb->get_var(
+        "SELECT COUNT(*) FROM {$wpdb->prefix}snel_send_queue
+         WHERE status IN ('pending', 'retrying')
+            OR (status = 'delayed' AND delayed_until <= NOW())"
+    );
+
+    if ( $has_work ) {
+        wp_schedule_single_event( time() + 5, Snel\Newsletter\Queue\Processor::CRON_HOOK );
+        Snel\Newsletter\Logger\Logger::info( 'queue', 'Cron hook was missing — rescheduled by self-heal', array( 'rows' => (int) $has_work ) );
     }
 } );

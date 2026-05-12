@@ -102,6 +102,11 @@ class Processor {
         $reply_to   = $settings['reply_to'] ?? '';
 
         if ( ! $from_email || ! $adapter->is_configured() ) {
+            \Snel\Newsletter\Logger\Logger::error( 'queue', 'Batch aborted — missing from_email or adapter not configured', array(
+                'from_email'    => $from_email ?: '(empty)',
+                'is_configured' => $adapter->is_configured(),
+            ) );
+            wp_schedule_single_event( time() + self::CRON_INTERVAL, self::CRON_HOOK );
             return;
         }
 
