@@ -68,6 +68,18 @@ class Rest {
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
 
+        register_rest_route( $this->namespace, '/tags/(?P<tag>[^/]+)', array(
+            'methods'             => 'PUT',
+            'callback'            => array( $this->controller, 'rename_tag' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
+
+        register_rest_route( $this->namespace, '/tags/(?P<tag>[^/]+)', array(
+            'methods'             => 'DELETE',
+            'callback'            => array( $this->controller, 'delete_tag' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
+
         register_rest_route( $this->namespace, '/subscribers/import', array(
             'methods'             => 'POST',
             'callback'            => array( $this->controller, 'import' ),

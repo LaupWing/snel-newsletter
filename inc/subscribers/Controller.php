@@ -173,18 +173,65 @@ class Controller {
     }
 
     /**
-     * Bulk add tag to multiple subscribers.
+     * Bulk add/remove tags on multiple subscribers.
+     *
+     * Body: { ids: int[], add: string[], remove: string[] }
      */
     public function bulk_tag( \WP_REST_Request $request ) {
         $params = $request->get_json_params();
         $ids    = array_map( 'intval', $params['ids'] ?? array() );
-        $tag    = sanitize_text_field( $params['tag'] ?? '' );
+        $add    = array_map( 'sanitize_text_field', $params['add'] ?? array() );
+        $remove = array_map( 'sanitize_text_field', $params['remove'] ?? array() );
 
-        if ( empty( $ids ) || ! $tag ) {
-            return new \WP_Error( 'invalid', 'IDs and tag required.', array( 'status' => 400 ) );
+        if ( empty( $ids ) ) {
+            return new \WP_Error( 'invalid', 'IDs required.', array( 'status' => 400 ) );
         }
 
-        Model::bulk_add_tag( $ids, $tag );
+        foreach ( $add as $tag ) {
+            if ( $tag ) {
+                Model::bulk_add_tag( $ids, $tag );
+            }
+        }
+
+        foreach ( $remove as $tag ) {
+            if ( $tag ) {
+                Model::bulk_remove_tag( $ids, $tag );
+            }
+        }
+
+        return rest_ensure_response( array( 'success' => true ) );
+    }
+
+    /**
+     * Rename a tag globally.
+     *
+     * Body: { new_tag: string }
+     */
+    public function rename_tag( \WP_REST_Request $request ) {
+        $old_tag = sanitize_text_field( $request->get_param( 'tag' ) );
+        $params  = $request->get_json_params();
+        $new_tag = sanitize_text_field( $params['new_tag'] ?? '' );
+
+        if ( ! $old_tag || ! $new_tag ) {
+            return new \WP_Error( 'invalid', 'Old and new tag names required.', array( 'status' => 400 ) );
+        }
+
+        Model::rename_tag_global( $old_tag, $new_tag );
+
+        return rest_ensure_response( array( 'success' => true ) );
+    }
+
+    /**
+     * Delete a tag from all subscribers.
+     */
+    public function delete_tag( \WP_REST_Request $request ) {
+        $tag = sanitize_text_field( $request->get_param( 'tag' ) );
+
+        if ( ! $tag ) {
+            return new \WP_Error( 'invalid', 'Tag name required.', array( 'status' => 400 ) );
+        }
+
+        Model::delete_tag_global( $tag );
 
         return rest_ensure_response( array( 'success' => true ) );
     }

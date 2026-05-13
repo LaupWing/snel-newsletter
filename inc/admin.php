@@ -23,6 +23,7 @@ add_action( 'admin_menu', function () {
     add_submenu_page( 'snel-newsletter', __( 'Dashboard', 'snel-newsletter' ), __( 'Dashboard', 'snel-newsletter' ), 'manage_options', 'snel-newsletter', '__return_null' );
     add_submenu_page( 'snel-newsletter', __( 'Subscribers', 'snel-newsletter' ), __( 'Subscribers', 'snel-newsletter' ), 'manage_options', 'snel-newsletter-subscribers', function () { snel_newsletter_render_page( 'subscribers' ); } );
     add_submenu_page( 'snel-newsletter', __( 'Campaigns', 'snel-newsletter' ), __( 'Campaigns', 'snel-newsletter' ), 'manage_options', 'snel-newsletter-campaigns', function () { snel_newsletter_render_page( 'campaigns' ); } );
+    add_submenu_page( 'snel-newsletter', __( 'Tags', 'snel-newsletter' ), __( 'Tags', 'snel-newsletter' ), 'manage_options', 'snel-newsletter-tags', function () { snel_newsletter_render_page( 'tags' ); } );
     add_submenu_page( 'snel-newsletter', __( 'Settings', 'snel-newsletter' ), __( 'Settings', 'snel-newsletter' ), 'manage_options', 'snel-newsletter-settings', function () { snel_newsletter_render_page( 'settings' ); } );
 } );
 
@@ -39,6 +40,7 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
         'toplevel_page_snel-newsletter',
         'newsletter_page_snel-newsletter-subscribers',
         'newsletter_page_snel-newsletter-campaigns',
+        'newsletter_page_snel-newsletter-tags',
         'newsletter_page_snel-newsletter-settings',
     );
     if ( ! in_array( $hook, $pages, true ) ) {

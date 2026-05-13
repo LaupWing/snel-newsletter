@@ -239,6 +239,54 @@ class Model {
     }
 
     /**
+     * Remove a tag from multiple subscribers.
+     */
+    public static function bulk_remove_tag( $ids, $tag ) {
+        global $wpdb;
+        $tags_table = self::tags_table();
+        $ids_in     = implode( ',', array_map( 'intval', $ids ) );
+
+        $wpdb->query( $wpdb->prepare(
+            "DELETE FROM $tags_table WHERE subscriber_id IN ($ids_in) AND tag = %s",
+            $tag
+        ) );
+
+        return true;
+    }
+
+    /**
+     * Rename a tag across all subscribers.
+     */
+    public static function rename_tag_global( $old_tag, $new_tag ) {
+        global $wpdb;
+        $tags_table = self::tags_table();
+
+        // Insert new tag for subscribers who don't already have it.
+        $wpdb->query( $wpdb->prepare(
+            "INSERT IGNORE INTO $tags_table (subscriber_id, tag)
+             SELECT subscriber_id, %s FROM $tags_table WHERE tag = %s",
+            $new_tag, $old_tag
+        ) );
+
+        // Delete the old tag.
+        $wpdb->delete( $tags_table, array( 'tag' => $old_tag ), array( '%s' ) );
+
+        return true;
+    }
+
+    /**
+     * Delete a tag from all subscribers.
+     */
+    public static function delete_tag_global( $tag ) {
+        global $wpdb;
+        $tags_table = self::tags_table();
+
+        $wpdb->delete( $tags_table, array( 'tag' => $tag ), array( '%s' ) );
+
+        return true;
+    }
+
+    /**
      * Get all unique tags with counts.
      */
     public static function all_tags() {

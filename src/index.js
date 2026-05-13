@@ -3,6 +3,7 @@ import Dashboard from './pages/Dashboard';
 import Subscribers from './pages/Subscribers/index';
 import Campaigns from './pages/Campaigns/index';
 import Settings from './pages/Settings';
+import Tags from './pages/Tags/index';
 import './styles/main.css';
 
 const PAGES = {
@@ -10,6 +11,7 @@ const PAGES = {
     subscribers: Subscribers,
     campaigns: Campaigns,
     settings: Settings,
+    tags: Tags,
 };
 
 function mountApp() {

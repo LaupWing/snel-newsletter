@@ -6,6 +6,7 @@ import SubscriberRow from './SubscriberRow';
 import SubscriberDetail from './SubscriberDetail';
 import AddSubscriberModal from './AddSubscriberModal';
 import ImportCSVModal from './ImportCSVModal';
+import BulkTagModal from './BulkTagModal';
 
 const API_URL = window.snelNewsletter?.restUrl;
 const NONCE = window.snelNewsletter?.nonce;
@@ -26,6 +27,7 @@ export default function Subscribers() {
     const [ selected, setSelected ] = useState( [] );
     const [ showAddModal, setShowAddModal ] = useState( false );
     const [ showImportModal, setShowImportModal ] = useState( false );
+    const [ showBulkTagModal, setShowBulkTagModal ] = useState( false );
     const [ activeSubscriber, setActiveSubscriber ] = useState( null );
     const [ page, setPage ] = useState( 1 );
     const [ totalPages, setTotalPages ] = useState( 1 );
@@ -100,6 +102,16 @@ export default function Subscribers() {
             body: JSON.stringify( { ids: selected } ),
         } ).then( () => {
             setSelected( [] );
+            loadSubscribers();
+            loadTags();
+        } );
+    };
+
+    const handleBulkTag = ( { add, remove } ) => {
+        return api( '/subscribers/bulk-tag', {
+            method: 'POST',
+            body: JSON.stringify( { ids: selected, add, remove } ),
+        } ).then( () => {
             loadSubscribers();
             loadTags();
         } );
@@ -227,9 +239,9 @@ export default function Subscribers() {
                                 <Trash2 size={ 12 } />
                                 { __( 'Delete', 'snel-newsletter' ) }
                             </button>
-                            <button type="button" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
+                            <button type="button" onClick={ () => setShowBulkTagModal( true ) } className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
                                 <Tag size={ 12 } />
-                                { __( 'Add Tag', 'snel-newsletter' ) }
+                                { __( 'Edit Tags', 'snel-newsletter' ) }
                             </button>
                         </div>
                     ) }
@@ -298,6 +310,14 @@ export default function Subscribers() {
 
             { showAddModal && <AddSubscriberModal onClose={ () => setShowAddModal( false ) } allTags={ allTags } onAdd={ handleAdd } /> }
             { showImportModal && <ImportCSVModal onClose={ () => { setShowImportModal( false ); loadSubscribers(); loadTags(); } } allTags={ allTags } /> }
+            { showBulkTagModal && (
+                <BulkTagModal
+                    selectedCount={ selected.length }
+                    allTags={ allTags }
+                    onClose={ () => setShowBulkTagModal( false ) }
+                    onApply={ handleBulkTag }
+                />
+            ) }
         </div>
     );
 }
