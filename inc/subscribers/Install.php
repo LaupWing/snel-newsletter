@@ -17,6 +17,7 @@ class Install {
         $charset         = $wpdb->get_charset_collate();
         $subscribers     = $wpdb->prefix . 'snel_subscribers';
         $subscriber_tags = $wpdb->prefix . 'snel_subscriber_tags';
+        $tag_rules       = $wpdb->prefix . 'snel_tag_rules';
 
         $sql = "CREATE TABLE $subscribers (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -39,6 +40,17 @@ class Install {
             UNIQUE KEY subscriber_tag (subscriber_id, tag),
             KEY tag (tag),
             KEY subscriber_id (subscriber_id)
+        ) $charset;
+
+        CREATE TABLE $tag_rules (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            tag varchar(100) NOT NULL,
+            type varchar(20) NOT NULL DEFAULT 'static',
+            metric varchar(50) DEFAULT NULL,
+            operator varchar(10) DEFAULT NULL,
+            threshold float DEFAULT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY tag (tag)
         ) $charset;";
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';

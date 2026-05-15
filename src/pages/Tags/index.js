@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Tag, Pencil, Trash2, Check, X, Users } from 'lucide-react';
+import { Tag, Pencil, Trash2, Zap, RefreshCw } from 'lucide-react';
+import TagEditModal from './TagEditModal';
 
 const API_URL = window.snelNewsletter?.restUrl;
 const NONCE   = window.snelNewsletter?.nonce;
@@ -13,11 +14,10 @@ function api( path, opts = {} ) {
 }
 
 export default function Tags() {
-    const [ tags, setTags ] = useState( [] );
-    const [ loading, setLoading ] = useState( true );
+    const [ tags, setTags ]           = useState( [] );
+    const [ loading, setLoading ]     = useState( true );
     const [ editingTag, setEditingTag ] = useState( null );
-    const [ editValue, setEditValue ] = useState( '' );
-    const [ saving, setSaving ] = useState( false );
+    const [ syncing, setSyncing ]     = useState( null );
 
     const loadTags = useCallback( () => {
         setLoading( true );
@@ -29,39 +29,114 @@ export default function Tags() {
 
     useEffect( () => { loadTags(); }, [ loadTags ] );
 
-    const startEdit = ( tag ) => {
-        setEditingTag( tag.tag );
-        setEditValue( tag.tag );
-    };
-
-    const cancelEdit = () => {
-        setEditingTag( null );
-        setEditValue( '' );
-    };
-
-    const handleRename = ( oldTag ) => {
-        const newTag = editValue.trim().toLowerCase().replace( /[^a-z0-9-]/g, '-' ).replace( /-+/g, '-' );
-        if ( ! newTag || newTag === oldTag ) {
-            cancelEdit();
-            return;
-        }
-        setSaving( true );
-        api( `/tags/${ encodeURIComponent( oldTag ) }`, {
+    const handleSave = async ( oldTag, payload ) => {
+        const result = await api( `/tags/${ encodeURIComponent( oldTag ) }`, {
             method: 'PUT',
-            body: JSON.stringify( { new_tag: newTag } ),
-        } ).then( () => {
-            setSaving( false );
-            cancelEdit();
-            loadTags();
+            body: JSON.stringify( payload ),
         } );
+        loadTags();
+        return result;
     };
 
     const handleDelete = ( tag ) => {
         if ( ! confirm( `${ __( 'Delete tag', 'snel-newsletter' ) } "${ tag }"? ${ __( 'It will be removed from all subscribers.', 'snel-newsletter' ) }` ) ) return;
-        api( `/tags/${ encodeURIComponent( tag ) }`, { method: 'DELETE' } ).then( () => {
+        api( `/tags/${ encodeURIComponent( tag ) }`, { method: 'DELETE' } ).then( () => loadTags() );
+    };
+
+    const handleSync = ( tag ) => {
+        setSyncing( tag );
+        api( `/tags/${ encodeURIComponent( tag ) }/sync`, { method: 'POST' } ).then( ( res ) => {
+            setSyncing( null );
             loadTags();
+            alert( `${ res.matched } ${ __( 'subscriber(s) matched', 'snel-newsletter' ) }` );
         } );
     };
+
+    const staticTags  = tags.filter( ( t ) => t.type !== 'dynamic' );
+    const dynamicTags = tags.filter( ( t ) => t.type === 'dynamic' );
+
+    const METRIC_LABELS = {
+        open_rate:       'Open rate',
+        click_rate:      'Click rate',
+        opens:           'Total opens',
+        clicks:          'Total clicks',
+        emails_received: 'Emails received',
+    };
+
+    const OPERATOR_LABELS = {
+        gt: '>', gte: '≥', lt: '<', lte: '≤', eq: '=',
+    };
+
+    const renderTable = ( rows ) => (
+        <table className="w-full">
+            <thead>
+                <tr className="border-b border-gray-100 bg-gray-50/50">
+                    <th className="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Tag', 'snel-newsletter' ) }</th>
+                    <th className="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Subscribers', 'snel-newsletter' ) }</th>
+                    <th className="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Rule', 'snel-newsletter' ) }</th>
+                    <th className="px-5 py-2.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-28">{ __( 'Actions', 'snel-newsletter' ) }</th>
+                </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+                { rows.map( ( t ) => (
+                    <tr key={ t.tag } className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-5 py-3">
+                            <span className={ `inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${ t.type === 'dynamic'
+                                ? 'text-amber-700 bg-amber-50 border-amber-100'
+                                : 'text-purple-700 bg-purple-50 border-purple-100'
+                            }` }>
+                                { t.type === 'dynamic' ? <Zap size={ 10 } /> : <Tag size={ 10 } /> }
+                                { t.tag }
+                            </span>
+                        </td>
+                        <td className="px-5 py-3">
+                            <span className="text-sm text-gray-600">{ t.count }</span>
+                        </td>
+                        <td className="px-5 py-3">
+                            { t.type === 'dynamic' && t.metric ? (
+                                <span className="text-xs text-gray-500">
+                                    { METRIC_LABELS[ t.metric ] } { OPERATOR_LABELS[ t.operator ] } { t.threshold }{ ( t.metric === 'open_rate' || t.metric === 'click_rate' ) ? '%' : '' }
+                                </span>
+                            ) : (
+                                <span className="text-xs text-gray-300">—</span>
+                            ) }
+                        </td>
+                        <td className="px-5 py-3">
+                            <div className="flex items-center justify-end gap-1">
+                                { t.type === 'dynamic' && (
+                                    <button
+                                        type="button"
+                                        onClick={ () => handleSync( t.tag ) }
+                                        disabled={ syncing === t.tag }
+                                        className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors disabled:opacity-40"
+                                        title={ __( 'Sync now', 'snel-newsletter' ) }
+                                    >
+                                        <RefreshCw size={ 13 } className={ syncing === t.tag ? 'animate-spin' : '' } />
+                                    </button>
+                                ) }
+                                <button
+                                    type="button"
+                                    onClick={ () => setEditingTag( t ) }
+                                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                    title={ __( 'Edit', 'snel-newsletter' ) }
+                                >
+                                    <Pencil size={ 13 } />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={ () => handleDelete( t.tag ) }
+                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    title={ __( 'Delete', 'snel-newsletter' ) }
+                                >
+                                    <Trash2 size={ 13 } />
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                ) ) }
+            </tbody>
+        </table>
+    );
 
     return (
         <div className="p-6">
@@ -74,110 +149,48 @@ export default function Tags() {
                 </div>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-2">
-                    <Tag size={ 14 } className="text-gray-400" />
-                    <span className="text-sm font-semibold text-gray-900">{ __( 'All Tags', 'snel-newsletter' ) }</span>
-                    <span className="ml-1 px-2 py-0.5 text-xs text-gray-500 bg-gray-100 rounded-full">{ tags.length }</span>
+            { loading ? (
+                <div className="bg-white border border-gray-200 rounded-lg px-5 py-12 text-center text-sm text-gray-400">
+                    { __( 'Loading...', 'snel-newsletter' ) }
                 </div>
+            ) : tags.length === 0 ? (
+                <div className="bg-white border border-gray-200 rounded-lg px-5 py-12 text-center">
+                    <Tag size={ 32 } className="mx-auto text-gray-300 mb-3" />
+                    <p className="text-sm text-gray-500">{ __( 'No tags yet. Add tags to subscribers to see them here.', 'snel-newsletter' ) }</p>
+                </div>
+            ) : (
+                <div className="space-y-6">
+                    { dynamicTags.length > 0 && (
+                        <div className="bg-white border border-amber-100 rounded-lg overflow-hidden">
+                            <div className="px-5 py-3.5 border-b border-amber-50 flex items-center gap-2 bg-amber-50/50">
+                                <Zap size={ 14 } className="text-amber-500" />
+                                <span className="text-sm font-semibold text-amber-800">{ __( 'Dynamic Tags', 'snel-newsletter' ) }</span>
+                                <span className="ml-1 px-2 py-0.5 text-xs text-amber-600 bg-amber-100 rounded-full">{ dynamicTags.length }</span>
+                            </div>
+                            { renderTable( dynamicTags ) }
+                        </div>
+                    ) }
 
-                { loading ? (
-                    <div className="px-5 py-12 text-center text-sm text-gray-400">{ __( 'Loading...', 'snel-newsletter' ) }</div>
-                ) : tags.length === 0 ? (
-                    <div className="px-5 py-12 text-center">
-                        <Tag size={ 32 } className="mx-auto text-gray-300 mb-3" />
-                        <p className="text-sm text-gray-500">{ __( 'No tags yet. Add tags to subscribers to see them here.', 'snel-newsletter' ) }</p>
-                    </div>
-                ) : (
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-gray-100 bg-gray-50/50">
-                                <th className="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Tag', 'snel-newsletter' ) }</th>
-                                <th className="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    <div className="flex items-center gap-1">
-                                        <Users size={ 11 } />
-                                        { __( 'Subscribers', 'snel-newsletter' ) }
-                                    </div>
-                                </th>
-                                <th className="px-5 py-2.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-28">{ __( 'Actions', 'snel-newsletter' ) }</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            { tags.map( ( t ) => (
-                                <tr key={ t.tag } className="hover:bg-gray-50/50 transition-colors">
-                                    <td className="px-5 py-3">
-                                        { editingTag === t.tag ? (
-                                            <input
-                                                type="text"
-                                                value={ editValue }
-                                                onChange={ ( e ) => setEditValue( e.target.value ) }
-                                                onKeyDown={ ( e ) => {
-                                                    if ( e.key === 'Enter' ) handleRename( t.tag );
-                                                    if ( e.key === 'Escape' ) cancelEdit();
-                                                } }
-                                                autoFocus
-                                                className="px-2 py-1 border border-blue-400 rounded-md text-sm focus:outline-none focus:shadow-[0_0_0_1px_#3b82f6] w-48"
-                                            />
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-100 rounded-full">
-                                                <Tag size={ 10 } />
-                                                { t.tag }
-                                            </span>
-                                        ) }
-                                    </td>
-                                    <td className="px-5 py-3">
-                                        <span className="text-sm text-gray-600">{ t.count }</span>
-                                    </td>
-                                    <td className="px-5 py-3">
-                                        <div className="flex items-center justify-end gap-1">
-                                            { editingTag === t.tag ? (
-                                                <>
-                                                    <button
-                                                        type="button"
-                                                        onClick={ () => handleRename( t.tag ) }
-                                                        disabled={ saving }
-                                                        className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-40"
-                                                        title={ __( 'Save', 'snel-newsletter' ) }
-                                                    >
-                                                        <Check size={ 14 } />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={ cancelEdit }
-                                                        className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
-                                                        title={ __( 'Cancel', 'snel-newsletter' ) }
-                                                    >
-                                                        <X size={ 14 } />
-                                                    </button>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <button
-                                                        type="button"
-                                                        onClick={ () => startEdit( t ) }
-                                                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                        title={ __( 'Rename', 'snel-newsletter' ) }
-                                                    >
-                                                        <Pencil size={ 13 } />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={ () => handleDelete( t.tag ) }
-                                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                        title={ __( 'Delete', 'snel-newsletter' ) }
-                                                    >
-                                                        <Trash2 size={ 13 } />
-                                                    </button>
-                                                </>
-                                            ) }
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) ) }
-                        </tbody>
-                    </table>
-                ) }
-            </div>
+                    { staticTags.length > 0 && (
+                        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                            <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-2">
+                                <Tag size={ 14 } className="text-gray-400" />
+                                <span className="text-sm font-semibold text-gray-900">{ __( 'Static Tags', 'snel-newsletter' ) }</span>
+                                <span className="ml-1 px-2 py-0.5 text-xs text-gray-500 bg-gray-100 rounded-full">{ staticTags.length }</span>
+                            </div>
+                            { renderTable( staticTags ) }
+                        </div>
+                    ) }
+                </div>
+            ) }
+
+            { editingTag && (
+                <TagEditModal
+                    tag={ editingTag }
+                    onClose={ () => setEditingTag( null ) }
+                    onSave={ handleSave }
+                />
+            ) }
         </div>
     );
 }

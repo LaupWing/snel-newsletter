@@ -80,6 +80,12 @@ class Rest {
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
 
+        register_rest_route( $this->namespace, '/tags/(?P<tag>[^/]+)/sync', array(
+            'methods'             => 'POST',
+            'callback'            => array( $this->controller, 'sync_tag' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
+
         register_rest_route( $this->namespace, '/subscribers/import', array(
             'methods'             => 'POST',
             'callback'            => array( $this->controller, 'import' ),

@@ -11,8 +11,9 @@ defined( 'ABSPATH' ) || exit;
 
 class Model {
 
-    private static $table = 'snel_subscribers';
-    private static $tags_table = 'snel_subscriber_tags';
+    private static $table       = 'snel_subscribers';
+    private static $tags_table  = 'snel_subscriber_tags';
+    private static $rules_table = 'snel_tag_rules';
 
     private static function table() {
         global $wpdb;
@@ -22,6 +23,11 @@ class Model {
     private static function tags_table() {
         global $wpdb;
         return $wpdb->prefix . self::$tags_table;
+    }
+
+    private static function rules_table() {
+        global $wpdb;
+        return $wpdb->prefix . self::$rules_table;
     }
 
     /**
@@ -287,13 +293,143 @@ class Model {
     }
 
     /**
-     * Get all unique tags with counts.
+     * Get all unique tags with counts and rule info.
      */
     public static function all_tags() {
         global $wpdb;
-        $tags_table = self::tags_table();
+        $tags_table  = self::tags_table();
+        $rules_table = self::rules_table();
 
-        return $wpdb->get_results( "SELECT tag, COUNT(*) as count FROM $tags_table GROUP BY tag ORDER BY tag ASC" ) ?: array();
+        return $wpdb->get_results(
+            "SELECT t.tag, COUNT(*) as count,
+                    COALESCE(r.type, 'static') as type,
+                    r.metric, r.operator, r.threshold
+             FROM $tags_table t
+             LEFT JOIN $rules_table r ON r.tag = t.tag
+             GROUP BY t.tag, r.type, r.metric, r.operator, r.threshold
+             ORDER BY t.tag ASC"
+        ) ?: array();
+    }
+
+    /**
+     * Save rule for a tag (upsert).
+     */
+    public static function save_tag_rule( $tag, $type, $metric = null, $operator = null, $threshold = null ) {
+        global $wpdb;
+        $rules_table = self::rules_table();
+
+        $existing = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $rules_table WHERE tag = %s", $tag ) );
+
+        if ( $existing ) {
+            $wpdb->update(
+                $rules_table,
+                array(
+                    'type'      => $type,
+                    'metric'    => $metric,
+                    'operator'  => $operator,
+                    'threshold' => $threshold,
+                ),
+                array( 'tag' => $tag ),
+                array( '%s', '%s', '%s', '%f' ),
+                array( '%s' )
+            );
+        } else {
+            $wpdb->insert(
+                $rules_table,
+                array(
+                    'tag'       => $tag,
+                    'type'      => $type,
+                    'metric'    => $metric,
+                    'operator'  => $operator,
+                    'threshold' => $threshold,
+                ),
+                array( '%s', '%s', '%s', '%s', '%f' )
+            );
+        }
+
+        return true;
+    }
+
+    /**
+     * Evaluate a dynamic tag rule and sync subscriber_tags for it.
+     * Returns count of subscribers now tagged.
+     */
+    public static function sync_dynamic_tag( $tag ) {
+        global $wpdb;
+
+        $rules_table    = self::rules_table();
+        $tags_table     = self::tags_table();
+        $tracking_table = $wpdb->prefix . 'snel_tracking';
+        $subs_table     = self::table();
+
+        $rule = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM $rules_table WHERE tag = %s AND type = 'dynamic'",
+            $tag
+        ) );
+
+        if ( ! $rule || ! $rule->metric || ! $rule->operator || $rule->threshold === null ) {
+            return 0;
+        }
+
+        $op_map = array(
+            'gt'  => '>',
+            'gte' => '>=',
+            'lt'  => '<',
+            'lte' => '<=',
+            'eq'  => '=',
+        );
+
+        $sql_op = $op_map[ $rule->operator ] ?? null;
+        if ( ! $sql_op ) return 0;
+
+        $threshold = (float) $rule->threshold;
+
+        // Build the subquery for the metric value per subscriber.
+        switch ( $rule->metric ) {
+            case 'open_rate':
+                // (distinct opens / distinct campaigns received) * 100
+                $metric_expr = "ROUND(SUM(CASE WHEN tr.type = 'open' THEN 1 ELSE 0 END) / COUNT(DISTINCT tr.campaign_id) * 100, 2)";
+                break;
+            case 'click_rate':
+                $metric_expr = "ROUND(COUNT(DISTINCT CASE WHEN tr.type = 'click' THEN tr.campaign_id END) / COUNT(DISTINCT tr.campaign_id) * 100, 2)";
+                break;
+            case 'opens':
+                $metric_expr = "SUM(CASE WHEN tr.type = 'open' THEN 1 ELSE 0 END)";
+                break;
+            case 'clicks':
+                $metric_expr = "SUM(CASE WHEN tr.type = 'click' THEN 1 ELSE 0 END)";
+                break;
+            case 'emails_received':
+                $metric_expr = "COUNT(DISTINCT tr.campaign_id)";
+                break;
+            default:
+                return 0;
+        }
+
+        // Find matching subscriber IDs.
+        $matching_ids = $wpdb->get_col( $wpdb->prepare(
+            "SELECT s.id
+             FROM $subs_table s
+             INNER JOIN $tracking_table tr ON tr.subscriber_id = s.id
+             GROUP BY s.id
+             HAVING $metric_expr $sql_op %f",
+            $threshold
+        ) );
+
+        // Clear all current assignments for this dynamic tag.
+        $wpdb->delete( $tags_table, array( 'tag' => $tag ), array( '%s' ) );
+
+        // Re-insert matching.
+        if ( $matching_ids ) {
+            foreach ( $matching_ids as $id ) {
+                $wpdb->query( $wpdb->prepare(
+                    "INSERT IGNORE INTO $tags_table (subscriber_id, tag) VALUES (%d, %s)",
+                    (int) $id, $tag
+                ) );
+            }
+        }
+
+        return count( $matching_ids );
     }
 
     /**

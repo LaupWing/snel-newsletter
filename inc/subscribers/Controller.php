@@ -203,22 +203,43 @@ class Controller {
     }
 
     /**
-     * Rename a tag globally.
+     * Update a tag — rename and/or set rule.
      *
-     * Body: { new_tag: string }
+     * Body: { new_tag?: string, type: 'static'|'dynamic', metric?: string, operator?: string, threshold?: float }
      */
     public function rename_tag( \WP_REST_Request $request ) {
         $old_tag = sanitize_text_field( $request->get_param( 'tag' ) );
         $params  = $request->get_json_params();
-        $new_tag = sanitize_text_field( $params['new_tag'] ?? '' );
+        $new_tag = sanitize_text_field( $params['new_tag'] ?? $old_tag );
+        $type    = in_array( $params['type'] ?? 'static', array( 'static', 'dynamic' ), true )
+                   ? $params['type']
+                   : 'static';
 
-        if ( ! $old_tag || ! $new_tag ) {
-            return new \WP_Error( 'invalid', 'Old and new tag names required.', array( 'status' => 400 ) );
+        if ( ! $old_tag ) {
+            return new \WP_Error( 'invalid', 'Tag name required.', array( 'status' => 400 ) );
         }
 
-        Model::rename_tag_global( $old_tag, $new_tag );
+        // Rename in subscriber_tags if the name changed.
+        if ( $new_tag && $new_tag !== $old_tag ) {
+            Model::rename_tag_global( $old_tag, $new_tag );
+        }
 
-        return rest_ensure_response( array( 'success' => true ) );
+        $target_tag = ( $new_tag && $new_tag !== $old_tag ) ? $new_tag : $old_tag;
+
+        // Save rule (always upsert so static tags also get a row with type=static).
+        $metric    = $type === 'dynamic' ? sanitize_text_field( $params['metric'] ?? '' ) : null;
+        $operator  = $type === 'dynamic' ? sanitize_text_field( $params['operator'] ?? '' ) : null;
+        $threshold = $type === 'dynamic' && isset( $params['threshold'] ) ? (float) $params['threshold'] : null;
+
+        Model::save_tag_rule( $target_tag, $type, $metric ?: null, $operator ?: null, $threshold );
+
+        // Auto-sync if dynamic.
+        $synced = null;
+        if ( $type === 'dynamic' && $metric && $operator && $threshold !== null ) {
+            $synced = Model::sync_dynamic_tag( $target_tag );
+        }
+
+        return rest_ensure_response( array( 'success' => true, 'synced' => $synced ) );
     }
 
     /**
@@ -234,5 +255,20 @@ class Controller {
         Model::delete_tag_global( $tag );
 
         return rest_ensure_response( array( 'success' => true ) );
+    }
+
+    /**
+     * Manually sync a dynamic tag.
+     */
+    public function sync_tag( \WP_REST_Request $request ) {
+        $tag = sanitize_text_field( $request->get_param( 'tag' ) );
+
+        if ( ! $tag ) {
+            return new \WP_Error( 'invalid', 'Tag name required.', array( 'status' => 400 ) );
+        }
+
+        $count = Model::sync_dynamic_tag( $tag );
+
+        return rest_ensure_response( array( 'success' => true, 'matched' => $count ) );
     }
 }
