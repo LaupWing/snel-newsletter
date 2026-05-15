@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "snel/newsletter-button",
+  "version": "1.0.0",
+  "title": "Newsletter Button",
+  "category": "snel-newsletter",
+  "icon": "button",
+  "description": "Email-safe CTA button for newsletters.",
+  "keywords": [
+    "button",
+    "cta",
+    "link",
+    "newsletter"
+  ],
+  "textdomain": "snel-newsletter",
+  "editorScript": "file:./index.js",
+  "attributes": {
+    "text": {
+      "type": "string",
+      "default": "Click here"
+    },
+    "url": {
+      "type": "string",
+      "default": ""
+    },
+    "backgroundColor": {
+      "type": "string",
+      "default": "#3b82f6"
+    },
+    "textColor": {
+      "type": "string",
+      "default": "#ffffff"
+    },
+    "align": {
+      "type": "string",
+      "default": "center"
+    },
+    "borderRadius": {
+      "type": "number",
+      "default": 6
+    }
+  }
+}
