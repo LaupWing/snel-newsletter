@@ -136,11 +136,14 @@ class Controller {
      * Bulk import subscribers.
      */
     public function import( \WP_REST_Request $request ) {
-        $params     = $request->get_json_params();
-        $rows       = $params['subscribers'] ?? array();
-        $tags       = array_map( 'sanitize_text_field', $params['tags'] ?? array() );
-        $imported   = 0;
-        $skipped    = 0;
+        $params   = $request->get_json_params();
+        $rows     = $params['subscribers'] ?? array();
+        $tags     = array_map( 'sanitize_text_field', $params['tags'] ?? array() );
+        $status   = in_array( $params['status'] ?? 'active', array( 'active', 'inactive' ), true )
+                    ? ( $params['status'] ?? 'active' )
+                    : 'active';
+        $imported = 0;
+        $skipped  = 0;
 
         foreach ( $rows as $row ) {
             $email = sanitize_email( $row['email'] ?? '' );
@@ -151,7 +154,7 @@ class Controller {
                 continue;
             }
 
-            $id = Model::create( $email, $name );
+            $id = Model::create( $email, $name, $status );
 
             if ( ! $id ) {
                 $skipped++;

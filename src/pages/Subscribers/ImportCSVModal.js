@@ -68,6 +68,7 @@ export default function ImportCSVModal( { onClose, allTags } ) {
     const [ csvRows, setCsvRows ] = useState( [] );
     const [ mapping, setMapping ] = useState( { email: '', name: '', source: '' } );
     const [ importTags, setImportTags ] = useState( [] );
+    const [ importInactive, setImportInactive ] = useState( false );
     const [ aiExtract, setAiExtract ] = useState( false );
     const [ aiLoading, setAiLoading ] = useState( false );
     const [ previewRows, setPreviewRows ] = useState( [] );
@@ -193,6 +194,7 @@ export default function ImportCSVModal( { onClose, allTags } ) {
                 body: JSON.stringify( {
                     subscribers: batches[ index ].map( ( r ) => ( { email: r.email, name: r.name } ) ),
                     tags: importTags,
+                    status: importInactive ? 'inactive' : 'active',
                 } ),
             } ).then( ( data ) => {
                 totalImported += data.imported || 0;
@@ -208,7 +210,7 @@ export default function ImportCSVModal( { onClose, allTags } ) {
 
     return (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={ onClose }>
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl" onClick={ ( e ) => e.stopPropagation() }>
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={ ( e ) => e.stopPropagation() }>
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                     <div className="flex items-center gap-3">
@@ -248,7 +250,7 @@ export default function ImportCSVModal( { onClose, allTags } ) {
                     } ) }
                 </div>
 
-                <div className="p-6">
+                <div className="p-6 overflow-y-auto flex-1">
                     {/* Step 1: Upload */}
                     { step === 'upload' && (
                         <div
@@ -323,6 +325,18 @@ export default function ImportCSVModal( { onClose, allTags } ) {
                                 <p className="text-xs font-medium text-gray-700 mb-2">{ __( 'Assign tags to all imported subscribers', 'snel-newsletter' ) }</p>
                                 <TagPicker allTags={ allTags } selectedTags={ importTags } onChange={ setImportTags } />
                             </div>
+
+                            {/* Import status */}
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={ importInactive }
+                                    onChange={ ( e ) => setImportInactive( e.target.checked ) }
+                                    className="w-4 h-4 rounded border-gray-300 text-blue-600"
+                                />
+                                <span className="text-xs text-gray-700">{ __( 'Import as inactive', 'snel-newsletter' ) }</span>
+                                <span className="text-xs text-gray-400">{ __( '(subscribers won\'t receive emails until activated)', 'snel-newsletter' ) }</span>
+                            </label>
 
                             {/* CSV preview table */}
                             <div>

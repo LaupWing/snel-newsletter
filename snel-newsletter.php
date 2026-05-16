@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Snel Newsletter
  * Description: Lightweight newsletter toolkit by Snelstack. Send, track, grow.
- * Version: 1.4.5
+ * Version: 1.4.6
  * Author: Snelstack
  * Author URI: https://snelstack.com
  * License: GPL v2 or later

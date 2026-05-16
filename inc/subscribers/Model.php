@@ -149,7 +149,7 @@ class Model {
             $format[]       = '%s';
         }
 
-        if ( isset( $data['status'] ) && in_array( $data['status'], array( 'active', 'unsubscribed', 'bounced', 'complained' ), true ) ) {
+        if ( isset( $data['status'] ) && in_array( $data['status'], array( 'active', 'inactive', 'unsubscribed', 'bounced', 'complained' ), true ) ) {
             $update['status'] = $data['status'];
             $format[]         = '%s';
         }
