@@ -47,6 +47,21 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
         return;
     }
 
+    // Refresh open/click counts for all sent campaigns from the tracking table.
+    $sent_ids = get_posts( array(
+        'post_type'      => 'snel_newsletter',
+        'post_status'    => 'publish',
+        'meta_key'       => '_snel_nl_send_status',
+        'meta_value'     => 'sent',
+        'fields'         => 'ids',
+        'numberposts'    => -1,
+    ) );
+    foreach ( $sent_ids as $cid ) {
+        $stats = \Snel\Newsletter\Tracking\Model::campaign_stats( $cid );
+        update_post_meta( $cid, '_snel_nl_opened', $stats['opens'] );
+        update_post_meta( $cid, '_snel_nl_clicked', $stats['unique_clicks'] );
+    }
+
     $asset_file = SNEL_NEWSLETTER_PLUGIN_DIR . 'build/index.asset.php';
     error_log( '[snel-newsletter] enqueue_scripts hook fired, hook: ' . $hook );
     error_log( '[snel-newsletter] asset file path: ' . $asset_file );

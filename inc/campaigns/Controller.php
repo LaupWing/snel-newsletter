@@ -75,8 +75,8 @@ class Controller {
 
         $subscribers = $wpdb->get_results( $wpdb->prepare(
             "SELECT q.subscriber_id, q.status, q.sent_at, s.email, s.name,
-                    MAX(CASE WHEN t.event = 'open'  THEN 1 ELSE 0 END) AS opened,
-                    MAX(CASE WHEN t.event = 'click' THEN 1 ELSE 0 END) AS clicked
+                    MAX(CASE WHEN t.type = 'open'  THEN 1 ELSE 0 END) AS opened,
+                    MAX(CASE WHEN t.type = 'click' THEN 1 ELSE 0 END) AS clicked
              FROM $queue q
              INNER JOIN $subs s ON s.id = q.subscriber_id
              LEFT JOIN $tracking t ON t.campaign_id = q.campaign_id AND t.subscriber_id = q.subscriber_id
