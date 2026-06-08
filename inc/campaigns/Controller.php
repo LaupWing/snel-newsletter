@@ -28,6 +28,38 @@ class Controller {
     }
 
     /**
+     * Aggregate stats + recent campaigns for the dashboard overview.
+     */
+    public function dashboard( \WP_REST_Request $request ) {
+        $subscribers = \Snel\Newsletter\Subscribers\Model::counts();
+        $campaigns   = Model::counts();
+        $performance = Model::performance();
+        $recent      = Model::list( array( 'per_page' => 5 ) );
+
+        $recent_campaigns = array_map( function ( $c ) {
+            $recipients = (int) $c['recipients'];
+            return array(
+                'id'         => $c['id'],
+                'subject'    => $c['subject'],
+                'status'     => $c['status'],
+                'recipients' => $recipients,
+                'open_rate'  => $recipients > 0 ? (int) round( (int) $c['opened'] / $recipients * 100 ) : 0,
+                'click_rate' => $recipients > 0 ? (int) round( (int) $c['clicked'] / $recipients * 100 ) : 0,
+                'sent_at'    => $c['sent_at'],
+                'created_at' => $c['created_at'],
+            );
+        }, $recent['campaigns'] );
+
+        return rest_ensure_response( array(
+            'subscribers'     => (int) ( $subscribers['active'] ?? 0 ),
+            'campaignsSent'   => (int) ( $campaigns['sent'] ?? 0 ),
+            'avgOpenRate'     => $performance['avg_open_rate'],
+            'avgClickRate'    => $performance['avg_click_rate'],
+            'recentCampaigns' => $recent_campaigns,
+        ) );
+    }
+
+    /**
      * Get a single campaign.
      */
     public function get( \WP_REST_Request $request ) {

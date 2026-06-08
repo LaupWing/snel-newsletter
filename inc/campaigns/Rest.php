@@ -20,6 +20,12 @@ class Rest {
     }
 
     public function register_routes() {
+        register_rest_route( $this->namespace, '/dashboard', array(
+            'methods'             => 'GET',
+            'callback'            => array( $this->controller, 'dashboard' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
+
         register_rest_route( $this->namespace, '/campaigns', array(
             'methods'             => 'GET',
             'callback'            => array( $this->controller, 'list' ),

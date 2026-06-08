@@ -1,33 +1,31 @@
-import { useState } from '@wordpress/element';
+import { useState, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Users, Send, Mail, MousePointerClick, ArrowRight, TrendingUp, TrendingDown, Clock, Eye, BarChart3 } from 'lucide-react';
+import { Users, Send, Mail, MousePointerClick, ArrowRight, TrendingUp, Clock, Eye, BarChart3 } from 'lucide-react';
 
-// Mock data — will be replaced with REST API calls.
-const MOCK_STATS = {
-    subscribers: { total: 0, trend: 0 },
-    campaigns: { total: 0, trend: 0 },
-    avgOpenRate: { value: 0, trend: 0 },
-    avgCtr: { value: 0, trend: 0 },
+const API_URL = window.snelNewsletter?.restUrl;
+const NONCE = window.snelNewsletter?.nonce;
+
+function api( path, opts = {} ) {
+    return fetch( `${ API_URL }${ path }`, {
+        headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+        ...opts,
+    } ).then( ( r ) => r.json() );
+}
+
+const EMPTY_STATS = {
+    subscribers: 0,
+    campaignsSent: 0,
+    avgOpenRate: 0,
+    avgClickRate: 0,
 };
 
-const MOCK_CAMPAIGNS = [];
-
-function StatCard( { icon: Icon, iconBg, iconColor, label, value, suffix, trend } ) {
-    const trendUp = trend > 0;
-    const trendDown = trend < 0;
-
+function StatCard( { icon: Icon, iconBg, iconColor, label, value, suffix } ) {
     return (
         <div className="bg-white border border-gray-200 rounded-lg p-5">
             <div className="flex items-center justify-between mb-3">
                 <div className={ `w-8 h-8 ${ iconBg } rounded-lg flex items-center justify-center` }>
                     <Icon size={ 16 } className={ iconColor } />
                 </div>
-                { trend !== 0 && (
-                    <div className={ `flex items-center gap-1 text-xs font-medium ${ trendUp ? 'text-emerald-600' : 'text-red-500' }` }>
-                        { trendUp ? <TrendingUp size={ 12 } /> : <TrendingDown size={ 12 } /> }
-                        { Math.abs( trend ) }%
-                    </div>
-                ) }
             </div>
             <p className="text-2xl font-bold text-gray-900">
                 { value }{ suffix && <span className="text-sm font-normal text-gray-400 ml-0.5">{ suffix }</span> }
@@ -76,8 +74,21 @@ function CampaignRow( { campaign } ) {
 }
 
 export default function Dashboard() {
-    const [ stats ] = useState( MOCK_STATS );
-    const [ campaigns ] = useState( MOCK_CAMPAIGNS );
+    const [ stats, setStats ] = useState( EMPTY_STATS );
+    const [ campaigns, setCampaigns ] = useState( [] );
+
+    useEffect( () => {
+        api( '/dashboard' ).then( ( data ) => {
+            if ( ! data ) return;
+            setStats( {
+                subscribers: data.subscribers || 0,
+                campaignsSent: data.campaignsSent || 0,
+                avgOpenRate: data.avgOpenRate || 0,
+                avgClickRate: data.avgClickRate || 0,
+            } );
+            setCampaigns( data.recentCampaigns || [] );
+        } ).catch( () => {} );
+    }, [] );
 
     return (
         <div className="p-6">
@@ -98,34 +109,30 @@ export default function Dashboard() {
                     iconBg="bg-blue-50"
                     iconColor="text-blue-600"
                     label={ __( 'Total Subscribers', 'snel-newsletter' ) }
-                    value={ stats.subscribers.total }
-                    trend={ stats.subscribers.trend }
+                    value={ stats.subscribers }
                 />
                 <StatCard
                     icon={ Send }
                     iconBg="bg-purple-50"
                     iconColor="text-purple-600"
                     label={ __( 'Campaigns Sent', 'snel-newsletter' ) }
-                    value={ stats.campaigns.total }
-                    trend={ stats.campaigns.trend }
+                    value={ stats.campaignsSent }
                 />
                 <StatCard
                     icon={ Mail }
                     iconBg="bg-emerald-50"
                     iconColor="text-emerald-600"
                     label={ __( 'Avg. Open Rate', 'snel-newsletter' ) }
-                    value={ stats.avgOpenRate.value }
+                    value={ stats.avgOpenRate }
                     suffix="%"
-                    trend={ stats.avgOpenRate.trend }
                 />
                 <StatCard
                     icon={ MousePointerClick }
                     iconBg="bg-amber-50"
                     iconColor="text-amber-600"
                     label={ __( 'Avg. Click Rate', 'snel-newsletter' ) }
-                    value={ stats.avgCtr.value }
+                    value={ stats.avgClickRate }
                     suffix="%"
-                    trend={ stats.avgCtr.trend }
                 />
             </div>
 

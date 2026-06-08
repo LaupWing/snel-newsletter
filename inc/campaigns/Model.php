@@ -105,6 +105,35 @@ class Model {
     }
 
     /**
+     * Pooled open/click rates across all sent (published) campaigns.
+     * Rate = total opens|clicks / total recipients, so larger campaigns
+     * weigh proportionally. Returns whole-number percentages.
+     */
+    public static function performance() {
+        global $wpdb;
+
+        $row = $wpdb->get_row( $wpdb->prepare(
+            "SELECT
+                COALESCE( SUM( CAST( r.meta_value AS UNSIGNED ) ), 0 ) AS recipients,
+                COALESCE( SUM( CAST( o.meta_value AS UNSIGNED ) ), 0 ) AS opened,
+                COALESCE( SUM( CAST( c.meta_value AS UNSIGNED ) ), 0 ) AS clicked
+             FROM {$wpdb->posts} p
+             LEFT JOIN {$wpdb->postmeta} r ON r.post_id = p.ID AND r.meta_key = '_snel_nl_total_recipients'
+             LEFT JOIN {$wpdb->postmeta} o ON o.post_id = p.ID AND o.meta_key = '_snel_nl_opened'
+             LEFT JOIN {$wpdb->postmeta} c ON c.post_id = p.ID AND c.meta_key = '_snel_nl_clicked'
+             WHERE p.post_type = %s AND p.post_status = 'publish'",
+            self::$post_type
+        ) );
+
+        $recipients = (int) ( $row->recipients ?? 0 );
+
+        return array(
+            'avg_open_rate'  => $recipients > 0 ? (int) round( (int) $row->opened / $recipients * 100 ) : 0,
+            'avg_click_rate' => $recipients > 0 ? (int) round( (int) $row->clicked / $recipients * 100 ) : 0,
+        );
+    }
+
+    /**
      * Get a single campaign by ID.
      */
     public static function find( $id ) {
