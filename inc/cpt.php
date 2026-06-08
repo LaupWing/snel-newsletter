@@ -27,9 +27,26 @@ add_action( 'init', function () {
         'show_ui'      => true,
         'show_in_menu' => false, // We handle the menu ourselves.
         'show_in_rest' => true,  // Required for Gutenberg.
-        'supports'     => array( 'title', 'editor' ),
+        'supports'     => array( 'title', 'editor', 'custom-fields' ),
         'has_archive'  => false,
         'rewrite'      => false,
+    ) );
+
+    // Recipient tags chosen in the editor sidebar. Exposed to REST so the
+    // block editor can persist the selection to post meta.
+    register_post_meta( 'snel_newsletter', '_snel_nl_tags', array(
+        'type'          => 'array',
+        'single'        => true,
+        'default'       => array(),
+        'show_in_rest'  => array(
+            'schema' => array(
+                'type'  => 'array',
+                'items' => array( 'type' => 'string' ),
+            ),
+        ),
+        'auth_callback' => function () {
+            return current_user_can( 'edit_posts' );
+        },
     ) );
 } );
 

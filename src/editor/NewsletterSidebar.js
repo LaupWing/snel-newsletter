@@ -1,7 +1,7 @@
 import { useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { PluginDocumentSettingPanel } from '@wordpress/editor';
-import { useSelect } from '@wordpress/data';
+import { useSelect, useDispatch } from '@wordpress/data';
 import { Users, Send, Tag, Mail, Eye, Loader2, CheckCircle } from 'lucide-react';
 import EmailPreviewModal from './EmailPreviewModal';
 
@@ -18,8 +18,21 @@ function api( path, opts = {} ) {
 }
 
 function RecipientPanel() {
-    const [ audience, setAudience ] = useState( 'all' );
-    const [ selectedTags, setSelectedTags ] = useState( [] );
+    const { editPost } = useDispatch( 'core/editor' );
+    const meta = useSelect(
+        ( select ) => select( 'core/editor' ).getEditedPostAttribute( 'meta' ),
+        []
+    ) || {};
+
+    // Persisted selection lives in post meta so it actually saves with the
+    // campaign (and is read back by the queue when sending).
+    const selectedTags = Array.isArray( meta._snel_nl_tags ) ? meta._snel_nl_tags : [];
+    const setSelectedTags = ( next ) => {
+        const value = typeof next === 'function' ? next( selectedTags ) : next;
+        editPost( { meta: { _snel_nl_tags: value } } );
+    };
+
+    const [ audience, setAudience ] = useState( selectedTags.length > 0 ? 'tags' : 'all' );
 
     const toggleTag = ( tag ) => {
         setSelectedTags( ( prev ) =>
