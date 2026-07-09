@@ -443,6 +443,18 @@ class Model {
     }
 
     /**
+     * Find a subscriber id by email. Returns int or null.
+     */
+    public static function find_by_email( $email ) {
+        global $wpdb;
+        $table = self::table();
+
+        $id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $table WHERE email = %s", $email ) );
+
+        return $id ? (int) $id : null;
+    }
+
+    /**
      * Attach tags array to a list of subscriber rows.
      */
     private static function attach_tags( $rows ) {

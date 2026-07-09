@@ -4,6 +4,7 @@ import Subscribers from './pages/Subscribers/index';
 import Campaigns from './pages/Campaigns/index';
 import Settings from './pages/Settings';
 import Tags from './pages/Tags/index';
+import Sources from './pages/Sources/index';
 import './styles/main.css';
 
 const PAGES = {
@@ -12,6 +13,7 @@ const PAGES = {
     campaigns: Campaigns,
     settings: Settings,
     tags: Tags,
+    sources: Sources,
 };
 
 function mountApp() {

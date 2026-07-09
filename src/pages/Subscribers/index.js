@@ -11,11 +11,31 @@ import BulkTagModal from './BulkTagModal';
 const API_URL = window.snelNewsletter?.restUrl;
 const NONCE = window.snelNewsletter?.nonce;
 
-function api( path, opts = {} ) {
-    return fetch( `${ API_URL }${ path }`, {
+/**
+ * Throws on any non-2xx so callers can't silently swallow a failure.
+ * WP REST errors arrive as { code, message, data:{status} }.
+ */
+async function api( path, opts = {} ) {
+    const res = await fetch( `${ API_URL }${ path }`, {
         headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
         ...opts,
-    } ).then( ( r ) => r.json() );
+    } );
+
+    let body = null;
+    try {
+        body = await res.json();
+    } catch {
+        // Non-JSON response — a PHP fatal, an HTML error page, a redirect.
+    }
+
+    if ( ! res.ok ) {
+        const err = new Error( body?.message || `${ res.status } ${ res.statusText }` );
+        err.status = res.status;
+        err.code   = body?.code;
+        throw err;
+    }
+
+    return body;
 }
 
 export default function Subscribers() {
@@ -46,13 +66,16 @@ export default function Subscribers() {
             setTotalPages( data.pages || 1 );
             setCounts( data.counts || counts );
             setLoading( false );
+        } ).catch( ( e ) => {
+            console.error( '[snel-newsletter] load subscribers failed:', e );
+            setLoading( false );
         } );
     }, [ page, search, filterTag, filterStatus ] );
 
     const loadTags = useCallback( () => {
         api( '/tags' ).then( ( data ) => {
             setAllTags( ( data || [] ).map( ( t ) => t.tag ) );
-        } );
+        } ).catch( ( e ) => console.error( '[snel-newsletter] load tags failed:', e ) );
     }, [] );
 
     useEffect( () => { loadSubscribers(); }, [ loadSubscribers ] );
@@ -75,24 +98,27 @@ export default function Subscribers() {
         setSelected( ( prev ) => prev.includes( id ) ? prev.filter( ( x ) => x !== id ) : [ ...prev, id ] );
     };
 
-    const handleAdd = ( data ) => {
-        api( '/subscribers', {
+    // Rejects on failure — AddSubscriberModal renders the message.
+    const handleAdd = async ( data ) => {
+        const res = await api( '/subscribers', {
             method: 'POST',
             body: JSON.stringify( data ),
-        } ).then( ( res ) => {
-            if ( res.success ) {
-                setShowAddModal( false );
-                loadSubscribers();
-                loadTags();
-            }
         } );
+
+        if ( ! res?.success ) {
+            throw new Error( __( 'Could not add subscriber.', 'snel-newsletter' ) );
+        }
+
+        setShowAddModal( false );
+        loadSubscribers();
+        loadTags();
     };
 
     const handleDelete = ( id ) => {
         api( `/subscribers/${ id }`, { method: 'DELETE' } ).then( () => {
             loadSubscribers();
             loadTags();
-        } );
+        } ).catch( ( e ) => alert( e.message ) );
     };
 
     const handleBulkDelete = () => {
@@ -104,7 +130,7 @@ export default function Subscribers() {
             setSelected( [] );
             loadSubscribers();
             loadTags();
-        } );
+        } ).catch( ( e ) => alert( e.message ) );
     };
 
     const handleBulkTag = ( { add, remove } ) => {
