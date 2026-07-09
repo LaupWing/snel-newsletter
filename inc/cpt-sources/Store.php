@@ -20,6 +20,8 @@ class Store {
 	 */
 	public static function defaults() {
 		return array(
+			'id'          => '',
+			'kind'        => 'cpt',
 			'post_type'   => '',
 			'email_field' => '',
 			'tag_field'   => '',
@@ -45,49 +47,51 @@ class Store {
 	/**
 	 * One config, or null.
 	 */
-	public static function get( $post_type ) {
+	public static function get( $id ) {
 		$all = self::all();
 
-		return isset( $all[ $post_type ] ) ? wp_parse_args( $all[ $post_type ], self::defaults() ) : null;
+		return isset( $all[ $id ] ) ? wp_parse_args( $all[ $id ], self::defaults() ) : null;
 	}
 
 	/**
 	 * Save a config. Returns the stored config.
 	 */
-	public static function save( $post_type, $config ) {
+	public static function save( $id, $config ) {
 		$all = self::all();
 
-		$existing = $all[ $post_type ] ?? self::defaults();
+		$existing = $all[ $id ] ?? self::defaults();
 		$merged   = wp_parse_args( $config, $existing );
 
-		$merged['post_type']   = $post_type;
+		$merged['id']          = $id;
+		$merged['kind']        = 'custom' === $merged['kind'] ? 'custom' : 'cpt';
+		$merged['post_type']   = 'cpt' === $merged['kind'] ? $id : null;
 		$merged['tag_source']  = 'taxonomy' === $merged['tag_source'] ? 'taxonomy' : 'meta';
 		$merged['auto_sync']   = (bool) $merged['auto_sync'];
 		$merged['manual_tags'] = self::clean_tags( $merged['manual_tags'] );
 
-		$all[ $post_type ] = $merged;
+		$all[ $id ] = $merged;
 		update_option( self::OPTION, $all, false );
 
 		return $merged;
 	}
 
-	public static function delete( $post_type ) {
+	public static function delete( $id ) {
 		$all = self::all();
-		unset( $all[ $post_type ] );
+		unset( $all[ $id ] );
 		update_option( self::OPTION, $all, false );
 	}
 
 	/**
 	 * Record the outcome of a sync run.
 	 */
-	public static function record_sync( $post_type, $result ) {
+	public static function record_sync( $id, $result ) {
 		$all = self::all();
-		if ( ! isset( $all[ $post_type ] ) ) {
+		if ( ! isset( $all[ $id ] ) ) {
 			return;
 		}
 
-		$all[ $post_type ]['last_sync']   = current_time( 'mysql' );
-		$all[ $post_type ]['last_result'] = $result;
+		$all[ $id ]['last_sync']   = current_time( 'mysql' );
+		$all[ $id ]['last_result'] = $result;
 		update_option( self::OPTION, $all, false );
 	}
 

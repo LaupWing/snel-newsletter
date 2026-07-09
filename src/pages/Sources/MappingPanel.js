@@ -1,6 +1,6 @@
 import { useState, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { ArrowLeft, Mail, Tag, Check, X, Minus, Zap, Download, Loader2 } from 'lucide-react';
+import { ArrowLeft, Mail, Tag, Check, X, Minus, Zap, Download, Loader2, Plug } from 'lucide-react';
 import Select from '../../components/Select';
 import TagInput from './TagInput';
 import { api } from './api';
@@ -22,7 +22,8 @@ function Stat( { value, label, tone = 'text-gray-900' } ) {
 }
 
 export default function MappingPanel( { source, onBack, onSaved } ) {
-	const saved = source.config;
+	const saved    = source.config;
+	const isCustom = source.kind === 'custom';
 
 	const [ emailField, setEmailField ] = useState(
 		saved?.email_field || source.email_fields[ 0 ]?.key || ''
@@ -41,14 +42,14 @@ export default function MappingPanel( { source, onBack, onSaved } ) {
 	const [ result, setResult ]   = useState( null );
 
 	useEffect( () => {
-		if ( ! emailField ) return;
+		if ( ! isCustom && ! emailField ) return;
 
 		setLoading( true );
 		setResult( null );
 		const [ tagSource, tagField ] = tagKey ? tagKey.split( ':' ) : [ 'meta', '' ];
 
 		const params = new URLSearchParams( {
-			post_type:   source.post_type,
+			id:          source.id,
 			email_field: emailField,
 			tag_field:   tagField,
 			tag_source:  tagSource,
@@ -59,12 +60,12 @@ export default function MappingPanel( { source, onBack, onSaved } ) {
 			setPreview( data?.rows ? data : null );
 			setLoading( false );
 		} );
-	}, [ source.post_type, emailField, tagKey, manualTags ] );
+	}, [ source.id, isCustom, emailField, tagKey, manualTags ] );
 
 	const payload = () => {
 		const [ tagSource, tagField ] = tagKey ? tagKey.split( ':' ) : [ 'meta', '' ];
 		return {
-			post_type:   source.post_type,
+			id:          source.id,
 			email_field: emailField,
 			tag_field:   tagField,
 			tag_source:  tagSource,
@@ -75,7 +76,7 @@ export default function MappingPanel( { source, onBack, onSaved } ) {
 
 	const handleImport = () => {
 		setImporting( true );
-		api( `/cpt-sources/${ source.post_type }/import`, {
+		api( `/cpt-sources/${ source.id }/import`, {
 			method: 'POST',
 			body: JSON.stringify( payload() ),
 		} ).then( ( res ) => {
@@ -123,33 +124,47 @@ export default function MappingPanel( { source, onBack, onSaved } ) {
 			<div className="mb-8">
 				<div className="flex items-center gap-2">
 					<h1 className="text-xl font-bold text-gray-900">{ source.label }</h1>
-					<code className="text-xs text-gray-400">{ source.post_type }</code>
+					<code className="text-xs text-gray-400">{ source.id }</code>
 				</div>
 				<p className="text-sm text-gray-500 mt-1">
-					{ __( 'Detection is a guess — confirm the fields and check the preview.', 'snel-newsletter' ) }
+					{ isCustom
+						? source.description || __( 'A registered custom source.', 'snel-newsletter' )
+						: __( 'Detection is a guess — confirm the fields and check the preview.', 'snel-newsletter' ) }
 				</p>
 			</div>
 
 			{ /* Mapping */ }
 			<div className="bg-white border border-gray-200 rounded-lg px-5 py-5 mb-4 space-y-5">
-				<div className="grid sm:grid-cols-2 gap-5">
-					<div>
-						<label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-2">
-							<Mail size={ 13 } className="text-gray-400" />
-							{ __( 'Email field', 'snel-newsletter' ) }
-							<span className="text-red-500">*</span>
-						</label>
-						<Select options={ emailOptions } value={ emailField } onChange={ setEmailField } fullWidth />
+				{ isCustom ? (
+					<div className="flex items-start gap-2.5">
+						<Plug size={ 15 } className="text-gray-400 shrink-0 mt-0.5" />
+						<div>
+							<div className="text-sm font-medium text-gray-900">{ __( 'Registered source', 'snel-newsletter' ) }</div>
+							<p className="text-xs text-gray-500 mt-0.5">
+								{ __( 'This source supplies its own emails and tags — no field mapping needed.', 'snel-newsletter' ) }
+							</p>
+						</div>
 					</div>
-					<div>
-						<label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-2">
-							<Tag size={ 13 } className="text-gray-400" />
-							{ __( 'Tags from a field', 'snel-newsletter' ) }
-							<span className="text-gray-400 font-normal">{ __( '(optional)', 'snel-newsletter' ) }</span>
-						</label>
-						<Select options={ tagOptions } value={ tagKey } onChange={ setTagKey } fullWidth />
+				) : (
+					<div className="grid sm:grid-cols-2 gap-5">
+						<div>
+							<label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-2">
+								<Mail size={ 13 } className="text-gray-400" />
+								{ __( 'Email field', 'snel-newsletter' ) }
+								<span className="text-red-500">*</span>
+							</label>
+							<Select options={ emailOptions } value={ emailField } onChange={ setEmailField } fullWidth />
+						</div>
+						<div>
+							<label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-2">
+								<Tag size={ 13 } className="text-gray-400" />
+								{ __( 'Tags from a field', 'snel-newsletter' ) }
+								<span className="text-gray-400 font-normal">{ __( '(optional)', 'snel-newsletter' ) }</span>
+							</label>
+							<Select options={ tagOptions } value={ tagKey } onChange={ setTagKey } fullWidth />
+						</div>
 					</div>
-				</div>
+				) }
 
 				<div>
 					<label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-2">
@@ -171,7 +186,9 @@ export default function MappingPanel( { source, onBack, onSaved } ) {
 					<div>
 						<div className="text-sm font-medium text-gray-900">{ __( 'Auto-sync', 'snel-newsletter' ) }</div>
 						<p className="text-xs text-gray-500 mt-0.5">
-							{ __( 'Add new subscribers automatically whenever a post of this type is published.', 'snel-newsletter' ) }
+							{ isCustom
+								? __( 'Re-sync this source every hour, and whenever it pushes a new row.', 'snel-newsletter' )
+								: __( 'Add new subscribers automatically whenever a post of this type is published.', 'snel-newsletter' ) }
 						</p>
 					</div>
 				</div>
@@ -222,7 +239,7 @@ export default function MappingPanel( { source, onBack, onSaved } ) {
 						<thead>
 							<tr className="border-b border-gray-100 bg-gray-50/50">
 								<th className="px-5 py-2.5 w-10"></th>
-								<th className="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Post', 'snel-newsletter' ) }</th>
+								<th className="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ isCustom ? __( 'Name', 'snel-newsletter' ) : __( 'Post', 'snel-newsletter' ) }</th>
 								<th className="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Email', 'snel-newsletter' ) }</th>
 								<th className="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Tags', 'snel-newsletter' ) }</th>
 							</tr>
@@ -285,7 +302,7 @@ export default function MappingPanel( { source, onBack, onSaved } ) {
 				<button
 					type="button"
 					onClick={ handleImport }
-					disabled={ importing || ! emailField || ! totals }
+					disabled={ importing || ( ! isCustom && ! emailField ) || ! totals }
 					className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
 				>
 					{ importing

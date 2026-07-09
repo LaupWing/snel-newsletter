@@ -38,13 +38,13 @@ class Rest {
 			'permission_callback' => array( $this, 'permission_check' ),
 		) );
 
-		register_rest_route( $this->namespace, '/cpt-sources/(?P<post_type>[\w-]+)', array(
+		register_rest_route( $this->namespace, '/cpt-sources/(?P<id>[\w-]+)', array(
 			'methods'             => 'DELETE',
 			'callback'            => array( $this->controller, 'delete' ),
 			'permission_callback' => array( $this, 'permission_check' ),
 		) );
 
-		register_rest_route( $this->namespace, '/cpt-sources/(?P<post_type>[\w-]+)/import', array(
+		register_rest_route( $this->namespace, '/cpt-sources/(?P<id>[\w-]+)/import', array(
 			'methods'             => 'POST',
 			'callback'            => array( $this->controller, 'import' ),
 			'permission_callback' => array( $this, 'permission_check' ),

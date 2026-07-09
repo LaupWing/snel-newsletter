@@ -86,8 +86,11 @@ class Scanner {
 			usort( $tag_fields, fn( $a, $b ) => $b['confidence'] <=> $a['confidence'] );
 
 			$out[] = array(
+				'id'           => $pt->name,
+				'kind'         => 'cpt',
 				'post_type'    => $pt->name,
 				'label'        => $pt->labels->name,
+				'description'  => '',
 				'count'        => $count,
 				'email_fields' => $email_fields,
 				'tag_fields'   => $tag_fields,
@@ -224,7 +227,7 @@ class Scanner {
 	 * @param int    $limit
 	 * @return array
 	 */
-	public static function preview( $post_type, $email_field, $tag_field = '', $tag_source = 'meta', $limit = 10 ) {
+	public static function preview( $post_type, $email_field, $tag_field = '', $tag_source = 'meta', $manual_tags = array(), $limit = 10 ) {
 		$ids = get_posts( array(
 			'post_type'      => $post_type,
 			'post_status'    => array( 'publish', 'private', 'draft' ),
@@ -232,55 +235,84 @@ class Scanner {
 			'fields'         => 'ids',
 		) );
 
-		$existing = array_flip( array_map( 'strtolower', \Snel\Newsletter\Subscribers\Model::all_emails() ) );
-
-		$rows      = array();
-		$seen      = array();
-		$valid     = 0;
-		$invalid   = 0;
-		$existing_count = 0;
-		$duplicate = 0;
-		$empty     = 0;
+		$rows = array();
 
 		foreach ( $ids as $id ) {
-			$email = trim( (string) get_post_meta( $id, $email_field, true ) );
+			$rows[] = array(
+				'id'    => $id,
+				'title' => get_the_title( $id ),
+				'email' => trim( (string) get_post_meta( $id, $email_field, true ) ),
+				'tags'  => self::read_tags( $id, $tag_field, $tag_source ),
+			);
+		}
+
+		return self::preview_rows( $rows, $manual_tags, $limit );
+	}
+
+	/**
+	 * Score a set of { id, title, email, tags } rows against the subscriber table.
+	 *
+	 * Shared by post-type sources and custom providers.
+	 *
+	 * @param array[] $rows
+	 * @param array   $manual_tags Tags applied to every row.
+	 * @param int     $limit       How many rows to return for display.
+	 * @return array
+	 */
+	public static function preview_rows( $rows, $manual_tags = array(), $limit = 10 ) {
+		$existing = array_flip( array_map( 'strtolower', \Snel\Newsletter\Subscribers\Model::all_emails() ) );
+
+		$out            = array();
+		$seen           = array();
+		$valid          = 0;
+		$invalid        = 0;
+		$existing_count = 0;
+		$duplicate      = 0;
+		$empty          = 0;
+
+		foreach ( $rows as $row ) {
+			$email = trim( (string) ( $row['email'] ?? '' ) );
 
 			if ( '' === $email ) {
 				$empty++;
 				continue;
 			}
 
-			$status = 'new';
+			$key = strtolower( $email );
+
 			if ( ! is_email( $email ) ) {
 				$status = 'invalid';
 				$invalid++;
-			} elseif ( isset( $existing[ strtolower( $email ) ] ) ) {
+			} elseif ( isset( $existing[ $key ] ) ) {
 				$status = 'existing';
 				$existing_count++;
-			} elseif ( isset( $seen[ strtolower( $email ) ] ) ) {
+			} elseif ( isset( $seen[ $key ] ) ) {
 				$status = 'duplicate';
 				$duplicate++;
 			} else {
+				$status = 'new';
 				$valid++;
 			}
 
-			$seen[ strtolower( $email ) ] = true;
+			$seen[ $key ] = true;
 
-			if ( count( $rows ) < $limit ) {
-				$rows[] = array(
-					'post_id' => $id,
-					'title'   => get_the_title( $id ),
+			if ( count( $out ) < $limit ) {
+				$tags = array_values( array_unique( array_merge( $manual_tags, $row['tags'] ?? array() ) ) );
+
+				$out[] = array(
+					'post_id' => $row['id'] ?? 0,
+					'title'   => $row['title'] ?? '',
 					'email'   => $email,
-					'tags'    => self::read_tags( $id, $tag_field, $tag_source ),
+					'tags'    => $tags,
 					'status'  => $status,
 				);
 			}
 		}
 
 		return array(
-			'rows'    => $rows,
-			'totals'  => array(
-				'scanned'    => count( $ids ),
+			'rows'   => $out,
+			'totals' => array(
+				'scanned'    => count( $rows ),
 				'importable' => $valid,
 				'existing'   => $existing_count,
 				'duplicate'  => $duplicate,

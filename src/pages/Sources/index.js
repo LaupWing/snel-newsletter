@@ -69,7 +69,7 @@ export default function Sources() {
 				<div className="space-y-3">
 					{ connectable.map( ( source ) => (
 						<SourceCard
-							key={ source.post_type }
+							key={ source.id }
 							source={ source }
 							onSelect={ () => setSelected( source ) }
 						/>
@@ -84,10 +84,10 @@ export default function Sources() {
 					</h2>
 					<div className="bg-white border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-50">
 						{ rest.map( ( s ) => (
-							<div key={ s.post_type } className="px-5 py-3 flex items-center justify-between">
+							<div key={ s.id } className="px-5 py-3 flex items-center justify-between">
 								<div className="flex items-center gap-2">
 									<span className="text-sm text-gray-600">{ s.label }</span>
-									<code className="text-xs text-gray-400">{ s.post_type }</code>
+									<code className="text-xs text-gray-400">{ s.id }</code>
 								</div>
 								<span className="text-xs text-gray-400">
 									{ s.count } { __( 'posts', 'snel-newsletter' ) }
