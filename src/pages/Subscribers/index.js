@@ -273,7 +273,8 @@ export default function Subscribers() {
                     ) }
                 </div>
 
-                <table className="w-full">
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[900px]">
                     <thead>
                         <tr className="border-b border-gray-200 bg-gray-50/50">
                             <th className="px-4 py-2.5 text-left w-10">
@@ -314,7 +315,8 @@ export default function Subscribers() {
                             </tr>
                         ) }
                     </tbody>
-                </table>
+                    </table>
+                </div>
 
                 { totalPages > 1 && (
                     <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">

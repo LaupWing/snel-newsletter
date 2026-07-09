@@ -263,6 +263,9 @@ class Model {
     /**
      * Rename a tag across all subscribers.
      */
+    /**
+     * Rename a tag everywhere. Returns how many subscriber rows were moved.
+     */
     public static function rename_tag_global( $old_tag, $new_tag ) {
         global $wpdb;
         $tags_table = self::tags_table();
@@ -275,9 +278,7 @@ class Model {
         ) );
 
         // Delete the old tag.
-        $wpdb->delete( $tags_table, array( 'tag' => $old_tag ), array( '%s' ) );
-
-        return true;
+        return (int) $wpdb->delete( $tags_table, array( 'tag' => $old_tag ), array( '%s' ) );
     }
 
     /**

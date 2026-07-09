@@ -211,7 +211,7 @@ class Controller {
      * Body: { new_tag?: string, type: 'static'|'dynamic', metric?: string, operator?: string, threshold?: float }
      */
     public function rename_tag( \WP_REST_Request $request ) {
-        $old_tag = sanitize_text_field( $request->get_param( 'tag' ) );
+        $old_tag = $this->tag_from_path( $request );
         $params  = $request->get_json_params();
         $new_tag = sanitize_text_field( $params['new_tag'] ?? $old_tag );
         $type    = in_array( $params['type'] ?? 'static', array( 'static', 'dynamic' ), true )
@@ -223,8 +223,9 @@ class Controller {
         }
 
         // Rename in subscriber_tags if the name changed.
+        $renamed = null;
         if ( $new_tag && $new_tag !== $old_tag ) {
-            Model::rename_tag_global( $old_tag, $new_tag );
+            $renamed = Model::rename_tag_global( $old_tag, $new_tag );
         }
 
         $target_tag = ( $new_tag && $new_tag !== $old_tag ) ? $new_tag : $old_tag;
@@ -242,14 +243,30 @@ class Controller {
             $synced = Model::sync_dynamic_tag( $target_tag );
         }
 
-        return rest_ensure_response( array( 'success' => true, 'synced' => $synced ) );
+        return rest_ensure_response( array(
+            'success' => true,
+            'synced'  => $synced,
+            'renamed' => $renamed,
+            'tag'     => $target_tag,
+        ) );
+    }
+
+    /**
+     * Read a tag name out of the URL path.
+     *
+     * WP hands route params through still percent-encoded, so a tag like
+     * "download: Gids 3.2" arrives as "download%3A%20Gids%203.2" and matches
+     * nothing in the database. Decode before use.
+     */
+    private function tag_from_path( \WP_REST_Request $request ) {
+        return sanitize_text_field( rawurldecode( (string) $request->get_param( 'tag' ) ) );
     }
 
     /**
      * Delete a tag from all subscribers.
      */
     public function delete_tag( \WP_REST_Request $request ) {
-        $tag = sanitize_text_field( $request->get_param( 'tag' ) );
+        $tag = $this->tag_from_path( $request );
 
         if ( ! $tag ) {
             return new \WP_Error( 'invalid', 'Tag name required.', array( 'status' => 400 ) );
@@ -264,7 +281,7 @@ class Controller {
      * Manually sync a dynamic tag.
      */
     public function sync_tag( \WP_REST_Request $request ) {
-        $tag = sanitize_text_field( $request->get_param( 'tag' ) );
+        $tag = $this->tag_from_path( $request );
 
         if ( ! $tag ) {
             return new \WP_Error( 'invalid', 'Tag name required.', array( 'status' => 400 ) );
