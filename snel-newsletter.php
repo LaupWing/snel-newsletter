@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Snel Newsletter
  * Description: Lightweight newsletter toolkit by Snelstack. Send, track, grow.
- * Version: 1.6.1
+ * Version: 1.6.2
  * Author: Snelstack
  * Author URI: https://snelstack.com
  * License: GPL v2 or later
@@ -24,11 +24,9 @@ if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
     );
 }
 
-define( 'SNEL_NEWSLETTER_VERSION', '1.5.0' );
+define( 'SNEL_NEWSLETTER_VERSION', '1.6.2' );
 define( 'SNEL_NEWSLETTER_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SNEL_NEWSLETTER_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
-
-error_log( '[snel-newsletter] plugin loading, version: ' . SNEL_NEWSLETTER_VERSION );
 
 // Load modules.
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/logger/index.php';

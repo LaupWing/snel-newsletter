@@ -46,14 +46,19 @@ class Controller {
         $campaign_id   = (int) $request->get_param( 'c' );
         $subscriber_id = (int) $request->get_param( 's' );
         $url           = $request->get_param( 'url' );
+        $hash          = (string) $request->get_param( 'h' );
 
-        if ( $campaign_id && $subscriber_id && $url ) {
+        // Reject forged URLs — only links we signed at send time may redirect.
+        if ( ! $url || ! hash_equals( Model::sign( $campaign_id, $subscriber_id, $url ), $hash ) ) {
+            header( 'Location: ' . esc_url_raw( home_url() ), true, 302 );
+            exit;
+        }
+
+        if ( $campaign_id && $subscriber_id ) {
             Model::log( $campaign_id, $subscriber_id, 'click', $url );
         }
 
-        // Redirect to the actual URL.
-        $redirect = $url ?: home_url();
-        header( 'Location: ' . esc_url_raw( $redirect ), true, 302 );
+        header( 'Location: ' . esc_url_raw( $url ), true, 302 );
         exit;
     }
 

@@ -156,8 +156,6 @@ class Processor {
 
         \Snel\Newsletter\Logger\Logger::info( 'queue', 'Batch started', array( 'count' => count( $rows ) ) );
 
-        $inject_tracking = ! $adapter->handles_open_tracking() || ! $adapter->handles_click_tracking();
-
         foreach ( $rows as $row ) {
             $post = get_post( $row->campaign_id );
             if ( ! $post ) {
@@ -262,7 +260,8 @@ class Processor {
                     return $matches[0];
                 }
 
-                $track_url = rest_url( 'snel-newsletter/v1/t/click' ) . '?c=' . $campaign_id . '&s=' . $subscriber_id . '&url=' . urlencode( $url );
+                $hash      = \Snel\Newsletter\Tracking\Model::sign( $campaign_id, $subscriber_id, $url );
+                $track_url = rest_url( 'snel-newsletter/v1/t/click' ) . '?c=' . $campaign_id . '&s=' . $subscriber_id . '&url=' . urlencode( $url ) . '&h=' . $hash;
 
                 return '<a ' . $matches[1] . 'href="' . esc_url( $track_url ) . '"' . $matches[3] . '>';
             },

@@ -17,6 +17,13 @@ class Model {
     }
 
     /**
+     * Sign a click-tracking URL so the redirect target can't be forged.
+     */
+    public static function sign( $campaign_id, $subscriber_id, $url ) {
+        return hash_hmac( 'sha256', $campaign_id . '|' . $subscriber_id . '|' . $url, wp_salt( 'auth' ) );
+    }
+
+    /**
      * Log a tracking event.
      */
     public static function log( $campaign_id, $subscriber_id, $type, $url = '' ) {
