@@ -2,11 +2,13 @@ import { useState, useEffect, useRef, useCallback } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import {
     ArrowLeft, Zap, Mail, Clock, Split, Tag as TagIcon,
-    Plus, Trash2, Loader2, Play, Pause, Check,
+    Plus, Trash2, Loader2, Play, Pause, Check, Workflow, Users,
 } from 'lucide-react';
 import Select from '../../components/Select';
+import Tabs from '../../components/Tabs';
 import GradientButton from '../../components/GradientButton';
 import NodeInspector from './NodeInspector';
+import SubscribersTab from './SubscribersTab';
 
 const API_URL = window.snelNewsletter?.restUrl;
 const NONCE   = window.snelNewsletter?.nonce;
@@ -345,6 +347,7 @@ export default function Builder( { automationId, onClose } ) {
     const [ dirty, setDirty ]           = useState( false );
     const [ savedFlash, setSavedFlash ] = useState( false );
     const [ inspect, setInspect ]       = useState( null ); // step path, or 'trigger'
+    const [ tab, setTab ]               = useState( 'flow' );
 
     useEffect( () => {
         api( `/automations/${ automationId }` ).then( setAutomation );
@@ -450,8 +453,21 @@ export default function Builder( { automationId, onClose } ) {
                 </div>
             </div>
 
+            <Tabs
+                tabs={ [
+                    { id: 'flow', label: __( 'Flow', 'snel-newsletter' ), icon: Workflow },
+                    { id: 'subscribers', label: __( 'Subscribers', 'snel-newsletter' ), icon: Users, badge: automation.enrolled ?? 0 },
+                ] }
+                active={ tab }
+                onChange={ setTab }
+            />
+
+            { tab === 'subscribers' && (
+                <SubscribersTab automation={ automation } campaigns={ campaigns } />
+            ) }
+
             {/* Canvas */}
-            <div className="border border-gray-200 rounded-2xl bg-gray-50 [background-image:radial-gradient(#d8d9dd_1px,transparent_1px)] [background-size:18px_18px] px-6 py-10 overflow-x-auto min-h-[calc(100vh-240px)]">
+            <div className={ `border border-gray-200 rounded-2xl bg-gray-50 [background-image:radial-gradient(#d8d9dd_1px,transparent_1px)] [background-size:18px_18px] px-6 py-10 overflow-x-auto min-h-[calc(100vh-240px)] ${ tab === 'flow' ? '' : 'hidden' }` }>
                 <div className="flex flex-col items-center min-w-[560px]">
 
                     {/* Trigger */}
@@ -509,9 +525,11 @@ export default function Builder( { automationId, onClose } ) {
                 </div>
             </div>
 
-            <p className="text-xs text-gray-400 mt-3">
-                { __( 'Emails are regular campaigns — create them as drafts under Campaigns, then pick them in an email step. Double-click any node to see who passed through it.', 'snel-newsletter' ) }
-            </p>
+            { tab === 'flow' && (
+                <p className="text-xs text-gray-400 mt-3">
+                    { __( 'Emails are regular campaigns — create them as drafts under Campaigns, then pick them in an email step. Double-click any node to see who passed through it.', 'snel-newsletter' ) }
+                </p>
+            ) }
 
             { inspect && (
                 <NodeInspector

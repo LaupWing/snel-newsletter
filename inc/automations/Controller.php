@@ -99,6 +99,19 @@ class Controller {
     }
 
     /**
+     * Subscribers tab — everyone in the automation and the step they're sitting on.
+     */
+    public function subscribers( \WP_REST_Request $request ) {
+        $id = (int) $request->get_param( 'id' );
+
+        if ( ! Model::get( $id ) ) {
+            return new \WP_Error( 'not_found', 'Automation not found', array( 'status' => 404 ) );
+        }
+
+        return rest_ensure_response( array( 'subscribers' => Model::runs_list( $id ) ) );
+    }
+
+    /**
      * Node inspector — the subscribers who passed through one step.
      * `path` is the step's JSON path ("[2]", "[2,\"yes\",0]") or "trigger".
      */

@@ -62,6 +62,13 @@ class Rest {
             'callback'            => array( $this->controller, 'step' ),
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
+
+        // Subscribers tab — everyone enrolled, and where they are now.
+        register_rest_route( $this->namespace, '/automations/(?P<id>\d+)/subscribers', array(
+            'methods'             => 'GET',
+            'callback'            => array( $this->controller, 'subscribers' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
     }
 
     public function permission_check() {

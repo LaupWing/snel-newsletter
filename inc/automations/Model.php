@@ -36,6 +36,38 @@ class Model {
     }
 
     /**
+     * Every subscriber enrolled in this automation and where they stand right now.
+     *
+     * `position` is the step the run will execute NEXT — so for a waiting run it's the
+     * step that fires once next_run_at passes, not the wait itself. The UI resolves the
+     * path against the automation's steps to name it.
+     */
+    public static function runs_list( $automation_id ) {
+        global $wpdb;
+
+        $subs = $wpdb->prefix . 'snel_subscribers';
+        $runs = self::runs_table();
+
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT r.id AS run_id, r.position, r.status, r.next_run_at,
+                    r.created_at AS enrolled_at, r.updated_at,
+                    s.id, s.email, s.name, s.status AS subscriber_status
+             FROM $runs r
+             INNER JOIN $subs s ON s.id = r.subscriber_id
+             WHERE r.automation_id = %d
+             ORDER BY FIELD(r.status, 'active', 'waiting', 'completed', 'exited'), r.updated_at DESC
+             LIMIT 1000",
+            $automation_id
+        ), ARRAY_A );
+
+        return array_map( function ( $row ) {
+            $row['position'] = json_decode( $row['position'], true ) ?: array( 0 );
+            $row['id']       = (int) $row['id'];
+            return $row;
+        }, $rows ?: array() );
+    }
+
+    /**
      * Who passed through one node, and what happened to them there.
      *
      * The trigger node reads the runs table (enrolment time is the run's created_at).
