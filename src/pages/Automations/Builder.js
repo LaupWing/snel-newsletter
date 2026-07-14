@@ -282,8 +282,11 @@ function ConditionBlock( { step, onChange, onRemove, campaigns, tags, emailStats
                 <span className="absolute top-3 bottom-0 left-1/2 right-[25%] border-2 border-b-0 border-l-0 border-red-400 rounded-tr-2xl" />
             </div>
 
-            <div className="grid grid-cols-2 gap-6 w-full max-w-[560px]">
-                <div className="flex flex-col items-center">
+            {/* Branches are rarely the same length, so each column's line grows to fill the
+                taller one — otherwise the shorter branch stops mid-air and the merge below
+                it reads as disconnected. */}
+            <div className="grid grid-cols-2 gap-6 w-full max-w-[560px] items-stretch">
+                <div className="flex flex-col items-center h-full">
                     <span className="px-3 py-0.5 text-[11px] font-semibold text-emerald-600 bg-white border border-emerald-200 rounded-full shadow-sm z-10">
                         ✓ { isRate ? __( 'Above', 'snel-newsletter' ) : __( 'Opened', 'snel-newsletter' ) }
                     </span>
@@ -299,8 +302,9 @@ function ConditionBlock( { step, onChange, onRemove, campaigns, tags, emailStats
                         basePath={ [ ...path, 'yes' ] }
                         onInspect={ onInspect }
                     />
+                    <span className="w-0.5 flex-1 min-h-[12px] bg-emerald-400" />
                 </div>
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-center h-full">
                     <span className="px-3 py-0.5 text-[11px] font-semibold text-red-500 bg-white border border-red-200 rounded-full shadow-sm z-10">
                         ✕ { isRate ? __( 'Below', 'snel-newsletter' ) : __( "Didn't open", 'snel-newsletter' ) }
                     </span>
@@ -316,6 +320,7 @@ function ConditionBlock( { step, onChange, onRemove, campaigns, tags, emailStats
                         basePath={ [ ...path, 'no' ] }
                         onInspect={ onInspect }
                     />
+                    <span className="w-0.5 flex-1 min-h-[12px] bg-red-400" />
                 </div>
             </div>
 
