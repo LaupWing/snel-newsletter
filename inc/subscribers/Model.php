@@ -205,6 +205,10 @@ class Model {
             }
         }
 
+        if ( $tags ) {
+            do_action( 'snel_newsletter_tags_added', (int) $id, array_values( array_filter( $tags ) ) );
+        }
+
         return true;
     }
 
@@ -224,6 +228,10 @@ class Model {
             }
         }
 
+        if ( $tags ) {
+            do_action( 'snel_newsletter_tags_added', (int) $id, array_values( array_filter( $tags ) ) );
+        }
+
         return true;
     }
 
@@ -239,6 +247,7 @@ class Model {
                 "INSERT IGNORE INTO $tags_table (subscriber_id, tag) VALUES (%d, %s)",
                 (int) $id, $tag
             ) );
+            do_action( 'snel_newsletter_tags_added', (int) $id, array( $tag ) );
         }
 
         return true;

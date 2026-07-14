@@ -2,6 +2,7 @@ import { createRoot } from '@wordpress/element';
 import Dashboard from './pages/Dashboard';
 import Subscribers from './pages/Subscribers/index';
 import Campaigns from './pages/Campaigns/index';
+import Automations from './pages/Automations/index';
 import Settings from './pages/Settings';
 import Tags from './pages/Tags/index';
 import Sources from './pages/Sources/index';
@@ -11,6 +12,7 @@ const PAGES = {
     dashboard: Dashboard,
     subscribers: Subscribers,
     campaigns: Campaigns,
+    automations: Automations,
     settings: Settings,
     tags: Tags,
     sources: Sources,

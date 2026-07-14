@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Users, Search, Plus, Upload, Tag, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Users, Search, Plus, Upload, Tag, ChevronLeft, ChevronRight, Trash2, Workflow } from 'lucide-react';
 import Select from '../../components/Select';
 import SubscriberRow from './SubscriberRow';
 import SubscriberDetail from './SubscriberDetail';
 import AddSubscriberModal from './AddSubscriberModal';
 import ImportCSVModal from './ImportCSVModal';
 import BulkTagModal from './BulkTagModal';
+import EnrollAutomationModal from './EnrollAutomationModal';
 
 const API_URL = window.snelNewsletter?.restUrl;
 const NONCE = window.snelNewsletter?.nonce;
@@ -48,6 +49,7 @@ export default function Subscribers() {
     const [ showAddModal, setShowAddModal ] = useState( false );
     const [ showImportModal, setShowImportModal ] = useState( false );
     const [ showBulkTagModal, setShowBulkTagModal ] = useState( false );
+    const [ showEnrollModal, setShowEnrollModal ] = useState( false );
     const [ activeSubscriber, setActiveSubscriber ] = useState( null );
     const [ page, setPage ] = useState( 1 );
     const [ totalPages, setTotalPages ] = useState( 1 );
@@ -131,6 +133,13 @@ export default function Subscribers() {
             loadSubscribers();
             loadTags();
         } ).catch( ( e ) => alert( e.message ) );
+    };
+
+    const handleEnroll = ( automationId ) => {
+        return api( `/automations/${ automationId }/enroll`, {
+            method: 'POST',
+            body: JSON.stringify( { subscriber_ids: selected } ),
+        } );
     };
 
     const handleBulkTag = ( { add, remove } ) => {
@@ -269,6 +278,10 @@ export default function Subscribers() {
                                 <Tag size={ 12 } />
                                 { __( 'Edit Tags', 'snel-newsletter' ) }
                             </button>
+                            <button type="button" onClick={ () => setShowEnrollModal( true ) } className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+                                <Workflow size={ 12 } />
+                                { __( 'Enroll in Automation', 'snel-newsletter' ) }
+                            </button>
                         </div>
                     ) }
                 </div>
@@ -344,6 +357,14 @@ export default function Subscribers() {
                     allTags={ allTags }
                     onClose={ () => setShowBulkTagModal( false ) }
                     onApply={ handleBulkTag }
+                />
+            ) }
+            { showEnrollModal && (
+                <EnrollAutomationModal
+                    selectedCount={ selected.length }
+                    api={ api }
+                    onClose={ () => setShowEnrollModal( false ) }
+                    onDone={ handleEnroll }
                 />
             ) }
         </div>

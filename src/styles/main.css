@@ -61,6 +61,33 @@
   mask-position: center;
 }
 
+/* Spinning conic-gradient ring — wrap a white button in this (padding = border width).
+   An oversized rotating square behind the button; only the padding gap shows it. */
+.snel-gradient-ring {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.snel-gradient-ring::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 300%;
+  aspect-ratio: 1 / 1;
+  z-index: -1;
+  background: conic-gradient(
+    #06b6d4, #3b82f6, #8b5cf6, #d946ef, #f43f5e, #f97316, #eab308, #22c55e, #06b6d4
+  );
+  animation: snel-nl-ring-rotate 2s linear infinite;
+}
+
+@keyframes snel-nl-ring-rotate {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
 /* Solid flame gradient — used for the modal CTA button */
 .warmup-active {
   background: linear-gradient(90deg, #dc2626, #ea580c, #f97316);
