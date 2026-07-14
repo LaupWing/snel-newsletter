@@ -206,6 +206,43 @@ class Controller {
     }
 
     /**
+     * Create a tag before anyone carries it.
+     *
+     * Body: { tag: string, type: 'static'|'dynamic', metric?: string, operator?: string, threshold?: float }
+     */
+    public function create_tag( \WP_REST_Request $request ) {
+        $params = $request->get_json_params();
+        $tag    = sanitize_text_field( $params['tag'] ?? '' );
+        $type   = in_array( $params['type'] ?? 'static', array( 'static', 'dynamic' ), true )
+                  ? $params['type']
+                  : 'static';
+
+        if ( ! $tag ) {
+            return new \WP_Error( 'invalid', 'Tag name required.', array( 'status' => 400 ) );
+        }
+
+        $metric    = 'dynamic' === $type ? sanitize_text_field( $params['metric'] ?? '' ) : null;
+        $operator  = 'dynamic' === $type ? sanitize_text_field( $params['operator'] ?? '' ) : null;
+        $threshold = 'dynamic' === $type && isset( $params['threshold'] ) ? (float) $params['threshold'] : null;
+
+        if ( ! Model::create_tag( $tag, $type, $metric ?: null, $operator ?: null, $threshold ) ) {
+            return new \WP_Error( 'exists', 'That tag already exists.', array( 'status' => 409 ) );
+        }
+
+        // A dynamic tag is useless until it has matched someone — sync immediately.
+        $synced = null;
+        if ( 'dynamic' === $type && $metric && $operator && null !== $threshold ) {
+            $synced = Model::sync_dynamic_tag( $tag );
+        }
+
+        return rest_ensure_response( array(
+            'success' => true,
+            'tag'     => $tag,
+            'synced'  => $synced,
+        ) );
+    }
+
+    /**
      * Update a tag — rename and/or set rule.
      *
      * Body: { new_tag?: string, type: 'static'|'dynamic', metric?: string, operator?: string, threshold?: float }

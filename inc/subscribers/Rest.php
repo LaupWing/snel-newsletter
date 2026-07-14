@@ -56,6 +56,12 @@ class Rest {
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
 
+        register_rest_route( $this->namespace, '/tags', array(
+            'methods'             => 'POST',
+            'callback'            => array( $this->controller, 'create_tag' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
+
         register_rest_route( $this->namespace, '/subscribers/(?P<id>\d+)/tags', array(
             'methods'             => 'POST',
             'callback'            => array( $this->controller, 'add_tags' ),

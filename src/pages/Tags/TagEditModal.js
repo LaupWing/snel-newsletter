@@ -18,13 +18,17 @@ const OPERATORS = [
     { value: 'eq',  label: 'equal to' },
 ];
 
+/** New tag when `tag` is null, edit when it's a row from the tags list. */
 export default function TagEditModal( { tag, onClose, onSave } ) {
-    const [ name, setName ]           = useState( tag.tag );
-    const [ type, setType ]           = useState( tag.type || 'static' );
-    const [ metric, setMetric ]       = useState( tag.metric || 'open_rate' );
-    const [ operator, setOperator ]   = useState( tag.operator || 'gt' );
-    const [ threshold, setThreshold ] = useState( tag.threshold ?? '' );
+    const isNew = ! tag;
+
+    const [ name, setName ]           = useState( tag?.tag || '' );
+    const [ type, setType ]           = useState( tag?.type || 'static' );
+    const [ metric, setMetric ]       = useState( tag?.metric || 'open_rate' );
+    const [ operator, setOperator ]   = useState( tag?.operator || 'gt' );
+    const [ threshold, setThreshold ] = useState( tag?.threshold ?? '' );
     const [ saving, setSaving ]       = useState( false );
+    const [ error, setError ]         = useState( null );
     const [ syncResult, setSyncResult ] = useState( null );
 
     const selectedMetric = METRICS.find( ( m ) => m.value === metric );
@@ -32,14 +36,24 @@ export default function TagEditModal( { tag, onClose, onSave } ) {
     const handleSave = async () => {
         setSaving( true );
         setSyncResult( null );
-        const result = await onSave( tag.tag, {
+        setError( null );
+
+        const result = await onSave( tag?.tag ?? null, {
             new_tag:   name.trim().toLowerCase().replace( /[^a-z0-9-]/g, '-' ).replace( /-+/g, '-' ),
             type,
             metric:    type === 'dynamic' ? metric : null,
             operator:  type === 'dynamic' ? operator : null,
             threshold: type === 'dynamic' ? parseFloat( threshold ) : null,
         } );
+
         setSaving( false );
+
+        // WP_Error comes back as { code, message } — keep the modal open.
+        if ( result?.code ) {
+            setError( result.message || __( 'Something went wrong.', 'snel-newsletter' ) );
+            return;
+        }
+
         if ( result?.synced !== undefined && result.synced !== null ) {
             setSyncResult( result.synced );
             setTimeout( () => onClose(), 1500 );
@@ -55,7 +69,9 @@ export default function TagEditModal( { tag, onClose, onSave } ) {
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                    <h2 className="text-sm font-semibold text-gray-900">{ __( 'Edit Tag', 'snel-newsletter' ) }</h2>
+                    <h2 className="text-sm font-semibold text-gray-900">
+                        { isNew ? __( 'New Tag', 'snel-newsletter' ) : __( 'Edit Tag', 'snel-newsletter' ) }
+                    </h2>
                     <button type="button" onClick={ onClose } className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors">
                         <X size={ 16 } />
                     </button>
@@ -70,10 +86,15 @@ export default function TagEditModal( { tag, onClose, onSave } ) {
                             <input
                                 type="text"
                                 value={ name }
-                                onChange={ ( e ) => setName( e.target.value ) }
+                                autoFocus={ isNew }
+                                placeholder={ __( 'e.g. vip-customers', 'snel-newsletter' ) }
+                                onChange={ ( e ) => { setName( e.target.value ); setError( null ); } }
                                 className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:shadow-[0_0_0_1px_#3b82f6]"
                             />
                         </div>
+                        { error && (
+                            <p className="mt-1.5 text-xs text-red-600">{ error }</p>
+                        ) }
                     </div>
 
                     {/* Static / Dynamic toggle */}
@@ -194,7 +215,9 @@ export default function TagEditModal( { tag, onClose, onSave } ) {
                     >
                         { saving
                             ? ( type === 'dynamic' ? __( 'Saving & syncing...', 'snel-newsletter' ) : __( 'Saving...', 'snel-newsletter' ) )
-                            : ( type === 'dynamic' ? __( 'Save & Sync', 'snel-newsletter' ) : __( 'Save', 'snel-newsletter' ) )
+                            : ( type === 'dynamic'
+                                ? ( isNew ? __( 'Create & Sync', 'snel-newsletter' ) : __( 'Save & Sync', 'snel-newsletter' ) )
+                                : ( isNew ? __( 'Create tag', 'snel-newsletter' ) : __( 'Save', 'snel-newsletter' ) ) )
                         }
                     </button>
                 </div>

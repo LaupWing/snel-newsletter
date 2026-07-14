@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Tag, Pencil, Trash2, Zap, RefreshCw } from 'lucide-react';
+import { Tag, Pencil, Trash2, Zap, RefreshCw, Plus } from 'lucide-react';
 import TagEditModal from './TagEditModal';
 
 const API_URL = window.snelNewsletter?.restUrl;
@@ -17,6 +17,7 @@ export default function Tags() {
     const [ tags, setTags ]           = useState( [] );
     const [ loading, setLoading ]     = useState( true );
     const [ editingTag, setEditingTag ] = useState( null );
+    const [ creating, setCreating ]   = useState( false );
     const [ syncing, setSyncing ]     = useState( null );
 
     const loadTags = useCallback( () => {
@@ -29,12 +30,24 @@ export default function Tags() {
 
     useEffect( () => { loadTags(); }, [ loadTags ] );
 
+    // The modal serves both flows; a null oldTag means we're creating one.
     const handleSave = async ( oldTag, payload ) => {
-        const result = await api( `/tags/${ encodeURIComponent( oldTag ) }`, {
-            method: 'PUT',
-            body: JSON.stringify( payload ),
-        } );
-        loadTags();
+        const { new_tag: name, ...rule } = payload;
+
+        const result = oldTag
+            ? await api( `/tags/${ encodeURIComponent( oldTag ) }`, {
+                method: 'PUT',
+                body: JSON.stringify( payload ),
+            } )
+            : await api( '/tags', {
+                method: 'POST',
+                body: JSON.stringify( { tag: name, ...rule } ),
+            } );
+
+        if ( ! result?.code ) {
+            loadTags();
+        }
+
         return result;
     };
 
@@ -147,6 +160,14 @@ export default function Tags() {
                     </h1>
                     <p className="text-sm text-gray-500 mt-1">{ __( 'Manage subscriber tags', 'snel-newsletter' ) }</p>
                 </div>
+                <button
+                    type="button"
+                    onClick={ () => setCreating( true ) }
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                >
+                    <Plus size={ 14 } />
+                    { __( 'New tag', 'snel-newsletter' ) }
+                </button>
             </div>
 
             { loading ? (
@@ -156,7 +177,15 @@ export default function Tags() {
             ) : tags.length === 0 ? (
                 <div className="bg-white border border-gray-200 rounded-lg px-5 py-12 text-center">
                     <Tag size={ 32 } className="mx-auto text-gray-300 mb-3" />
-                    <p className="text-sm text-gray-500">{ __( 'No tags yet. Add tags to subscribers to see them here.', 'snel-newsletter' ) }</p>
+                    <p className="text-sm text-gray-500">{ __( 'No tags yet. Create one, or add tags to subscribers.', 'snel-newsletter' ) }</p>
+                    <button
+                        type="button"
+                        onClick={ () => setCreating( true ) }
+                        className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                    >
+                        <Plus size={ 14 } />
+                        { __( 'New tag', 'snel-newsletter' ) }
+                    </button>
                 </div>
             ) : (
                 <div className="space-y-6">
@@ -184,10 +213,10 @@ export default function Tags() {
                 </div>
             ) }
 
-            { editingTag && (
+            { ( editingTag || creating ) && (
                 <TagEditModal
                     tag={ editingTag }
-                    onClose={ () => setEditingTag( null ) }
+                    onClose={ () => { setEditingTag( null ); setCreating( false ); } }
                     onSave={ handleSave }
                 />
             ) }

@@ -286,20 +286,61 @@ class Model {
             $new_tag, $old_tag
         ) );
 
+        // The caller upserts a rule under the new name, so drop the old rule
+        // row — otherwise the old name lingers on as an empty tag.
+        $wpdb->delete( self::rules_table(), array( 'tag' => $old_tag ), array( '%s' ) );
+
         // Delete the old tag.
         return (int) $wpdb->delete( $tags_table, array( 'tag' => $old_tag ), array( '%s' ) );
     }
 
     /**
-     * Delete a tag from all subscribers.
+     * Delete a tag from all subscribers, and forget its rule.
      */
     public static function delete_tag_global( $tag ) {
         global $wpdb;
-        $tags_table = self::tags_table();
 
-        $wpdb->delete( $tags_table, array( 'tag' => $tag ), array( '%s' ) );
+        $wpdb->delete( self::tags_table(), array( 'tag' => $tag ), array( '%s' ) );
+        $wpdb->delete( self::rules_table(), array( 'tag' => $tag ), array( '%s' ) );
 
         return true;
+    }
+
+    /**
+     * Create a tag that has no subscribers yet.
+     *
+     * Tags normally exist only because a subscriber carries one. Creating an
+     * empty tag therefore means writing a rule row and nothing else — that row
+     * is what keeps the tag visible in the list until someone is tagged.
+     *
+     * @return bool False if the tag already exists.
+     */
+    public static function create_tag( $tag, $type = 'static', $metric = null, $operator = null, $threshold = null ) {
+        if ( self::tag_exists( $tag ) ) {
+            return false;
+        }
+
+        self::save_tag_rule( $tag, $type, $metric, $operator, $threshold );
+
+        return true;
+    }
+
+    /**
+     * Does this tag exist — either on a subscriber, or as a rule?
+     */
+    public static function tag_exists( $tag ) {
+        global $wpdb;
+        $tags_table  = self::tags_table();
+        $rules_table = self::rules_table();
+
+        return (bool) $wpdb->get_var( $wpdb->prepare(
+            "SELECT 1 FROM $tags_table WHERE tag = %s
+             UNION
+             SELECT 1 FROM $rules_table WHERE tag = %s
+             LIMIT 1",
+            $tag,
+            $tag
+        ) );
     }
 
     /**
@@ -310,15 +351,27 @@ class Model {
         $tags_table  = self::tags_table();
         $rules_table = self::rules_table();
 
-        return $wpdb->get_results(
-            "SELECT t.tag, COUNT(*) as count,
+        // A tag lives in two places: on subscribers, and (optionally) as a rule.
+        // Union both so a freshly created tag with no subscribers still shows up.
+        $rows = $wpdb->get_results(
+            "SELECT all_tags.tag,
+                    ( SELECT COUNT(*) FROM $tags_table st WHERE st.tag = all_tags.tag ) as count,
                     COALESCE(r.type, 'static') as type,
                     r.metric, r.operator, r.threshold
-             FROM $tags_table t
-             LEFT JOIN $rules_table r ON r.tag = t.tag
-             GROUP BY t.tag, r.type, r.metric, r.operator, r.threshold
-             ORDER BY t.tag ASC"
+             FROM (
+                 SELECT DISTINCT tag FROM $tags_table
+                 UNION
+                 SELECT tag FROM $rules_table
+             ) all_tags
+             LEFT JOIN $rules_table r ON r.tag = all_tags.tag
+             ORDER BY all_tags.tag ASC"
         ) ?: array();
+
+        foreach ( $rows as $row ) {
+            $row->count = (int) $row->count;
+        }
+
+        return $rows;
     }
 
     /**
