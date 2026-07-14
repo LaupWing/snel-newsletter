@@ -275,11 +275,14 @@ function ConditionBlock( { step, onChange, onRemove, campaigns, tags, emailStats
                 onInspect={ onInspect }
             />
 
-            {/* fork ⊓ — yes edge green, no edge red */}
+            {/* fork ⊓ — yes edge green, no edge red.
+                The columns below are `grid-cols-2 gap-6`, so each column's centre sits at
+                25% − half-the-gap, not a flat 25%. Pinning the arcs to 25% leaves them 6px
+                off the vertical line they're meant to meet. */}
             <div className="relative w-full max-w-[560px] h-7">
                 <span className="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-3 bg-blue-400" />
-                <span className="absolute top-3 bottom-0 left-[25%] right-1/2 border-2 border-b-0 border-r-0 border-emerald-400 rounded-tl-2xl" />
-                <span className="absolute top-3 bottom-0 left-1/2 right-[25%] border-2 border-b-0 border-l-0 border-red-400 rounded-tr-2xl" />
+                <span className="absolute top-3 bottom-0 left-[calc(25%-7px)] right-1/2 border-2 border-b-0 border-r-0 border-emerald-400 rounded-tl-2xl" />
+                <span className="absolute top-3 bottom-0 left-1/2 right-[calc(25%-7px)] border-2 border-b-0 border-l-0 border-red-400 rounded-tr-2xl" />
             </div>
 
             {/* Branches are rarely the same length, so each column's line grows to fill the
@@ -324,10 +327,10 @@ function ConditionBlock( { step, onChange, onRemove, campaigns, tags, emailStats
                 </div>
             </div>
 
-            {/* merge ∪ — yes edge green, no edge red */}
+            {/* merge ∪ — same 25% − gap/4 alignment as the fork above. */}
             <div className="relative w-full max-w-[560px] h-7">
-                <span className="absolute top-0 bottom-3 left-[25%] right-1/2 border-2 border-t-0 border-r-0 border-emerald-400 rounded-bl-2xl" />
-                <span className="absolute top-0 bottom-3 left-1/2 right-[25%] border-2 border-t-0 border-l-0 border-red-400 rounded-br-2xl" />
+                <span className="absolute top-0 bottom-3 left-[calc(25%-7px)] right-1/2 border-2 border-t-0 border-r-0 border-emerald-400 rounded-bl-2xl" />
+                <span className="absolute top-0 bottom-3 left-1/2 right-[calc(25%-7px)] border-2 border-t-0 border-l-0 border-red-400 rounded-br-2xl" />
                 <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0.5 h-3 bg-blue-400" />
             </div>
         </div>
