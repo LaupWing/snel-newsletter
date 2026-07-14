@@ -10,6 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 require_once __DIR__ . '/Model.php';
+require_once __DIR__ . '/Validator.php';
 require_once __DIR__ . '/Controller.php';
 require_once __DIR__ . '/Rest.php';
 require_once __DIR__ . '/Install.php';

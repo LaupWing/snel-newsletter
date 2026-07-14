@@ -85,7 +85,7 @@ class Importer {
 	 * @param string   $name
 	 * @param string[] $tags   Tags from the source itself.
 	 * @param array    $config
-	 * @return string 'imported' | 'tagged' | 'skipped' | 'invalid'
+	 * @return string 'imported' | 'tagged' | 'skipped' | 'invalid' | 'junk'
 	 */
 	public static function sync_row( $email, $name, $tags, $config ) {
 		$email = trim( (string) $email );
@@ -96,6 +96,12 @@ class Importer {
 
 		if ( ! is_email( $email ) ) {
 			return 'invalid';
+		}
+
+		// Valid shape, guaranteed bounce. Keeping it out protects the sender reputation
+		// of the whole list, which is worth more than one dead address.
+		if ( \Snel\Newsletter\Subscribers\Validator::is_junk( $email ) ) {
+			return 'junk';
 		}
 
 		$tags = Store::clean_tags( array_merge( $config['manual_tags'] ?? array(), (array) $tags ) );
@@ -126,6 +132,7 @@ class Importer {
 			'tagged'   => 0,
 			'skipped'  => 0,
 			'invalid'  => 0,
+			'junk'     => 0,
 		);
 	}
 }

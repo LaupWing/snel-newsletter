@@ -277,6 +277,7 @@ class Scanner {
 		$existing_count = 0;
 		$duplicate      = 0;
 		$empty          = 0;
+		$junk           = 0;
 
 		foreach ( $rows as $row ) {
 			$email = trim( (string) ( $row['email'] ?? '' ) );
@@ -286,11 +287,16 @@ class Scanner {
 				continue;
 			}
 
-			$key = strtolower( $email );
+			$key    = strtolower( $email );
+			$reason = \Snel\Newsletter\Subscribers\Validator::junk_reason( $email );
 
 			if ( ! is_email( $email ) ) {
 				$status = 'invalid';
 				$invalid++;
+			} elseif ( $reason ) {
+				// Shaped like an email, but it will bounce. Bounces cost more than the subscriber is worth.
+				$status = 'junk';
+				$junk++;
 			} elseif ( isset( $existing[ $key ] ) ) {
 				$status = 'existing';
 				$existing_count++;
@@ -314,6 +320,7 @@ class Scanner {
 					'email'   => $email,
 					'tags'    => $tags,
 					'status'  => $status,
+					'reason'  => $reason,
 				);
 			}
 		}
@@ -326,6 +333,7 @@ class Scanner {
 				'existing'   => $existing_count,
 				'duplicate'  => $duplicate,
 				'invalid'    => $invalid,
+				'junk'       => $junk,
 				'no_email'   => $empty,
 			),
 		);

@@ -6,10 +6,11 @@ import TagSelect from './TagSelect';
 import { api } from './api';
 
 const STATUS_META = {
-	new:       { icon: Check, tone: 'text-green-600' },
-	existing:  { icon: Minus, tone: 'text-gray-300' },
-	duplicate: { icon: Minus, tone: 'text-gray-300' },
-	invalid:   { icon: X,     tone: 'text-red-500' },
+	new:       { icon: Check,         tone: 'text-green-600' },
+	existing:  { icon: Minus,         tone: 'text-gray-300' },
+	duplicate: { icon: Minus,         tone: 'text-gray-300' },
+	invalid:   { icon: X,             tone: 'text-red-500' },
+	junk:      { icon: AlertTriangle, tone: 'text-orange-500' },
 };
 
 function Stat( { value, label, tone = 'text-gray-900' } ) {
@@ -273,11 +274,12 @@ export default function MappingPanel( { source, onBack, onSaved } ) {
 
 			{ /* Totals */ }
 			{ totals && (
-				<div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4">
+				<div className="grid grid-cols-3 sm:grid-cols-7 gap-3 mb-4">
 					<Stat value={ totals.scanned } label={ __( 'Posts scanned', 'snel-newsletter' ) } />
 					<Stat value={ totals.importable } label={ __( 'Will import', 'snel-newsletter' ) } tone="text-green-600" />
 					<Stat value={ totals.existing } label={ __( 'Already subscribed', 'snel-newsletter' ) } />
 					<Stat value={ totals.duplicate } label={ __( 'Duplicate in source', 'snel-newsletter' ) } />
+					<Stat value={ totals.junk ?? 0 } label={ __( 'Will bounce', 'snel-newsletter' ) } tone={ totals.junk ? 'text-orange-600' : 'text-gray-900' } />
 					<Stat value={ totals.invalid } label={ __( 'Invalid', 'snel-newsletter' ) } tone={ totals.invalid ? 'text-red-600' : 'text-gray-900' } />
 					<Stat value={ totals.no_email } label={ __( 'No email', 'snel-newsletter' ) } />
 				</div>
@@ -323,9 +325,12 @@ export default function MappingPanel( { source, onBack, onSaved } ) {
 											{ row.title || <span className="text-gray-300">{ __( '(no title)', 'snel-newsletter' ) }</span> }
 										</td>
 										<td className="px-5 py-3">
-											<code className={ `text-xs ${ row.status === 'invalid' ? 'text-red-600' : 'text-gray-700' }` }>
+											<code className={ `text-xs ${ row.status === 'invalid' ? 'text-red-600' : row.status === 'junk' ? 'text-orange-600 line-through' : 'text-gray-700' }` }>
 												{ row.email }
 											</code>
+											{ row.reason && (
+												<div className="text-[10px] text-orange-600 mt-0.5">{ row.reason }</div>
+											) }
 										</td>
 										<td className="px-5 py-3">
 											{ row.tags.length ? (
