@@ -160,9 +160,9 @@ export default function SubscribersTab( { automation, campaigns } ) {
                 </div>
             </div>
 
-            <div className="border border-gray-200 rounded-xl overflow-hidden">
+            <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
                 <div className="max-h-[calc(100vh-320px)] overflow-y-auto overscroll-contain">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm bg-white">
                         <thead className="sticky top-0 bg-gray-50 border-b border-gray-200 z-10">
                             <tr className="text-left text-xs font-medium text-gray-500">
                                 <th className="px-4 py-2.5">{ __( 'Subscriber', 'snel-newsletter' ) }</th>
