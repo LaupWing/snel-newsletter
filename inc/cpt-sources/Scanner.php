@@ -228,25 +228,32 @@ class Scanner {
 	 * @return array
 	 */
 	public static function preview( $post_type, $email_field, $tag_field = '', $tag_source = 'meta', $manual_tags = array(), $limit = 10 ) {
-		$ids = get_posts( array(
-			'post_type'      => $post_type,
-			'post_status'    => array( 'publish', 'private', 'draft' ),
-			'posts_per_page' => 200,
-			'fields'         => 'ids',
-		) );
+		global $wpdb;
 
-		$rows = array();
+		// One query for every post: the preview must count the same set the
+		// importer will walk, so the statuses here mirror Importer::run_cpt().
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT p.ID AS id,
+			        p.post_title AS title,
+			        (
+			            SELECT pm.meta_value
+			            FROM {$wpdb->postmeta} pm
+			            WHERE pm.post_id = p.ID AND pm.meta_key = %s
+			            ORDER BY pm.meta_id ASC
+			            LIMIT 1
+			        ) AS email
+			 FROM {$wpdb->posts} p
+			 WHERE p.post_type = %s
+			   AND p.post_status IN ('publish', 'private')
+			 ORDER BY p.ID ASC",
+			$email_field,
+			$post_type
+		), ARRAY_A );
 
-		foreach ( $ids as $id ) {
-			$rows[] = array(
-				'id'    => $id,
-				'title' => get_the_title( $id ),
-				'email' => trim( (string) get_post_meta( $id, $email_field, true ) ),
-				'tags'  => self::read_tags( $id, $tag_field, $tag_source ),
-			);
-		}
+		// Tags cost a query per post, so only resolve them for the rows we display.
+		$tag_fn = fn( $row ) => self::read_tags( $row['id'], $tag_field, $tag_source );
 
-		return self::preview_rows( $rows, $manual_tags, $limit );
+		return self::preview_rows( $rows, $manual_tags, $limit, $tag_fn );
 	}
 
 	/**
@@ -254,12 +261,13 @@ class Scanner {
 	 *
 	 * Shared by post-type sources and custom providers.
 	 *
-	 * @param array[] $rows
-	 * @param array   $manual_tags Tags applied to every row.
-	 * @param int     $limit       How many rows to return for display.
+	 * @param array[]       $rows
+	 * @param array         $manual_tags Tags applied to every row.
+	 * @param int           $limit       How many rows to return for display.
+	 * @param callable|null $tag_fn      Resolves a row's tags, called only for displayed rows.
 	 * @return array
 	 */
-	public static function preview_rows( $rows, $manual_tags = array(), $limit = 10 ) {
+	public static function preview_rows( $rows, $manual_tags = array(), $limit = 10, $tag_fn = null ) {
 		$existing = array_flip( array_map( 'strtolower', \Snel\Newsletter\Subscribers\Model::all_emails() ) );
 
 		$out            = array();
@@ -297,7 +305,8 @@ class Scanner {
 			$seen[ $key ] = true;
 
 			if ( count( $out ) < $limit ) {
-				$tags = array_values( array_unique( array_merge( $manual_tags, $row['tags'] ?? array() ) ) );
+				$row_tags = $tag_fn ? call_user_func( $tag_fn, $row ) : ( $row['tags'] ?? array() );
+				$tags     = array_values( array_unique( array_merge( $manual_tags, (array) $row_tags ) ) );
 
 				$out[] = array(
 					'post_id' => $row['id'] ?? 0,
