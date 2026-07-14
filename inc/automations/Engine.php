@@ -56,6 +56,13 @@ class Engine {
             $place[]  = "(%d, %d, '[0]', 'active', %s)";
         }
 
+        // Who was already in before we insert? INSERT IGNORE won't tell us afterwards, and
+        // created_at can't either (MySQL writes it in UTC, current_time() is site-local).
+        $already = array_map( 'intval', $wpdb->get_col( $wpdb->prepare(
+            "SELECT subscriber_id FROM $runs WHERE automation_id = %d AND subscriber_id IN ($ids_in)",
+            $automation_id
+        ) ) );
+
         $place_sql = implode( ', ', $place );
         $wpdb->query( $wpdb->prepare(
             "INSERT IGNORE INTO $runs (automation_id, subscriber_id, position, status, next_run_at) VALUES $place_sql",
@@ -70,6 +77,25 @@ class Engine {
                 'automation_id' => $automation_id,
                 'enrolled'      => $enrolled,
             ) );
+        }
+
+        // One log line per subscriber: entered, or already in and skipped.
+        foreach ( $active_ids as $sid ) {
+            $sid  = (int) $sid;
+            $stub = (object) array(
+                'automation_id' => $automation_id,
+                'subscriber_id' => $sid,
+            );
+
+            if ( in_array( $sid, $already, true ) ) {
+                self::log_event(
+                    $stub, null, 'enroll', '',
+                    'Already enrolled — skipped, a subscriber only enters once',
+                    'warning'
+                );
+            } else {
+                self::log_event( $stub, null, 'enroll', '', 'Entered the automation' );
+            }
         }
 
         return $enrolled;
@@ -149,6 +175,7 @@ class Engine {
         global $wpdb;
 
         if ( ! $automation ) {
+            self::log_event( $run, null, 'exit', '', 'Automation was deleted — run stopped', 'warning' );
             self::update_run( $run->id, array( 'status' => 'exited' ) );
             return;
         }
@@ -159,6 +186,11 @@ class Engine {
             $run->subscriber_id
         ) );
         if ( $sub_status !== 'active' ) {
+            self::log_event(
+                $run, null, 'exit', (string) $sub_status,
+                sprintf( 'Left the automation — subscriber is %s, no further emails', $sub_status ),
+                'warning'
+            );
             self::update_run( $run->id, array( 'status' => 'exited' ) );
             return;
         }
@@ -178,22 +210,26 @@ class Engine {
                     $path = array( $path[0] + 1 );
                     continue;
                 }
+                self::log_event( $run, null, 'complete', '', 'Reached the end of the automation' );
                 self::update_run( $run->id, array( 'status' => 'completed', 'position' => wp_json_encode( $path ), 'next_run_at' => null ) );
                 return;
             }
 
             switch ( $step['type'] ?? '' ) {
                 case 'email':
-                    self::send_step_email( $step, $run );
-                    self::log_event( $run, $path, 'email', (string) ( $step['campaign_id'] ?? '' ) );
+                    // Logs its own outcome — queued, duplicate, or missing campaign.
+                    self::send_step_email( $step, $run, $path );
                     $path = self::advance( $path );
                     break;
 
                 case 'label':
-                    if ( ! empty( $step['tag'] ) ) {
-                        \Snel\Newsletter\Subscribers\Model::add_tags( (int) $run->subscriber_id, array( $step['tag'] ) );
+                    $tag = (string) ( $step['tag'] ?? '' );
+                    if ( $tag ) {
+                        \Snel\Newsletter\Subscribers\Model::add_tags( (int) $run->subscriber_id, array( $tag ) );
+                        self::log_event( $run, $path, 'label', $tag, sprintf( 'Tagged "%s"', $tag ) );
+                    } else {
+                        self::log_event( $run, $path, 'label', '', 'Label step has no tag set — skipped', 'warning' );
                     }
-                    self::log_event( $run, $path, 'label', (string) ( $step['tag'] ?? '' ) );
                     $path = self::advance( $path );
                     break;
 
@@ -202,7 +238,17 @@ class Engine {
                     $hours   = max( 0, (int) ( $step['hours'] ?? 0 ) );
                     $seconds = max( 60, $days * DAY_IN_SECONDS + $hours * HOUR_IN_SECONDS );
                     $resume  = date( 'Y-m-d H:i:s', strtotime( current_time( 'mysql' ) ) + $seconds );
-                    self::log_event( $run, $path, 'wait', $resume );
+
+                    self::log_event(
+                        $run, $path, 'wait', $resume,
+                        sprintf(
+                            'Waiting %s (%ds) — resumes %s',
+                            self::human_wait( $days, $hours ),
+                            $seconds,
+                            $resume
+                        )
+                    );
+
                     self::update_run( $run->id, array(
                         'status'      => 'waiting',
                         'position'    => wp_json_encode( self::advance( $path ) ),
@@ -213,15 +259,25 @@ class Engine {
                 case 'condition':
                     if ( count( $path ) === 3 ) {
                         // Nested conditions aren't supported — skip.
+                        self::log_event( $run, $path, 'condition', '', 'Nested condition is not supported — skipped', 'warning' );
                         $path = self::advance( $path );
                         break;
                     }
+
                     if ( ( $step['mode'] ?? 'opened' ) === 'open_rate' ) {
-                        $result = self::open_rate_above( (int) $run->subscriber_id, (float) ( $step['threshold'] ?? 0 ) );
+                        $threshold = (float) ( $step['threshold'] ?? 0 );
+                        $result    = self::open_rate_above( (int) $run->subscriber_id, $threshold );
+                        $why       = sprintf( 'lifetime open rate %s %s%%', $result ? 'above' : 'not above', $threshold );
                     } else {
                         $result = self::opened_previous_email( $steps, $path[0], (int) $run->subscriber_id );
+                        $why    = $result ? 'opened the previous email' : 'did not open the previous email';
                     }
-                    self::log_event( $run, $path, 'condition', $result ? 'yes' : 'no' );
+
+                    self::log_event(
+                        $run, $path, 'condition', $result ? 'yes' : 'no',
+                        sprintf( 'Took the %s branch — %s', $result ? 'YES' : 'NO', $why )
+                    );
+
                     $path = array( $path[0], $result ? 'yes' : 'no', 0 );
                     break;
 
@@ -234,15 +290,29 @@ class Engine {
         self::update_run( $run->id, array( 'position' => wp_json_encode( $path ) ) );
     }
 
-    private static function send_step_email( $step, $run ) {
+    /**
+     * Queue one email step. Returns the log line describing what happened, so the caller
+     * records exactly one event per attempt — queued, suppressed as a duplicate, or failed.
+     *
+     * The send queue has a UNIQUE(campaign_id, subscriber_id), so a subscriber can never be
+     * sent the same campaign twice. INSERT IGNORE swallows that silently; we surface it.
+     */
+    private static function send_step_email( $step, $run, $path ) {
         global $wpdb;
 
         $campaign_id = (int) ( $step['campaign_id'] ?? 0 );
-        if ( ! $campaign_id || ! get_post( $campaign_id ) ) {
+        $post        = $campaign_id ? get_post( $campaign_id ) : null;
+
+        if ( ! $post ) {
             \Snel\Newsletter\Logger\Logger::warning( 'automations', 'Email step skipped — campaign missing', array(
                 'campaign_id'   => $campaign_id,
                 'automation_id' => $run->automation_id,
             ) );
+            self::log_event(
+                $run, $path, 'email', (string) $campaign_id,
+                sprintf( 'Not sent — campaign #%d no longer exists', $campaign_id ),
+                'error'
+            );
             return;
         }
 
@@ -252,6 +322,21 @@ class Engine {
             $campaign_id,
             $run->subscriber_id
         ) );
+
+        // 0 rows means the UNIQUE key rejected it — this subscriber already has this campaign.
+        if ( 0 === (int) $wpdb->rows_affected ) {
+            self::log_event(
+                $run, $path, 'email', (string) $campaign_id,
+                sprintf( 'Already queued "%s" — duplicate suppressed, not sent twice', $post->post_title ),
+                'warning'
+            );
+            return;
+        }
+
+        self::log_event(
+            $run, $path, 'email', (string) $campaign_id,
+            sprintf( 'Queued "%s"', $post->post_title )
+        );
 
         if ( ! wp_next_scheduled( \Snel\Newsletter\Queue\Processor::CRON_HOOK ) ) {
             wp_schedule_single_event( time() + 5, \Snel\Newsletter\Queue\Processor::CRON_HOOK );
@@ -301,6 +386,17 @@ class Engine {
         return null !== $rate && (float) $rate > $threshold;
     }
 
+    private static function human_wait( $days, $hours ) {
+        $parts = array();
+        if ( $days ) {
+            $parts[] = sprintf( _n( '%d day', '%d days', $days, 'snel-newsletter' ), $days );
+        }
+        if ( $hours ) {
+            $parts[] = sprintf( _n( '%d hour', '%d hours', $hours, 'snel-newsletter' ), $hours );
+        }
+        return $parts ? implode( ' ', $parts ) : '1 minute (minimum)';
+    }
+
     private static function step_at( $steps, $path ) {
         if ( count( $path ) === 1 ) {
             return $steps[ $path[0] ] ?? null;
@@ -330,7 +426,7 @@ class Engine {
      *
      * @param string $detail Step-specific: campaign id, tag, resume time, or yes/no.
      */
-    private static function log_event( $run, $path, $type, $detail = '' ) {
+    private static function log_event( $run, $path, $type, $detail = '', $message = '', $level = 'info' ) {
         global $wpdb;
 
         $wpdb->insert(
@@ -338,12 +434,14 @@ class Engine {
             array(
                 'automation_id' => (int) $run->automation_id,
                 'subscriber_id' => (int) $run->subscriber_id,
-                'step_path'     => wp_json_encode( $path ),
+                'step_path'     => null === $path ? '' : wp_json_encode( $path ),
                 'step_type'     => $type,
                 'detail'        => (string) $detail,
+                'level'         => $level,
+                'message'       => (string) $message,
                 'created_at'    => current_time( 'mysql' ),
             ),
-            array( '%d', '%d', '%s', '%s', '%s', '%s' )
+            array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s' )
         );
     }
 }

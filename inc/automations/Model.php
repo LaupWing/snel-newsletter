@@ -36,6 +36,34 @@ class Model {
     }
 
     /**
+     * The automation's log — every event the engine recorded, newest first.
+     *
+     * This is the same events table the node inspector reads; here it's just ordered by
+     * time instead of by step, which is what you want when you're chasing "why did this
+     * subscriber get that email".
+     */
+    public static function logs( $automation_id, $limit = 500 ) {
+        global $wpdb;
+
+        $subs   = $wpdb->prefix . 'snel_subscribers';
+        $events = self::events_table();
+
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT e.id, e.step_path, e.step_type, e.detail, e.level, e.message, e.created_at,
+                    s.id AS subscriber_id, s.email, s.name
+             FROM $events e
+             LEFT JOIN $subs s ON s.id = e.subscriber_id
+             WHERE e.automation_id = %d
+             ORDER BY e.created_at DESC, e.id DESC
+             LIMIT %d",
+            $automation_id,
+            $limit
+        ), ARRAY_A );
+
+        return $rows ?: array();
+    }
+
+    /**
      * Every subscriber enrolled in this automation and where they stand right now.
      *
      * `position` is the step the run will execute NEXT — so for a waiting run it's the

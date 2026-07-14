@@ -55,9 +55,12 @@ class Install {
             step_path varchar(100) NOT NULL DEFAULT '',
             step_type varchar(20) NOT NULL DEFAULT '',
             detail varchar(190) NOT NULL DEFAULT '',
+            level varchar(10) NOT NULL DEFAULT 'info',
+            message varchar(255) NOT NULL DEFAULT '',
             created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             KEY automation_step (automation_id, step_path),
+            KEY automation_time (automation_id, created_at),
             KEY subscriber (subscriber_id)
         ) $charset;";
 

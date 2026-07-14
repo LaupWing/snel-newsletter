@@ -2,13 +2,14 @@ import { useState, useEffect, useRef, useCallback } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import {
     ArrowLeft, Zap, Mail, Clock, Split, Tag as TagIcon,
-    Plus, Trash2, Loader2, Play, Pause, Check, Workflow, Users,
+    Plus, Trash2, Loader2, Play, Pause, Check, Workflow, Users, ScrollText,
 } from 'lucide-react';
 import Select from '../../components/Select';
 import Tabs from '../../components/Tabs';
 import GradientButton from '../../components/GradientButton';
 import NodeInspector from './NodeInspector';
 import SubscribersTab from './SubscribersTab';
+import LogsTab from './LogsTab';
 
 const API_URL = window.snelNewsletter?.restUrl;
 const NONCE   = window.snelNewsletter?.nonce;
@@ -457,6 +458,7 @@ export default function Builder( { automationId, onClose } ) {
                 tabs={ [
                     { id: 'flow', label: __( 'Flow', 'snel-newsletter' ), icon: Workflow },
                     { id: 'subscribers', label: __( 'Subscribers', 'snel-newsletter' ), icon: Users, badge: automation.enrolled ?? 0 },
+                    { id: 'logs', label: __( 'Logs', 'snel-newsletter' ), icon: ScrollText },
                 ] }
                 active={ tab }
                 onChange={ setTab }
@@ -465,6 +467,8 @@ export default function Builder( { automationId, onClose } ) {
             { tab === 'subscribers' && (
                 <SubscribersTab automation={ automation } campaigns={ campaigns } />
             ) }
+
+            { tab === 'logs' && <LogsTab automation={ automation } /> }
 
             {/* Canvas */}
             <div className={ `border border-gray-200 rounded-2xl bg-gray-50 [background-image:radial-gradient(#d8d9dd_1px,transparent_1px)] [background-size:18px_18px] px-6 py-10 overflow-x-auto min-h-[calc(100vh-240px)] ${ tab === 'flow' ? '' : 'hidden' }` }>

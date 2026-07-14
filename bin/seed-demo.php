@@ -159,13 +159,15 @@ foreach ( $people as $i => $p ) {
 }
 
 /* Helper writers. */
-$event = function ( $sid, $path, $type, $detail, $when ) use ( $wpdb, $events_t, $auto_id ) {
+$event = function ( $sid, $path, $type, $detail, $when, $message = '', $level = 'info' ) use ( $wpdb, $events_t, $auto_id ) {
     $wpdb->insert( $events_t, array(
         'automation_id' => $auto_id,
         'subscriber_id' => $sid,
-        'step_path'     => wp_json_encode( $path ),
+        'step_path'     => null === $path ? '' : wp_json_encode( $path ),
         'step_type'     => $type,
         'detail'        => (string) $detail,
+        'level'         => $level,
+        'message'       => $message,
         'created_at'    => $when,
     ) );
 };
@@ -212,8 +214,10 @@ foreach ( $sub_ids as $i => $sid ) {
 
     $t0 = $ago( 9 - $i * 0.4 );
 
+    $event( $sid, null, 'enroll', '', $t0, 'Entered the automation' );
+
     // Step [0] — welcome email.
-    $event( $sid, array( 0 ), 'email', $campaigns['welcome'], $t0 );
+    $event( $sid, array( 0 ), 'email', $campaigns['welcome'], $t0, 'Queued "Welcome to Snelstack"' );
     $sent( $sid, $campaigns['welcome'], $t0 );
     if ( $open_welcome ) {
         $track( $sid, $campaigns['welcome'], 'open', gmdate( 'Y-m-d H:i:s', strtotime( $t0 ) + 3600 ) );
@@ -226,15 +230,17 @@ foreach ( $sub_ids as $i => $sid ) {
             'next_run_at' => gmdate( 'Y-m-d H:i:s', strtotime( current_time( 'mysql' ) ) + DAY_IN_SECONDS ),
             'created_at' => $t0,
         ) );
-        $event( $sid, array( 1 ), 'wait', gmdate( 'Y-m-d H:i:s', strtotime( current_time( 'mysql' ) ) + DAY_IN_SECONDS ), $t0 );
+        $r1 = gmdate( 'Y-m-d H:i:s', strtotime( current_time( 'mysql' ) ) + DAY_IN_SECONDS );
+        $event( $sid, array( 1 ), 'wait', $r1, $t0, "Waiting 2 days (172800s) — resumes $r1" );
         continue;
     }
 
     // Step [1] — 2-day wait (already passed).
     $t1 = gmdate( 'Y-m-d H:i:s', strtotime( $t0 ) + 2 * DAY_IN_SECONDS );
-    $event( $sid, array( 1 ), 'wait', $t1, $t0 );
+    $event( $sid, array( 1 ), 'wait', $t1, $t0, "Waiting 2 days (172800s) — resumes $t1" );
 
     if ( 'exited' === $depth ) {
+        $event( $sid, null, 'exit', 'unsubscribed', $t1, 'Left the automation — subscriber is unsubscribed, no further emails', 'warning' );
         $wpdb->insert( $runs_t, array(
             'automation_id' => $auto_id, 'subscriber_id' => $sid,
             'position' => wp_json_encode( array( 2 ) ), 'status' => 'exited',
@@ -244,7 +250,7 @@ foreach ( $sub_ids as $i => $sid ) {
     }
 
     // Step [2] — value email.
-    $event( $sid, array( 2 ), 'email', $campaigns['value'], $t1 );
+    $event( $sid, array( 2 ), 'email', $campaigns['value'], $t1, 'Queued "The 3 things that make a site fast"' );
     $sent( $sid, $campaigns['value'], $t1 );
     if ( $open_value ) {
         $track( $sid, $campaigns['value'], 'open', gmdate( 'Y-m-d H:i:s', strtotime( $t1 ) + 7200 ) );
@@ -260,24 +266,28 @@ foreach ( $sub_ids as $i => $sid ) {
             'next_run_at' => gmdate( 'Y-m-d H:i:s', strtotime( current_time( 'mysql' ) ) + 2 * DAY_IN_SECONDS ),
             'created_at' => $t0,
         ) );
-        $event( $sid, array( 3 ), 'wait', gmdate( 'Y-m-d H:i:s', strtotime( current_time( 'mysql' ) ) + 2 * DAY_IN_SECONDS ), $t1 );
+        $r2 = gmdate( 'Y-m-d H:i:s', strtotime( current_time( 'mysql' ) ) + 2 * DAY_IN_SECONDS );
+        $event( $sid, array( 3 ), 'wait', $r2, $t1, "Waiting 3 days (259200s) — resumes $r2" );
         continue;
     }
 
     // Step [3] — 3-day wait (passed).
     $t2 = gmdate( 'Y-m-d H:i:s', strtotime( $t1 ) + 3 * DAY_IN_SECONDS );
-    $event( $sid, array( 3 ), 'wait', $t2, $t1 );
+    $event( $sid, array( 3 ), 'wait', $t2, $t1, "Waiting 3 days (259200s) — resumes $t2" );
 
     // Step [4] — condition on "opened the previous email" (the value email).
     $took_yes = $open_value;
-    $event( $sid, array( 4 ), 'condition', $took_yes ? 'yes' : 'no', $t2 );
+    $event( $sid, array( 4 ), 'condition', $took_yes ? 'yes' : 'no', $t2,
+        $took_yes
+            ? 'Took the YES branch — opened the previous email'
+            : 'Took the NO branch — did not open the previous email' );
 
     if ( $took_yes ) {
         // [4].yes[0] label, [4].yes[1] offer email
-        $event( $sid, array( 4, 'yes', 0 ), 'label', 'engaged', $t2 );
+        $event( $sid, array( 4, 'yes', 0 ), 'label', 'engaged', $t2, 'Tagged "engaged"' );
         $wpdb->insert( $stags_t, array( 'subscriber_id' => $sid, 'tag' => 'engaged' ) );
 
-        $event( $sid, array( 4, 'yes', 1 ), 'email', $campaigns['offer'], $t2 );
+        $event( $sid, array( 4, 'yes', 1 ), 'email', $campaigns['offer'], $t2, 'Queued "Want us to audit your site? (free)"' );
         $sent( $sid, $campaigns['offer'], $t2 );
         if ( $clicked ) {
             $track( $sid, $campaigns['offer'], 'open', gmdate( 'Y-m-d H:i:s', strtotime( $t2 ) + 5400 ) );
@@ -285,10 +295,11 @@ foreach ( $sub_ids as $i => $sid ) {
         }
     } else {
         // [4].no[0] nudge email
-        $event( $sid, array( 4, 'no', 0 ), 'email', $campaigns['nudge'], $t2 );
+        $event( $sid, array( 4, 'no', 0 ), 'email', $campaigns['nudge'], $t2, 'Queued "Did we lose you?"' );
         $sent( $sid, $campaigns['nudge'], $t2 );
     }
 
+    $event( $sid, null, 'complete', '', $t2, 'Reached the end of the automation' );
     $wpdb->insert( $runs_t, array(
         'automation_id' => $auto_id, 'subscriber_id' => $sid,
         'position' => wp_json_encode( array( 5 ) ), 'status' => 'completed',

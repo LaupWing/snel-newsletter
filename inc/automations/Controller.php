@@ -99,6 +99,19 @@ class Controller {
     }
 
     /**
+     * Logs tab — what the engine actually did, newest first.
+     */
+    public function logs( \WP_REST_Request $request ) {
+        $id = (int) $request->get_param( 'id' );
+
+        if ( ! Model::get( $id ) ) {
+            return new \WP_Error( 'not_found', 'Automation not found', array( 'status' => 404 ) );
+        }
+
+        return rest_ensure_response( array( 'logs' => Model::logs( $id ) ) );
+    }
+
+    /**
      * Subscribers tab — everyone in the automation and the step they're sitting on.
      */
     public function subscribers( \WP_REST_Request $request ) {

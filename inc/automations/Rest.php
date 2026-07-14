@@ -69,6 +69,13 @@ class Rest {
             'callback'            => array( $this->controller, 'subscribers' ),
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
+
+        // Logs tab — what the engine did, newest first.
+        register_rest_route( $this->namespace, '/automations/(?P<id>\d+)/logs', array(
+            'methods'             => 'GET',
+            'callback'            => array( $this->controller, 'logs' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
     }
 
     public function permission_check() {
