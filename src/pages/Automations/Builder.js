@@ -19,7 +19,7 @@ function api( path, opts = {} ) {
 }
 
 const STEP_META = {
-    email:     { label: __( 'Send email', 'snel-newsletter' ), icon: Mail,    color: 'text-blue-600',    bg: 'bg-blue-50',    border: 'bg-[#374151]',   handle: 'bg-blue-500' },
+    email:     { label: __( 'Send email', 'snel-newsletter' ), icon: Mail,    color: 'text-blue-600',    bg: 'bg-blue-50',    border: 'bg-blue-500',    handle: 'bg-blue-500' },
     wait:      { label: __( 'Wait', 'snel-newsletter' ),       icon: Clock,   color: 'text-cyan-600',    bg: 'bg-cyan-50',    border: 'bg-cyan-500',    handle: 'bg-cyan-500' },
     condition: { label: __( 'If / else', 'snel-newsletter' ),  icon: Split,   color: 'text-amber-600',   bg: 'bg-amber-50',   border: 'bg-amber-500',   handle: 'bg-amber-500' },
     label:     { label: __( 'Set label', 'snel-newsletter' ),  icon: TagIcon, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'bg-emerald-500', handle: 'bg-emerald-500' },
