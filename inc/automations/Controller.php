@@ -24,7 +24,30 @@ class Controller {
         $automation = array_merge( $automation, Model::run_counts( $automation['id'] ) );
         $automation['email_stats'] = Model::email_stats( $automation );
 
+        // Tagged before the automation went live, so never enrolled.
+        $automation['pending'] = count( Engine::pending_by_tag( $automation['id'] ) );
+
         return rest_ensure_response( $automation );
+    }
+
+    /**
+     * Backfill — enroll everyone already carrying the trigger tag.
+     */
+    public function backfill( \WP_REST_Request $request ) {
+        $id         = (int) $request->get_param( 'id' );
+        $automation = Model::get( $id );
+
+        if ( ! $automation ) {
+            return new \WP_Error( 'not_found', 'Automation not found', array( 'status' => 404 ) );
+        }
+
+        if ( 'active' !== $automation['status'] ) {
+            return new \WP_Error( 'paused', 'Activate the automation first — a paused one sends nothing.', array( 'status' => 400 ) );
+        }
+
+        $enrolled = Engine::enroll_by_tag( $id );
+
+        return rest_ensure_response( array( 'success' => true, 'enrolled' => $enrolled ) );
     }
 
     public function create( \WP_REST_Request $request ) {

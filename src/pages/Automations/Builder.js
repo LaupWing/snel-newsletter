@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import {
     ArrowLeft, Zap, Mail, Clock, Split, Tag as TagIcon,
-    Plus, Trash2, Loader2, Play, Pause, Check, Workflow, Users, ScrollText,
+    Plus, Trash2, Loader2, Play, Pause, Check, Workflow, Users, ScrollText, UserPlus,
 } from 'lucide-react';
 import Select from '../../components/Select';
 import Tabs from '../../components/Tabs';
@@ -349,6 +349,7 @@ export default function Builder( { automationId, onClose } ) {
     const [ savedFlash, setSavedFlash ] = useState( false );
     const [ inspect, setInspect ]       = useState( null ); // step path, or 'trigger'
     const [ tab, setTab ]               = useState( 'flow' );
+    const [ backfilling, setBackfilling ] = useState( false );
 
     useEffect( () => {
         api( `/automations/${ automationId }` ).then( setAutomation );
@@ -380,6 +381,21 @@ export default function Builder( { automationId, onClose } ) {
     };
 
     const toggleActive = () => save( { status: automation.status === 'active' ? 'paused' : 'active' } );
+
+    // Anyone tagged while this was paused never enrolled — enrollment only fires
+    // at the moment a tag lands. This pulls them in after the fact.
+    const handleBackfill = async () => {
+        const count = automation.pending;
+
+        if ( ! confirm(
+            `${ __( 'Enroll', 'snel-newsletter' ) } ${ count } ${ __( 'subscriber(s) into', 'snel-newsletter' ) } "${ automation.name }"? ${ __( 'They start receiving email within seconds. This cannot be undone.', 'snel-newsletter' ) }`
+        ) ) return;
+
+        setBackfilling( true );
+        await api( `/automations/${ automationId }/backfill`, { method: 'POST' } );
+        setAutomation( await api( `/automations/${ automationId }` ) );
+        setBackfilling( false );
+    };
 
     if ( ! automation ) {
         return (
@@ -453,6 +469,38 @@ export default function Builder( { automationId, onClose } ) {
                     ) }
                 </div>
             </div>
+
+            { /* Tagged while paused, so never enrolled. Offer to pull them in. */ }
+            { automation.pending > 0 && (
+                <div className="flex items-center justify-between gap-4 px-5 py-3.5 mb-5 bg-amber-50 border border-amber-100 rounded-lg">
+                    <div className="flex items-start gap-2.5">
+                        <Zap size={ 15 } className="text-amber-500 mt-0.5 shrink-0" />
+                        <div>
+                            <div className="text-sm font-medium text-amber-900 tabular-nums">
+                                { automation.pending } { __( 'subscriber(s) carry', 'snel-newsletter' ) }{ ' ' }
+                                <span className="font-semibold">{ automation.trigger_tag }</span>{ ' ' }
+                                { __( 'but never entered', 'snel-newsletter' ) }
+                            </div>
+                            <p className="text-xs text-amber-700 mt-0.5">
+                                { isActive
+                                    ? __( 'They were tagged while this automation was paused. Enrolling starts sending immediately.', 'snel-newsletter' )
+                                    : __( 'They were tagged while this automation was paused. Activate it to enroll them.', 'snel-newsletter' ) }
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={ handleBackfill }
+                        disabled={ ! isActive || backfilling }
+                        title={ isActive ? '' : __( 'Activate the automation first', 'snel-newsletter' ) }
+                        className="inline-flex items-center gap-1.5 shrink-0 px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors"
+                    >
+                        { backfilling
+                            ? <><Loader2 size={ 13 } className="animate-spin" /> { __( 'Enrolling…', 'snel-newsletter' ) }</>
+                            : <><UserPlus size={ 13 } /> { __( 'Enroll', 'snel-newsletter' ) } { automation.pending }</> }
+                    </button>
+                </div>
+            ) }
 
             <Tabs
                 tabs={ [

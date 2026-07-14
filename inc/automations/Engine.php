@@ -125,6 +125,49 @@ class Engine {
     }
 
     /**
+     * Everyone who carries the trigger tag but never entered the automation.
+     *
+     * Enrollment only happens the moment a tag is applied, so anyone tagged
+     * while the automation was paused is stranded. This is who they are.
+     *
+     * @return int[] Subscriber IDs.
+     */
+    public static function pending_by_tag( $automation_id ) {
+        global $wpdb;
+
+        $automation = Model::get( $automation_id );
+
+        if ( ! $automation || 'tag' !== $automation['trigger_type'] || ! $automation['trigger_tag'] ) {
+            return array();
+        }
+
+        $subs = $wpdb->prefix . 'snel_subscribers';
+        $tags = $wpdb->prefix . 'snel_subscriber_tags';
+        $runs = Model::runs_table();
+
+        return array_map( 'intval', $wpdb->get_col( $wpdb->prepare(
+            "SELECT s.id
+             FROM $subs s
+             INNER JOIN $tags t ON t.subscriber_id = s.id AND t.tag = %s
+             LEFT JOIN $runs r ON r.subscriber_id = s.id AND r.automation_id = %d
+             WHERE s.status = 'active' AND r.id IS NULL",
+            $automation['trigger_tag'],
+            $automation_id
+        ) ) );
+    }
+
+    /**
+     * Backfill: enroll everyone already carrying the trigger tag.
+     *
+     * @return int Number newly enrolled.
+     */
+    public static function enroll_by_tag( $automation_id ) {
+        $ids = self::pending_by_tag( $automation_id );
+
+        return $ids ? self::enroll( $automation_id, $ids ) : 0;
+    }
+
+    /**
      * Process due runs. Called by WP Cron.
      */
     public static function tick() {
