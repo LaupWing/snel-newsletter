@@ -1,8 +1,8 @@
 import { useState, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { ArrowLeft, Mail, Tag, Check, X, Minus, Zap, Download, Loader2, Plug } from 'lucide-react';
+import { ArrowLeft, Mail, Tag, Check, X, Minus, Zap, Download, Loader2, Plug, AlertTriangle } from 'lucide-react';
 import Select from '../../components/Select';
-import TagInput from './TagInput';
+import TagSelect from './TagSelect';
 import { api } from './api';
 
 const STATUS_META = {
@@ -40,6 +40,29 @@ export default function MappingPanel( { source, onBack, onSaved } ) {
 	const [ loading, setLoading ] = useState( false );
 	const [ importing, setImporting ] = useState( false );
 	const [ result, setResult ]   = useState( null );
+
+	const [ allTags, setAllTags ]         = useState( [] );
+	const [ automations, setAutomations ] = useState( [] );
+
+	useEffect( () => {
+		api( '/tags' ).then( ( data ) => setAllTags( Array.isArray( data ) ? data : [] ) );
+		api( '/automations' ).then( ( data ) => setAutomations( Array.isArray( data ) ? data : [] ) );
+	}, [] );
+
+	// Which tags pull a subscriber into an automation the moment they're applied?
+	const triggers = {};
+	automations.forEach( ( a ) => {
+		if ( a.trigger_type === 'tag' && a.trigger_tag ) {
+			triggers[ a.trigger_tag ] = { name: a.name, status: a.status };
+		}
+	} );
+
+	const armed = manualTags
+		.map( ( t ) => triggers[ t ] && { tag: t, ...triggers[ t ] } )
+		.filter( Boolean );
+
+	const live   = armed.filter( ( a ) => a.status === 'active' );
+	const paused = armed.filter( ( a ) => a.status !== 'active' );
 
 	useEffect( () => {
 		if ( ! isCustom && ! emailField ) return;
@@ -110,6 +133,10 @@ export default function MappingPanel( { source, onBack, onSaved } ) {
 
 	const totals = preview?.totals;
 
+	// Everyone who ends up tagged enrols: the new imports, and the already-subscribed
+	// who get topped up. Duplicates collapse into one subscriber, so they don't count.
+	const enrollCount = totals ? totals.importable + totals.existing : 0;
+
 	return (
 		<div className="p-6">
 			<button
@@ -172,10 +199,51 @@ export default function MappingPanel( { source, onBack, onSaved } ) {
 						{ __( 'Extra tags', 'snel-newsletter' ) }
 						<span className="text-gray-400 font-normal">{ __( '(optional)', 'snel-newsletter' ) }</span>
 					</label>
-					<TagInput tags={ manualTags } onChange={ setManualTags } />
+					<TagSelect
+						tags={ manualTags }
+						onChange={ setManualTags }
+						options={ allTags }
+						triggers={ triggers }
+					/>
 					<p className="text-[11px] text-gray-400 mt-1.5">
-						{ __( 'Applied to every subscriber from this source, on top of the field above.', 'snel-newsletter' ) }
+						{ __( 'Applied to every subscriber from this source, on top of the field above. Create tags on the Tags page.', 'snel-newsletter' ) }
 					</p>
+
+					{ /* A trigger tag turns an import into a send. Say so before they click. */ }
+					{ live.length > 0 && (
+						<div className="mt-3 flex items-start gap-2 px-3 py-2.5 bg-red-50 border border-red-100 rounded-lg">
+							<AlertTriangle size={ 14 } className="text-red-500 mt-0.5 shrink-0" />
+							<p className="text-[11px] text-red-700 leading-relaxed">
+								{ live.map( ( a ) => (
+									<span key={ a.tag } className="block">
+										<strong>{ a.tag }</strong> { __( 'triggers the active automation', 'snel-newsletter' ) } <strong>{ a.name }</strong>.
+									</span>
+								) ) }
+								{ enrollCount > 0 && (
+									<span className="block mt-1">
+										{ __( 'Importing enrolls', 'snel-newsletter' ) } <strong>{ enrollCount }</strong>{ ' ' }
+										{ __( 'subscriber(s) immediately — they start receiving email within seconds. Pause the automation first if you only want future ones to enter.', 'snel-newsletter' ) }
+									</span>
+								) }
+							</p>
+						</div>
+					) }
+
+					{ paused.length > 0 && (
+						<div className="mt-3 flex items-start gap-2 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg">
+							<Zap size={ 14 } className="text-gray-400 mt-0.5 shrink-0" />
+							<p className="text-[11px] text-gray-600 leading-relaxed">
+								{ paused.map( ( a ) => (
+									<span key={ a.tag } className="block">
+										<strong>{ a.tag }</strong> { __( 'triggers', 'snel-newsletter' ) } <strong>{ a.name }</strong>, { __( 'which is paused — nobody will enter.', 'snel-newsletter' ) }
+									</span>
+								) ) }
+								<span className="block mt-1">
+									{ __( 'Activating it later will not enroll these subscribers; only newly tagged ones enter.', 'snel-newsletter' ) }
+								</span>
+							</p>
+						</div>
+					) }
 				</div>
 			</div>
 
