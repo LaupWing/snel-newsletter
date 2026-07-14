@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Snel Newsletter
  * Description: Lightweight newsletter toolkit by Snelstack. Send, track, grow.
- * Version: 1.6.2
+ * Version: 1.7.0
  * Author: Snelstack
  * Author URI: https://snelstack.com
  * License: GPL v2 or later
@@ -24,7 +24,7 @@ if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
     );
 }
 
-define( 'SNEL_NEWSLETTER_VERSION', '1.6.2' );
+define( 'SNEL_NEWSLETTER_VERSION', '1.7.0' );
 define( 'SNEL_NEWSLETTER_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SNEL_NEWSLETTER_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
@@ -39,6 +39,7 @@ require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/adapters/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/sender/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/tracking/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/queue/index.php';
+require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/automations/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/cpt-sources/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/settings/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/warmup/index.php';
@@ -54,6 +55,7 @@ register_activation_hook( __FILE__, function () {
     Snel\Newsletter\Tracking\Install::create_tables();
     Snel\Newsletter\Queue\Install::create_tables();
     Snel\Newsletter\Logger\Install::create_tables();
+    Snel\Newsletter\Automations\Install::create_tables();
     Snel\Newsletter\Warmup\Install::maybe_add_columns();
 } );
 
@@ -65,6 +67,7 @@ add_action( 'admin_init', function () {
         Snel\Newsletter\Tracking\Install::create_tables();
         Snel\Newsletter\Queue\Install::create_tables();
         Snel\Newsletter\Logger\Install::create_tables();
+        Snel\Newsletter\Automations\Install::create_tables();
         Snel\Newsletter\Warmup\Install::maybe_add_columns();
         update_option( 'snel_newsletter_db_version', SNEL_NEWSLETTER_VERSION );
     }
