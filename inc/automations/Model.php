@@ -30,6 +30,97 @@ class Model {
         return $wpdb->prefix . 'snel_automation_runs';
     }
 
+    public static function events_table() {
+        global $wpdb;
+        return $wpdb->prefix . 'snel_automation_events';
+    }
+
+    /**
+     * Who passed through one node, and what happened to them there.
+     *
+     * The trigger node reads the runs table (enrolment time is the run's created_at).
+     * Every other node reads the events table, which the engine writes one row to each
+     * time a subscriber executes a step. Email nodes additionally join the send queue
+     * and tracking table so we can show delivery and opens.
+     *
+     * @param string $path JSON path of the step, e.g. "[2]" or "[2,\"yes\",0]".
+     *                     The literal string "trigger" means the enrolment node.
+     * @return array{type: string, subscribers: array}
+     */
+    public static function step_subscribers( $automation_id, $path ) {
+        global $wpdb;
+
+        $subs   = $wpdb->prefix . 'snel_subscribers';
+        $events = self::events_table();
+        $runs   = self::runs_table();
+
+        if ( 'trigger' === $path ) {
+            $rows = $wpdb->get_results( $wpdb->prepare(
+                "SELECT s.id, s.email, s.name, s.status AS subscriber_status,
+                        r.created_at AS at, r.status AS run_status
+                 FROM $runs r
+                 INNER JOIN $subs s ON s.id = r.subscriber_id
+                 WHERE r.automation_id = %d
+                 ORDER BY r.created_at DESC
+                 LIMIT 500",
+                $automation_id
+            ), ARRAY_A );
+
+            return array( 'type' => 'trigger', 'subscribers' => $rows ?: array() );
+        }
+
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT s.id, s.email, s.name, s.status AS subscriber_status,
+                    e.created_at AS at, e.step_type, e.detail
+             FROM $events e
+             INNER JOIN $subs s ON s.id = e.subscriber_id
+             WHERE e.automation_id = %d AND e.step_path = %s
+             ORDER BY e.created_at DESC
+             LIMIT 500",
+            $automation_id,
+            $path
+        ), ARRAY_A );
+
+        if ( ! $rows ) {
+            return array( 'type' => '', 'subscribers' => array() );
+        }
+
+        $type = $rows[0]['step_type'];
+
+        // Email nodes: enrich with delivery + open state for that campaign.
+        if ( 'email' === $type ) {
+            $campaign_id = (int) $rows[0]['detail'];
+            $queue       = $wpdb->prefix . 'snel_send_queue';
+            $tracking    = $wpdb->prefix . 'snel_tracking';
+
+            foreach ( $rows as &$row ) {
+                $q = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT status, sent_at FROM $queue WHERE campaign_id = %d AND subscriber_id = %d",
+                    $campaign_id,
+                    $row['id']
+                ), ARRAY_A );
+
+                $row['send_status'] = $q['status'] ?? 'pending';
+                $row['sent_at']     = $q['sent_at'] ?? null;
+                $row['opened_at']   = $wpdb->get_var( $wpdb->prepare(
+                    "SELECT MIN(created_at) FROM $tracking
+                     WHERE campaign_id = %d AND subscriber_id = %d AND type = 'open'",
+                    $campaign_id,
+                    $row['id']
+                ) );
+                $row['clicked']     = (bool) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT id FROM $tracking
+                     WHERE campaign_id = %d AND subscriber_id = %d AND type = 'click' LIMIT 1",
+                    $campaign_id,
+                    $row['id']
+                ) );
+            }
+            unset( $row );
+        }
+
+        return array( 'type' => $type, 'subscribers' => $rows );
+    }
+
     /**
      * All automations with run counts.
      */
@@ -95,6 +186,7 @@ class Model {
     public static function delete( $id ) {
         global $wpdb;
         $wpdb->delete( self::runs_table(), array( 'automation_id' => $id ), array( '%d' ) );
+        $wpdb->delete( self::events_table(), array( 'automation_id' => $id ), array( '%d' ) );
         return false !== $wpdb->delete( self::table(), array( 'id' => $id ), array( '%d' ) );
     }
 

@@ -185,6 +185,7 @@ class Engine {
             switch ( $step['type'] ?? '' ) {
                 case 'email':
                     self::send_step_email( $step, $run );
+                    self::log_event( $run, $path, 'email', (string) ( $step['campaign_id'] ?? '' ) );
                     $path = self::advance( $path );
                     break;
 
@@ -192,6 +193,7 @@ class Engine {
                     if ( ! empty( $step['tag'] ) ) {
                         \Snel\Newsletter\Subscribers\Model::add_tags( (int) $run->subscriber_id, array( $step['tag'] ) );
                     }
+                    self::log_event( $run, $path, 'label', (string) ( $step['tag'] ?? '' ) );
                     $path = self::advance( $path );
                     break;
 
@@ -199,10 +201,12 @@ class Engine {
                     $days    = max( 0, (int) ( $step['days'] ?? 0 ) );
                     $hours   = max( 0, (int) ( $step['hours'] ?? 0 ) );
                     $seconds = max( 60, $days * DAY_IN_SECONDS + $hours * HOUR_IN_SECONDS );
+                    $resume  = date( 'Y-m-d H:i:s', strtotime( current_time( 'mysql' ) ) + $seconds );
+                    self::log_event( $run, $path, 'wait', $resume );
                     self::update_run( $run->id, array(
                         'status'      => 'waiting',
                         'position'    => wp_json_encode( self::advance( $path ) ),
-                        'next_run_at' => date( 'Y-m-d H:i:s', strtotime( current_time( 'mysql' ) ) + $seconds ),
+                        'next_run_at' => $resume,
                     ) );
                     return;
 
@@ -217,6 +221,7 @@ class Engine {
                     } else {
                         $result = self::opened_previous_email( $steps, $path[0], (int) $run->subscriber_id );
                     }
+                    self::log_event( $run, $path, 'condition', $result ? 'yes' : 'no' );
                     $path = array( $path[0], $result ? 'yes' : 'no', 0 );
                     break;
 
@@ -316,5 +321,29 @@ class Engine {
         global $wpdb;
         $fields['updated_at'] = current_time( 'mysql' );
         $wpdb->update( Model::runs_table(), $fields, array( 'id' => $run_id ) );
+    }
+
+    /**
+     * Record that a subscriber executed a step. This is the only history we keep —
+     * the run row itself holds just the current position — so it's what the node
+     * inspector reads to answer "who went through here, and what happened".
+     *
+     * @param string $detail Step-specific: campaign id, tag, resume time, or yes/no.
+     */
+    private static function log_event( $run, $path, $type, $detail = '' ) {
+        global $wpdb;
+
+        $wpdb->insert(
+            Model::events_table(),
+            array(
+                'automation_id' => (int) $run->automation_id,
+                'subscriber_id' => (int) $run->subscriber_id,
+                'step_path'     => wp_json_encode( $path ),
+                'step_type'     => $type,
+                'detail'        => (string) $detail,
+                'created_at'    => current_time( 'mysql' ),
+            ),
+            array( '%d', '%d', '%s', '%s', '%s', '%s' )
+        );
     }
 }

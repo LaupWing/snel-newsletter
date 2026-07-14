@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import Select from '../../components/Select';
 import GradientButton from '../../components/GradientButton';
+import NodeInspector from './NodeInspector';
 
 const API_URL = window.snelNewsletter?.restUrl;
 const NONCE   = window.snelNewsletter?.nonce;
@@ -89,8 +90,8 @@ function AddButton( { onAdd, allowCondition } ) {
     );
 }
 
-/** One step card with inline config. */
-function StepCard( { step, onChange, onRemove, campaigns, tags, emailStats, narrow } ) {
+/** One step card with inline config. Double-click opens the node inspector. */
+function StepCard( { step, onChange, onRemove, campaigns, tags, emailStats, narrow, path, onInspect } ) {
     const meta = STEP_META[ step.type ];
     const Icon = meta.icon;
     const stats = step.type === 'email' && step.campaign_id ? emailStats?.[ step.campaign_id ] : null;
@@ -98,7 +99,11 @@ function StepCard( { step, onChange, onRemove, campaigns, tags, emailStats, narr
     return (
         <div className={ `group relative w-full ${ narrow ? 'max-w-[300px]' : 'max-w-[400px]' }` }>
             <NodeHandle position="top" color={ meta.handle } />
-            <div className={ `rounded-xl p-[2px] shadow-sm hover:shadow-md transition-shadow ${ meta.border }` }>
+            <div
+                className={ `rounded-xl p-[2px] shadow-sm hover:shadow-md transition-shadow cursor-pointer ${ meta.border }` }
+                onDoubleClick={ () => onInspect?.( path ) }
+                title={ __( 'Double-click to see who passed through', 'snel-newsletter' ) }
+            >
                 <div className="bg-white rounded-[10px] px-4 py-3">
                     <div className="flex items-center gap-2">
                         <Icon size={ 14 } className={ meta.color } />
@@ -198,8 +203,15 @@ function StepCard( { step, onChange, onRemove, campaigns, tags, emailStats, narr
     );
 }
 
-/** A vertical list of steps with insert points. Branch lists disallow conditions. */
-function StepList( { steps, onSteps, campaigns, tags, emailStats, allowCondition, narrow, lineColor } ) {
+/**
+ * A vertical list of steps with insert points. Branch lists disallow conditions.
+ *
+ * `basePath` is the engine's JSON path prefix for this list: [] at the root, and
+ * [conditionIndex, 'yes'|'no'] inside a branch. Each step's own path is basePath + its
+ * index, which is exactly the position string the engine stores on a run — so the node
+ * inspector can look a step up without any extra mapping.
+ */
+function StepList( { steps, onSteps, campaigns, tags, emailStats, allowCondition, narrow, lineColor, basePath = [], onInspect } ) {
     const insertAt = ( i, step ) => {
         const next = steps.slice();
         next.splice( i, 0, step );
@@ -223,6 +235,8 @@ function StepList( { steps, onSteps, campaigns, tags, emailStats, allowCondition
                             campaigns={ campaigns }
                             tags={ tags }
                             emailStats={ emailStats }
+                            path={ [ ...basePath, i ] }
+                            onInspect={ onInspect }
                         />
                     ) : (
                         <StepCard
@@ -233,6 +247,8 @@ function StepList( { steps, onSteps, campaigns, tags, emailStats, allowCondition
                             tags={ tags }
                             emailStats={ emailStats }
                             narrow={ narrow }
+                            path={ [ ...basePath, i ] }
+                            onInspect={ onInspect }
                         />
                     ) }
                 </div>
@@ -244,7 +260,7 @@ function StepList( { steps, onSteps, campaigns, tags, emailStats, allowCondition
 }
 
 /** Condition card + its yes/no branch columns with fork/merge connectors. */
-function ConditionBlock( { step, onChange, onRemove, campaigns, tags, emailStats } ) {
+function ConditionBlock( { step, onChange, onRemove, campaigns, tags, emailStats, path, onInspect } ) {
     const isRate = ( step.mode || 'opened' ) === 'open_rate';
     return (
         <div className="w-full flex flex-col items-center">
@@ -255,6 +271,8 @@ function ConditionBlock( { step, onChange, onRemove, campaigns, tags, emailStats
                 campaigns={ campaigns }
                 tags={ tags }
                 emailStats={ emailStats }
+                path={ path }
+                onInspect={ onInspect }
             />
 
             {/* fork ⊓ — yes edge green, no edge red */}
@@ -278,6 +296,8 @@ function ConditionBlock( { step, onChange, onRemove, campaigns, tags, emailStats
                         allowCondition={ false }
                         narrow
                         lineColor="bg-emerald-400"
+                        basePath={ [ ...path, 'yes' ] }
+                        onInspect={ onInspect }
                     />
                 </div>
                 <div className="flex flex-col items-center">
@@ -293,6 +313,8 @@ function ConditionBlock( { step, onChange, onRemove, campaigns, tags, emailStats
                         allowCondition={ false }
                         narrow
                         lineColor="bg-red-400"
+                        basePath={ [ ...path, 'no' ] }
+                        onInspect={ onInspect }
                     />
                 </div>
             </div>
@@ -314,6 +336,7 @@ export default function Builder( { automationId, onClose } ) {
     const [ saving, setSaving ]         = useState( false );
     const [ dirty, setDirty ]           = useState( false );
     const [ savedFlash, setSavedFlash ] = useState( false );
+    const [ inspect, setInspect ]       = useState( null ); // step path, or 'trigger'
 
     useEffect( () => {
         api( `/automations/${ automationId }` ).then( setAutomation );
@@ -425,7 +448,11 @@ export default function Builder( { automationId, onClose } ) {
 
                     {/* Trigger */}
                     <div className="relative w-full max-w-[400px]">
-                        <div className="rounded-xl p-[2px] shadow-sm bg-gradient-to-b from-blue-500 to-violet-600">
+                        <div
+                            className="rounded-xl p-[2px] shadow-sm bg-gradient-to-b from-blue-500 to-violet-600 cursor-pointer"
+                            onDoubleClick={ () => setInspect( 'trigger' ) }
+                            title={ __( 'Double-click to see who entered', 'snel-newsletter' ) }
+                        >
                             <div className="bg-white rounded-[10px] px-4 py-3">
                                 <div className="flex items-center gap-2">
                                     <Zap size={ 14 } className="text-violet-600" />
@@ -463,6 +490,8 @@ export default function Builder( { automationId, onClose } ) {
                         tags={ tags }
                         emailStats={ automation.email_stats || {} }
                         allowCondition
+                        basePath={ [] }
+                        onInspect={ setInspect }
                     />
 
                     <Line />
@@ -473,8 +502,16 @@ export default function Builder( { automationId, onClose } ) {
             </div>
 
             <p className="text-xs text-gray-400 mt-3">
-                { __( 'Emails are regular campaigns — create them as drafts under Campaigns, then pick them in an email step. Opens, clicks, and unsubscribes are tracked as usual.', 'snel-newsletter' ) }
+                { __( 'Emails are regular campaigns — create them as drafts under Campaigns, then pick them in an email step. Double-click any node to see who passed through it.', 'snel-newsletter' ) }
             </p>
+
+            { inspect && (
+                <NodeInspector
+                    automationId={ automation.id }
+                    path={ inspect }
+                    onClose={ () => setInspect( null ) }
+                />
+            ) }
         </div>
     );
 }

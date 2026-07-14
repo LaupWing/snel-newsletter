@@ -98,6 +98,24 @@ class Controller {
         return rest_ensure_response( array( 'success' => true, 'enrolled' => $enrolled ) );
     }
 
+    /**
+     * Node inspector — the subscribers who passed through one step.
+     * `path` is the step's JSON path ("[2]", "[2,\"yes\",0]") or "trigger".
+     */
+    public function step( \WP_REST_Request $request ) {
+        $id   = (int) $request->get_param( 'id' );
+        $path = (string) $request->get_param( 'path' );
+
+        if ( ! Model::get( $id ) ) {
+            return new \WP_Error( 'not_found', 'Automation not found', array( 'status' => 404 ) );
+        }
+        if ( 'trigger' !== $path && ! is_array( json_decode( $path, true ) ) ) {
+            return new \WP_Error( 'invalid', 'path must be a JSON step path or "trigger"', array( 'status' => 400 ) );
+        }
+
+        return rest_ensure_response( Model::step_subscribers( $id, $path ) );
+    }
+
     private function sanitize_trigger_type( $type ) {
         return in_array( $type, array( 'tag', 'manual' ), true ) ? $type : 'tag';
     }

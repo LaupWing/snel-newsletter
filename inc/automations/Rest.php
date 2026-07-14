@@ -55,6 +55,13 @@ class Rest {
             'callback'            => array( $this->controller, 'enroll' ),
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
+
+        // Node inspector — who passed through one step.
+        register_rest_route( $this->namespace, '/automations/(?P<id>\d+)/step', array(
+            'methods'             => 'GET',
+            'callback'            => array( $this->controller, 'step' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
     }
 
     public function permission_check() {
