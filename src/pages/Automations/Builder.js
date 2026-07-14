@@ -5,6 +5,7 @@ import {
     Plus, Trash2, Loader2, Play, Pause, Check,
 } from 'lucide-react';
 import Select from '../../components/Select';
+import GradientButton from '../../components/GradientButton';
 
 const API_URL = window.snelNewsletter?.restUrl;
 const NONCE   = window.snelNewsletter?.nonce;
@@ -404,16 +405,16 @@ export default function Builder( { automationId, onClose } ) {
                             <Pause size={ 13 } /> { __( 'Pause', 'snel-newsletter' ) }
                         </button>
                     ) : (
-                        <span className="snel-gradient-ring inline-flex rounded-lg p-[2px]">
+                        <GradientButton>
                             <button
                                 type="button"
                                 onClick={ toggleActive }
                                 disabled={ saving }
-                                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-gray-900 bg-white hover:bg-gray-50 rounded-md transition-colors disabled:opacity-40"
+                                className="relative inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-gray-900 bg-white hover:bg-gray-50 rounded-md transition-colors disabled:opacity-40"
                             >
                                 <Play size={ 13 } /> { __( 'Activate', 'snel-newsletter' ) }
                             </button>
-                        </span>
+                        </GradientButton>
                     ) }
                 </div>
             </div>
