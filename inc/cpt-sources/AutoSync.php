@@ -71,13 +71,22 @@ class AutoSync {
 	}
 
 	/**
-	 * Cron: sync every custom source that has auto_sync enabled.
+	 * Cron: sync every source that has auto_sync enabled, whatever its kind.
+	 *
+	 * Post-type sources can't rely on save_post alone: a form plugin inserts the
+	 * post first and writes the email meta after, so the hook reads an empty
+	 * field and skips the row for good. This sweep re-reads the meta once it is
+	 * actually there.
 	 */
 	public function sync_custom_sources() {
 		foreach ( Store::all() as $id => $config ) {
 			$config = wp_parse_args( $config, Store::defaults() );
 
-			if ( 'custom' !== $config['kind'] || ! $config['auto_sync'] ) {
+			if ( ! $config['auto_sync'] ) {
+				continue;
+			}
+
+			if ( 'cpt' === $config['kind'] && ! $config['email_field'] ) {
 				continue;
 			}
 
