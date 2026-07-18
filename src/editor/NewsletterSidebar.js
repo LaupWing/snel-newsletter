@@ -2,7 +2,7 @@ import { useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { PluginDocumentSettingPanel } from '@wordpress/editor';
 import { useSelect, useDispatch } from '@wordpress/data';
-import { Users, Send, Tag, Mail, Eye, Loader2, CheckCircle } from 'lucide-react';
+import { Users, Send, Tag, Mail, Eye, Loader2, CheckCircle, Workflow, Zap } from 'lucide-react';
 import EmailPreviewModal from './EmailPreviewModal';
 
 const TAGS = window.snelNewsletterEditor?.tags || [];
@@ -15,6 +15,54 @@ function api( path, opts = {} ) {
         headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
         ...opts,
     } ).then( ( r ) => r.json() );
+}
+
+function CampaignTypePanel() {
+    const { editPost } = useDispatch( 'core/editor' );
+    const meta = useSelect(
+        ( select ) => select( 'core/editor' ).getEditedPostAttribute( 'meta' ),
+        []
+    ) || {};
+
+    const isWorkflow = meta._snel_nl_is_workflow === '1' || meta._snel_nl_is_workflow === true;
+    const setWorkflow = ( on ) => editPost( { meta: { _snel_nl_is_workflow: on ? '1' : '' } } );
+
+    return (
+        <PluginDocumentSettingPanel
+            name="snel-newsletter-type"
+            title={ __( 'Campaign type', 'snel-newsletter' ) }
+            icon={ <Workflow size={ 16 } /> }
+        >
+            <div className="snel-newsletter-panel">
+                <div className="snel-nl-type-toggle">
+                    <div className="snel-nl-type-text">
+                        <span className="snel-nl-type-title">
+                            <Zap size={ 13 } className={ isWorkflow ? 'snel-nl-type-icon is-on' : 'snel-nl-type-icon' } />
+                            { __( 'Workflow email', 'snel-newsletter' ) }
+                        </span>
+                        <span className="snel-nl-hint">
+                            { __( 'Save this as a step for an automation instead of a one-time broadcast.', 'snel-newsletter' ) }
+                        </span>
+                    </div>
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={ isWorkflow }
+                        onClick={ () => setWorkflow( ! isWorkflow ) }
+                        className={ `snel-nl-switch ${ isWorkflow ? 'is-on' : '' }` }
+                    >
+                        <span className="snel-nl-switch-knob" />
+                    </button>
+                </div>
+
+                <div className={ `snel-nl-type-note ${ isWorkflow ? 'is-workflow' : '' }` }>
+                    { isWorkflow
+                        ? __( 'Hidden from Broadcasts. Lives inside an automation and sends when the flow reaches this step — its opens & clicks are still tracked.', 'snel-newsletter' )
+                        : __( 'Shows in your Broadcasts list and sends once to the audience you pick below.', 'snel-newsletter' ) }
+                </div>
+            </div>
+        </PluginDocumentSettingPanel>
+    );
 }
 
 function RecipientPanel() {
@@ -239,9 +287,17 @@ function SendPanel() {
 }
 
 export default function NewsletterSidebar() {
+    const meta = useSelect(
+        ( select ) => select( 'core/editor' ).getEditedPostAttribute( 'meta' ),
+        []
+    ) || {};
+    const isWorkflow = meta._snel_nl_is_workflow === '1' || meta._snel_nl_is_workflow === true;
+
     return (
         <>
-            <RecipientPanel />
+            <CampaignTypePanel />
+            { /* Workflow emails send from the automation flow, not a broadcast audience. */ }
+            { ! isWorkflow && <RecipientPanel /> }
             <SendPanel />
         </>
     );

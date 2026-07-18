@@ -48,6 +48,19 @@ add_action( 'init', function () {
             return current_user_can( 'edit_posts' );
         },
     ) );
+
+    // Marks a campaign as a workflow (automation) email rather than a one-time
+    // broadcast. Workflow emails stay drafts — the broadcast pipeline only fires
+    // on publish, while the automation engine sends the draft content directly.
+    register_post_meta( 'snel_newsletter', '_snel_nl_is_workflow', array(
+        'type'          => 'string',
+        'single'        => true,
+        'default'       => '',
+        'show_in_rest'  => true,
+        'auth_callback' => function () {
+            return current_user_can( 'edit_posts' );
+        },
+    ) );
 } );
 
 /**

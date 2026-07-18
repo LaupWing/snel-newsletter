@@ -1,6 +1,6 @@
 import { useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Send, Eye, MousePointerClick, Users, Clock, MoreHorizontal, Copy, Trash2, BarChart3, Loader2 } from 'lucide-react';
+import { Send, Eye, MousePointerClick, Users, Clock, MoreHorizontal, Copy, Trash2, BarChart3, Loader2, Zap } from 'lucide-react';
 
 const STATUS_STYLES = {
     sent: { bg: 'bg-emerald-50 text-emerald-700', label: 'Sent' },
@@ -35,6 +35,23 @@ export default function CampaignRow( { campaign, onDelete, onDuplicate, onViewSt
                         ) ) }
                     </div>
                 </div>
+            </td>
+            <td className="px-4 py-3">
+                { campaign.type === 'workflow' ? (
+                    <div>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold bg-violet-50 text-violet-600 rounded-full">
+                            <Zap size={ 10 } fill="currentColor" />
+                            { __( 'Workflow', 'snel-newsletter' ) }
+                        </span>
+                        { campaign.automation_name && (
+                            <p className="text-[11px] text-violet-400 mt-1 truncate max-w-[140px]">{ campaign.automation_name }</p>
+                        ) }
+                    </div>
+                ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold bg-blue-50 text-blue-600 rounded-full">
+                        { __( 'Broadcast', 'snel-newsletter' ) }
+                    </span>
+                ) }
             </td>
             <td className="px-4 py-3">
                 <span className={ `inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${ status.bg }` }>

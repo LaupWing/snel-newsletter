@@ -26,9 +26,10 @@ export default function Campaigns() {
     const [ campaigns, setCampaigns ] = useState( [] );
     const [ search, setSearch ] = useState( '' );
     const [ filterStatus, setFilterStatus ] = useState( '' );
+    const [ filterType, setFilterType ] = useState( '' );
     const [ page, setPage ] = useState( 1 );
     const [ totalPages, setTotalPages ] = useState( 1 );
-    const [ counts, setCounts ] = useState( { total: 0, sent: 0, draft: 0, sending: 0, scheduled: 0 } );
+    const [ counts, setCounts ] = useState( { total: 0, sent: 0, draft: 0, sending: 0, scheduled: 0, workflow: 0, broadcast: 0 } );
     const [ loading, setLoading ] = useState( true );
 
     const loadCampaigns = useCallback( () => {
@@ -36,6 +37,7 @@ export default function Campaigns() {
         const params = new URLSearchParams( { page, per_page: 20 } );
         if ( search ) params.set( 'search', search );
         if ( filterStatus ) params.set( 'status', filterStatus );
+        if ( filterType ) params.set( 'type', filterType );
 
         api( `/campaigns?${ params }` ).then( ( data ) => {
             setCampaigns( data.campaigns || [] );
@@ -43,7 +45,7 @@ export default function Campaigns() {
             setCounts( data.counts || counts );
             setLoading( false );
         } );
-    }, [ page, search, filterStatus ] );
+    }, [ page, search, filterStatus, filterType ] );
 
     useEffect( () => { loadCampaigns(); }, [ loadCampaigns ] );
 
@@ -131,6 +133,30 @@ export default function Campaigns() {
                 ) }
             </div>
 
+            <div className="flex items-center gap-1 mb-4 border-b border-gray-200">
+                { [
+                    { value: '', label: __( 'All', 'snel-newsletter' ), count: counts.total },
+                    { value: 'broadcast', label: __( 'Broadcasts', 'snel-newsletter' ), count: counts.broadcast },
+                    { value: 'workflow', label: __( 'Workflow emails', 'snel-newsletter' ), count: counts.workflow },
+                ].map( ( tab ) => (
+                    <button
+                        key={ tab.value }
+                        type="button"
+                        onClick={ () => { setFilterType( tab.value ); setPage( 1 ); } }
+                        className={ `flex items-center gap-2 px-3 py-2 -mb-px text-sm font-medium border-b-2 transition-colors ${
+                            filterType === tab.value
+                                ? 'border-blue-600 text-gray-900'
+                                : 'border-transparent text-gray-500 hover:text-gray-900'
+                        }` }
+                    >
+                        { tab.label }
+                        <span className={ `text-[11px] px-1.5 py-0.5 rounded-full ${
+                            filterType === tab.value ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'
+                        }` }>{ tab.count ?? 0 }</span>
+                    </button>
+                ) ) }
+            </div>
+
             <div className="bg-white border border-gray-200 rounded-lg">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center gap-3">
@@ -162,6 +188,7 @@ export default function Campaigns() {
                     <thead>
                         <tr className="border-b border-gray-200 bg-gray-50/50">
                             <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Campaign', 'snel-newsletter' ) }</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Type', 'snel-newsletter' ) }</th>
                             <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Status', 'snel-newsletter' ) }</th>
                             <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Recipients', 'snel-newsletter' ) }</th>
                             <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{ __( 'Open Rate', 'snel-newsletter' ) }</th>
@@ -183,7 +210,7 @@ export default function Campaigns() {
                             ) )
                         ) : (
                             <tr>
-                                <td colSpan="7" className="px-4 py-12 text-center">
+                                <td colSpan="8" className="px-4 py-12 text-center">
                                     { loading ? (
                                         <Loader2 size={ 20 } className="mx-auto animate-spin text-gray-400" />
                                     ) : (

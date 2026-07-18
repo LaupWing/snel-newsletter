@@ -26,6 +26,7 @@ class Model {
         $per_page = max( 1, min( 100, (int) ( $args['per_page'] ?? 20 ) ) );
         $search   = $args['search'] ?? '';
         $status   = $args['status'] ?? '';
+        $type     = $args['type'] ?? '';
 
         $query_args = array(
             'post_type'      => self::$post_type,
@@ -38,6 +39,16 @@ class Model {
 
         if ( $search ) {
             $query_args['s'] = $search;
+        }
+
+        // Which campaigns are workflow emails (post ID => automation name|'').
+        $workflow_map = self::workflow_map();
+
+        // Filter by type: broadcast (standalone) vs workflow (automation email).
+        if ( $type === 'workflow' ) {
+            $query_args['post__in'] = ! empty( $workflow_map ) ? array_keys( $workflow_map ) : array( 0 );
+        } elseif ( $type === 'broadcast' && ! empty( $workflow_map ) ) {
+            $query_args['post__not_in'] = array_keys( $workflow_map );
         }
 
         // Map our status to WP post_status + meta.
@@ -64,7 +75,7 @@ class Model {
 
         $campaigns = array();
         foreach ( $posts as $post ) {
-            $campaigns[] = self::format( $post );
+            $campaigns[] = self::format( $post, $workflow_map );
         }
 
         return array(
@@ -94,13 +105,19 @@ class Model {
 
         $published = (int) ( $all_statuses->publish ?? 0 );
         $sending   = $sending_query->found_posts;
+        $total     = $published + (int) ( $all_statuses->draft ?? 0 ) + (int) ( $all_statuses->future ?? 0 );
+
+        // Workflow emails = those flagged or referenced in an automation.
+        $workflow = count( self::workflow_map() );
 
         return array(
-            'total'     => $published + (int) ( $all_statuses->draft ?? 0 ) + (int) ( $all_statuses->future ?? 0 ),
+            'total'     => $total,
             'sent'      => $published - $sending,
             'draft'     => (int) ( $all_statuses->draft ?? 0 ),
             'sending'   => $sending,
             'scheduled' => (int) ( $all_statuses->future ?? 0 ),
+            'workflow'  => $workflow,
+            'broadcast' => max( 0, $total - $workflow ),
         );
     }
 
@@ -184,14 +201,20 @@ class Model {
 
     /**
      * Format a WP_Post into a campaign object.
+     *
+     * @param \WP_Post $post
+     * @param array    $workflow_map Post ID => automation name (or '') for workflow emails.
      */
-    private static function format( $post ) {
+    private static function format( $post, $workflow_map = array() ) {
         $send_status = get_post_meta( $post->ID, '_snel_nl_send_status', true );
         $sent_count  = (int) get_post_meta( $post->ID, '_snel_nl_sent_count', true );
         $total       = (int) get_post_meta( $post->ID, '_snel_nl_total_recipients', true );
         $tags        = get_post_meta( $post->ID, '_snel_nl_tags', true ) ?: array();
         $opened      = (int) get_post_meta( $post->ID, '_snel_nl_opened', true );
         $clicked     = (int) get_post_meta( $post->ID, '_snel_nl_clicked', true );
+
+        $is_workflow     = array_key_exists( $post->ID, $workflow_map );
+        $automation_name = $is_workflow ? $workflow_map[ $post->ID ] : '';
 
         // Determine display status.
         if ( $post->post_status === 'draft' ) {
@@ -206,18 +229,123 @@ class Model {
             $status = 'sent';
         }
 
+        // Workflow emails send from the automation flow (as drafts), so the
+        // broadcast meta above is empty. Pull real numbers from the send queue
+        // and tracking tables instead, keyed by campaign_id.
+        if ( $is_workflow ) {
+            $stats      = self::tracking_stats( $post->ID );
+            $total      = $stats['recipients'];
+            $sent_count = $stats['sent'];
+            $opened     = $stats['opened'];
+            $clicked    = $stats['clicked'];
+            if ( $status === 'draft' && $sent_count > 0 ) {
+                $status = 'sent';
+            }
+        }
+
         return array(
-            'id'         => $post->ID,
-            'subject'    => $post->post_title,
-            'status'     => $status,
-            'recipients' => $total,
-            'sent'       => $sent_count,
-            'opened'     => $opened,
-            'clicked'    => $clicked,
-            'tags'       => is_array( $tags ) ? $tags : array(),
-            'sent_at'    => $post->post_status === 'draft' ? null : $post->post_date,
-            'created_at' => $post->post_date,
-            'edit_url'   => get_edit_post_link( $post->ID, 'raw' ),
+            'id'              => $post->ID,
+            'subject'         => $post->post_title,
+            'status'          => $status,
+            'type'            => $is_workflow ? 'workflow' : 'broadcast',
+            'automation_name' => $automation_name,
+            'recipients'      => $total,
+            'sent'            => $sent_count,
+            'opened'          => $opened,
+            'clicked'         => $clicked,
+            'tags'            => is_array( $tags ) ? $tags : array(),
+            'sent_at'         => $post->post_status === 'draft' ? null : $post->post_date,
+            'created_at'      => $post->post_date,
+            'edit_url'        => get_edit_post_link( $post->ID, 'raw' ),
         );
+    }
+
+    /**
+     * Live send/open/click stats for one campaign, read from the send queue
+     * and tracking tables. Used for workflow emails, whose sends are logged
+     * there (by campaign_id) rather than in the broadcast post meta.
+     */
+    private static function tracking_stats( $campaign_id ) {
+        global $wpdb;
+
+        $queue    = $wpdb->prefix . 'snel_send_queue';
+        $tracking = $wpdb->prefix . 'snel_tracking';
+
+        $recipients = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM $queue WHERE campaign_id = %d",
+            $campaign_id
+        ) );
+        $sent = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM $queue WHERE campaign_id = %d AND status = 'sent'",
+            $campaign_id
+        ) );
+        $opened = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(DISTINCT subscriber_id) FROM $tracking WHERE campaign_id = %d AND type = 'open'",
+            $campaign_id
+        ) );
+        $clicked = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(DISTINCT subscriber_id) FROM $tracking WHERE campaign_id = %d AND type = 'click'",
+            $campaign_id
+        ) );
+
+        return compact( 'recipients', 'sent', 'opened', 'clicked' );
+    }
+
+    /**
+     * Every campaign that counts as a workflow email: the toggle is on, OR it's
+     * referenced as an email step in any automation. Returns post ID =>
+     * automation name (empty string when it's flagged but not yet in a flow).
+     */
+    private static function workflow_map() {
+        global $wpdb;
+
+        $map = array();
+
+        // 1. Emails referenced in automation steps.
+        $automations = $wpdb->get_results(
+            "SELECT name, steps FROM {$wpdb->prefix}snel_automations"
+        );
+        foreach ( (array) $automations as $automation ) {
+            $steps = json_decode( $automation->steps ?: '[]', true );
+            foreach ( self::collect_campaign_ids( is_array( $steps ) ? $steps : array() ) as $cid ) {
+                if ( ! isset( $map[ $cid ] ) || $map[ $cid ] === '' ) {
+                    $map[ $cid ] = $automation->name;
+                }
+            }
+        }
+
+        // 2. Emails explicitly flagged via the editor toggle.
+        $flagged = $wpdb->get_col( $wpdb->prepare(
+            "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value = '1'",
+            '_snel_nl_is_workflow'
+        ) );
+        foreach ( (array) $flagged as $pid ) {
+            $pid = (int) $pid;
+            if ( ! isset( $map[ $pid ] ) ) {
+                $map[ $pid ] = '';
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Collect email-step campaign IDs from a (possibly nested) steps array.
+     */
+    private static function collect_campaign_ids( $steps ) {
+        $ids = array();
+        foreach ( (array) $steps as $step ) {
+            $type = $step['type'] ?? '';
+            if ( $type === 'email' && ! empty( $step['campaign_id'] ) ) {
+                $ids[] = (int) $step['campaign_id'];
+            } elseif ( $type === 'condition' ) {
+                $ids = array_merge(
+                    $ids,
+                    self::collect_campaign_ids( $step['yes'] ?? array() ),
+                    self::collect_campaign_ids( $step['no'] ?? array() )
+                );
+            }
+        }
+        return array_unique( $ids );
     }
 }

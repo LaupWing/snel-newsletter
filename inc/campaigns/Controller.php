@@ -20,6 +20,7 @@ class Controller {
             'per_page' => $request->get_param( 'per_page' ),
             'search'   => sanitize_text_field( $request->get_param( 'search' ) ?: '' ),
             'status'   => sanitize_text_field( $request->get_param( 'status' ) ?: '' ),
+            'type'     => sanitize_text_field( $request->get_param( 'type' ) ?: '' ),
         ) );
 
         $result['counts'] = Model::counts();

@@ -389,3 +389,92 @@
     color: #3b82f6;
 }
 
+/* Campaign type — workflow email toggle */
+.snel-nl-type-toggle {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.snel-nl-type-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.snel-nl-type-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.snel-nl-type-icon {
+    color: #9ca3af;
+    transition: color .18s;
+}
+
+.snel-nl-type-icon.is-on {
+    color: #7c3aed;
+}
+
+.snel-nl-switch {
+    flex: none;
+    width: 40px;
+    height: 23px;
+    border: 0;
+    padding: 0;
+    margin-top: 2px;
+    border-radius: 999px;
+    background: #d1d5db;
+    cursor: pointer;
+    position: relative;
+    transition: background .18s;
+}
+
+.snel-nl-switch.is-on {
+    background: #7c3aed;
+}
+
+.snel-nl-switch-knob {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+    transition: transform .18s;
+}
+
+.snel-nl-switch.is-on .snel-nl-switch-knob {
+    transform: translateX(-17px);
+}
+
+.snel-nl-type-note {
+    margin-top: 14px;
+    padding: 11px 12px;
+    border-radius: 7px;
+    font-size: 12px;
+    line-height: 1.45;
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.snel-nl-type-note.is-workflow {
+    background: #f5f3ff;
+    color: #7c3aed;
+}
+
+/* Workflow emails never publish — hide the Send/Publish button so the only
+   save path is "Save workflow email" (the relabelled Save draft control). */
+body.snel-nl-workflow-email .editor-post-publish-button__button,
+body.snel-nl-workflow-email .editor-post-publish-panel__toggle,
+body.snel-nl-workflow-email .editor-post-publish-button {
+    display: none !important;
+}
+
