@@ -129,7 +129,9 @@ export default function Subscribers() {
             method: 'POST',
             body: JSON.stringify( { filters: buildFilters() } ),
         } ).then( ( data ) => {
-            setSelected( data.ids || [] );
+            // query-ids returns ints; the rows carry string ids — normalize so
+            // the checkboxes actually render as selected.
+            setSelected( ( data.ids || [] ).map( ( id ) => String( id ) ) );
             setSelectAllMatching( true );
         } ).catch( ( e ) => alert( e.message ) );
     };
@@ -359,17 +361,17 @@ export default function Subscribers() {
                 </div>
 
                 {/* Advanced stacked filters. */}
-                { showFilters && selected.length === 0 && (
+                { showFilters && (
                     <FilterBar filters={ advFilters } onChange={ handleAdvFiltersChange } allTags={ allTags } />
                 ) }
 
-                {/* Select-all-matching banner — shown once the whole visible page
-                    is selected but more rows match the current filters. */}
-                { allSelected && ! selectAllMatching && total > subscribers.length && (
-                    <div className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-800">
-                        <span>{ subscribers.length } { __( 'on this page selected.', 'snel-newsletter' ) }</span>
-                        <button type="button" onClick={ selectAllMatchingRows } className="font-semibold underline hover:text-blue-900">
-                            { __( 'Select all', 'snel-newsletter' ) } { total } { __( 'matching', 'snel-newsletter' ) }
+                {/* Persistent results bar — always offers a one-click select of the
+                    entire filtered set, no need to tick the page checkbox first. */}
+                { total > 0 && ! selectAllMatching && (
+                    <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-gray-50/40 text-xs text-gray-600">
+                        <span><strong className="text-gray-900">{ total.toLocaleString() }</strong> { __( 'subscribers match', 'snel-newsletter' ) }</span>
+                        <button type="button" onClick={ selectAllMatchingRows } className="inline-flex items-center gap-1 font-medium text-blue-700 hover:text-blue-900 underline">
+                            { __( 'Select all', 'snel-newsletter' ) } { total.toLocaleString() }
                         </button>
                     </div>
                 ) }
