@@ -127,6 +127,26 @@ class Controller {
     }
 
     /**
+     * Cancel a sending or scheduled campaign — halt every unsent queued email.
+     */
+    public function cancel( \WP_REST_Request $request ) {
+        $id       = (int) $request->get_param( 'id' );
+        $campaign = Model::find( $id );
+
+        if ( ! $campaign ) {
+            return new \WP_Error( 'not_found', 'Campaign not found.', array( 'status' => 404 ) );
+        }
+
+        if ( ! in_array( $campaign['status'], array( 'sending', 'scheduled' ), true ) ) {
+            return new \WP_Error( 'not_cancellable', 'Only sending or scheduled campaigns can be cancelled.', array( 'status' => 400 ) );
+        }
+
+        $stopped = Model::cancel( $id );
+
+        return rest_ensure_response( array( 'success' => true, 'cancelled' => $stopped ) );
+    }
+
+    /**
      * Duplicate a campaign.
      */
     public function duplicate( \WP_REST_Request $request ) {

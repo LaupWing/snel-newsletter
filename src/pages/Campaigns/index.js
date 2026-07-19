@@ -29,7 +29,7 @@ export default function Campaigns() {
     const [ filterType, setFilterType ] = useState( '' );
     const [ page, setPage ] = useState( 1 );
     const [ totalPages, setTotalPages ] = useState( 1 );
-    const [ counts, setCounts ] = useState( { total: 0, sent: 0, draft: 0, sending: 0, scheduled: 0, workflow: 0, broadcast: 0 } );
+    const [ counts, setCounts ] = useState( { total: 0, sent: 0, draft: 0, sending: 0, cancelled: 0, scheduled: 0, workflow: 0, broadcast: 0 } );
     const [ loading, setLoading ] = useState( true );
 
     const loadCampaigns = useCallback( () => {
@@ -63,6 +63,17 @@ export default function Campaigns() {
 
     const handleDuplicate = ( id ) => {
         api( `/campaigns/${ id }/duplicate`, { method: 'POST' } ).then( () => loadCampaigns() );
+    };
+
+    const handleCancel = ( id ) => {
+        if ( ! confirm( __( 'Cancel this send? Emails not yet sent will be stopped. This cannot be undone.', 'snel-newsletter' ) ) ) return;
+        api( `/campaigns/${ id }/cancel`, { method: 'POST' } ).then( ( res ) => {
+            if ( res && res.success ) {
+                loadCampaigns();
+            } else {
+                alert( res?.message || __( 'Could not cancel this campaign.', 'snel-newsletter' ) );
+            }
+        } );
     };
 
     return (
@@ -131,6 +142,14 @@ export default function Campaigns() {
                         </span>
                     </div>
                 ) }
+                { counts.cancelled > 0 && (
+                    <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-orange-500" />
+                        <span className="text-sm text-gray-600">
+                            <strong className="text-gray-900">{ counts.cancelled }</strong> { __( 'cancelled', 'snel-newsletter' ) }
+                        </span>
+                    </div>
+                ) }
             </div>
 
             <div className="flex items-center gap-1 mb-4 border-b border-gray-200">
@@ -179,6 +198,7 @@ export default function Campaigns() {
                                 { value: 'draft', label: __( 'Draft', 'snel-newsletter' ) },
                                 { value: 'sending', label: __( 'Sending', 'snel-newsletter' ) },
                                 { value: 'scheduled', label: __( 'Scheduled', 'snel-newsletter' ) },
+                                { value: 'cancelled', label: __( 'Cancelled', 'snel-newsletter' ) },
                             ] }
                         />
                     </div>
@@ -205,6 +225,7 @@ export default function Campaigns() {
                                     campaign={ campaign }
                                     onDelete={ () => handleDelete( campaign.id ) }
                                     onDuplicate={ () => handleDuplicate( campaign.id ) }
+                                    onCancel={ () => handleCancel( campaign.id ) }
                                     onViewStats={ () => setSelectedCampaign( campaign.id ) }
                                 />
                             ) )

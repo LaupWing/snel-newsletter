@@ -60,11 +60,24 @@ class Model {
                 array( 'key' => '_snel_nl_send_status', 'compare' => 'NOT EXISTS' ),
             );
         } elseif ( $status === 'draft' ) {
+            // Genuine drafts only — exclude ones cancelled from a schedule.
             $query_args['post_status'] = 'draft';
+            $query_args['meta_query']  = array(
+                'relation' => 'OR',
+                array( 'key' => '_snel_nl_send_status', 'compare' => 'NOT EXISTS' ),
+                array( 'key' => '_snel_nl_send_status', 'value' => 'cancelled', 'compare' => '!=' ),
+            );
         } elseif ( $status === 'sending' ) {
             $query_args['post_status'] = 'publish';
             $query_args['meta_query']  = array(
                 array( 'key' => '_snel_nl_send_status', 'value' => 'sending' ),
+            );
+        } elseif ( $status === 'cancelled' ) {
+            // Cancelled campaigns are 'publish' (was sending) or 'draft' (was
+            // scheduled, then unscheduled) — the meta flag is what identifies them.
+            $query_args['post_status'] = array( 'publish', 'draft' );
+            $query_args['meta_query']  = array(
+                array( 'key' => '_snel_nl_send_status', 'value' => 'cancelled' ),
             );
         } elseif ( $status === 'scheduled' ) {
             $query_args['post_status'] = 'future';
@@ -93,28 +106,39 @@ class Model {
     public static function counts() {
         $all_statuses = wp_count_posts( self::$post_type );
 
-        // Count sending campaigns.
-        $sending_query = new \WP_Query( array(
-            'post_type'      => self::$post_type,
-            'post_status'    => 'publish',
-            'meta_key'       => '_snel_nl_send_status',
-            'meta_value'     => 'sending',
-            'posts_per_page' => -1,
-            'fields'         => 'ids',
-        ) );
+        // Count campaigns by send-status meta. Sending + cancelled campaigns are
+        // otherwise indistinguishable from 'sent' (all 'publish'), and a
+        // cancelled campaign that was unscheduled sits under 'draft' — so tally
+        // each explicitly to keep the chips honest.
+        $count_by_send_status = function ( $value, $post_status ) {
+            $q = new \WP_Query( array(
+                'post_type'      => self::$post_type,
+                'post_status'    => $post_status,
+                'meta_key'       => '_snel_nl_send_status',
+                'meta_value'     => $value,
+                'posts_per_page' => -1,
+                'fields'         => 'ids',
+            ) );
+            return (int) $q->found_posts;
+        };
 
-        $published = (int) ( $all_statuses->publish ?? 0 );
-        $sending   = $sending_query->found_posts;
-        $total     = $published + (int) ( $all_statuses->draft ?? 0 ) + (int) ( $all_statuses->future ?? 0 );
+        $published         = (int) ( $all_statuses->publish ?? 0 );
+        $draft_total       = (int) ( $all_statuses->draft ?? 0 );
+        $sending           = $count_by_send_status( 'sending', 'publish' );
+        $cancelled_publish = $count_by_send_status( 'cancelled', 'publish' );
+        $cancelled_draft   = $count_by_send_status( 'cancelled', 'draft' );
+        $cancelled         = $cancelled_publish + $cancelled_draft;
+        $total             = $published + $draft_total + (int) ( $all_statuses->future ?? 0 );
 
         // Workflow emails = those flagged or referenced in an automation.
         $workflow = count( self::workflow_map() );
 
         return array(
             'total'     => $total,
-            'sent'      => $published - $sending,
-            'draft'     => (int) ( $all_statuses->draft ?? 0 ),
+            'sent'      => $published - $sending - $cancelled_publish,
+            'draft'     => max( 0, $draft_total - $cancelled_draft ),
             'sending'   => $sending,
+            'cancelled' => $cancelled,
             'scheduled' => (int) ( $all_statuses->future ?? 0 ),
             'workflow'  => $workflow,
             'broadcast' => max( 0, $total - $workflow ),
@@ -170,6 +194,40 @@ class Model {
     }
 
     /**
+     * Cancel a campaign that's sending (or scheduled): halt every queued email
+     * that hasn't gone out yet and flag the campaign as cancelled. Already-sent
+     * emails are left untouched. Returns the number of queued rows stopped.
+     */
+    public static function cancel( $id ) {
+        global $wpdb;
+
+        $post = get_post( $id );
+        if ( ! $post || $post->post_type !== self::$post_type ) {
+            return false;
+        }
+
+        $queue = $wpdb->prefix . 'snel_send_queue';
+
+        // Anything not yet sent — pending, retrying, or delayed — is stopped.
+        $stopped = (int) $wpdb->query( $wpdb->prepare(
+            "UPDATE $queue SET status = 'cancelled'
+             WHERE campaign_id = %d AND status IN ('pending', 'retrying', 'delayed')",
+            $id
+        ) );
+
+        // A scheduled campaign hasn't queued yet — pull it off the schedule so
+        // WordPress won't auto-publish and send it. future→draft doesn't trip
+        // the publish/queue hook (that only fires on transition to 'publish').
+        if ( $post->post_status === 'future' ) {
+            wp_update_post( array( 'ID' => $id, 'post_status' => 'draft' ) );
+        }
+
+        update_post_meta( $id, '_snel_nl_send_status', 'cancelled' );
+
+        return $stopped;
+    }
+
+    /**
      * Duplicate a campaign (as draft).
      */
     public static function duplicate( $id ) {
@@ -216,8 +274,11 @@ class Model {
         $is_workflow     = array_key_exists( $post->ID, $workflow_map );
         $automation_name = $is_workflow ? $workflow_map[ $post->ID ] : '';
 
-        // Determine display status.
-        if ( $post->post_status === 'draft' ) {
+        // Determine display status. Cancelled wins over post_status, since a
+        // cancelled campaign may have been unscheduled back to draft.
+        if ( $send_status === 'cancelled' ) {
+            $status = 'cancelled';
+        } elseif ( $post->post_status === 'draft' ) {
             $status = 'draft';
         } elseif ( $post->post_status === 'future' ) {
             $status = 'scheduled';

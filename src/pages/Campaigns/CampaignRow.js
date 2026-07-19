@@ -1,6 +1,6 @@
 import { useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Send, Eye, MousePointerClick, Users, Clock, MoreHorizontal, Copy, Trash2, BarChart3, Loader2, Zap } from 'lucide-react';
+import { Send, Eye, MousePointerClick, Users, Clock, MoreHorizontal, Copy, Trash2, BarChart3, Loader2, Zap, Ban } from 'lucide-react';
 
 const STATUS_STYLES = {
     sent: { bg: 'bg-emerald-50 text-emerald-700', label: 'Sent' },
@@ -8,13 +8,15 @@ const STATUS_STYLES = {
     sending: { bg: 'bg-blue-50 text-blue-700', label: 'Sending' },
     scheduled: { bg: 'bg-purple-50 text-purple-700', label: 'Scheduled' },
     failed: { bg: 'bg-red-50 text-red-700', label: 'Failed' },
+    cancelled: { bg: 'bg-orange-50 text-orange-700', label: 'Cancelled' },
 };
 
 export { STATUS_STYLES };
 
-export default function CampaignRow( { campaign, onDelete, onDuplicate, onViewStats } ) {
+export default function CampaignRow( { campaign, onDelete, onDuplicate, onViewStats, onCancel } ) {
     const [ menuOpen, setMenuOpen ] = useState( false );
     const status = STATUS_STYLES[ campaign.status ] || STATUS_STYLES.draft;
+    const canCancel = campaign.status === 'sending' || campaign.status === 'scheduled';
     const openRate = campaign.sent > 0 ? Math.round( ( campaign.opened / campaign.sent ) * 100 ) : 0;
     const clickRate = campaign.sent > 0 ? Math.round( ( campaign.clicked / campaign.sent ) * 100 ) : 0;
 
@@ -139,6 +141,12 @@ export default function CampaignRow( { campaign, onDelete, onDuplicate, onViewSt
                                     <Copy size={ 12 } />
                                     { __( 'Duplicate', 'snel-newsletter' ) }
                                 </button>
+                                { canCancel && (
+                                    <button type="button" onClick={ () => { setMenuOpen( false ); onCancel && onCancel(); } } className="w-full text-left px-3 py-1.5 text-sm text-orange-600 hover:bg-orange-50 transition-colors flex items-center gap-2">
+                                        <Ban size={ 12 } />
+                                        { __( 'Cancel send', 'snel-newsletter' ) }
+                                    </button>
+                                ) }
                                 <button type="button" onClick={ () => { setMenuOpen( false ); onDelete && onDelete(); } } className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2">
                                     <Trash2 size={ 12 } />
                                     { __( 'Delete', 'snel-newsletter' ) }
