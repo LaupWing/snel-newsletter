@@ -47,6 +47,11 @@ class Client {
     /**
      * Send an email via SES.
      *
+     * Uses the SendRawEmail action so we can attach custom headers such as
+     * List-Unsubscribe — the plain SendEmail action silently ignores headers,
+     * and Gmail/Yahoo bulk rules require List-Unsubscribe or the mail is
+     * spam-foldered. See build_raw_message() for the MIME assembly.
+     *
      * @param string $from_email  Sender email (must be verified in SES).
      * @param string $from_name   Sender display name.
      * @param string $to_email    Recipient email.
@@ -54,28 +59,21 @@ class Client {
      * @param string $html_body   HTML content.
      * @param string $text_body   Plain text fallback (optional).
      * @param string $reply_to    Reply-to address (optional).
+     * @param array  $headers     Extra headers, e.g. List-Unsubscribe (optional).
      *
      * @return array { success: bool, message_id: string|null, error: string|null }
      */
-    public function send( $from_email, $from_name, $to_email, $subject, $html_body, $text_body = '', $reply_to = '' ) {
+    public function send( $from_email, $from_name, $to_email, $subject, $html_body, $text_body = '', $reply_to = '', $headers = array() ) {
+        $raw = $this->build_raw_message( $from_email, $from_name, $to_email, $subject, $html_body, $text_body, $reply_to, $headers );
+
         $params = array(
-            'Action'                            => 'SendEmail',
-            'Source'                            => $from_name ? "=?UTF-8?B?" . base64_encode( $from_name ) . "?= <{$from_email}>" : $from_email,
-            'Destination.ToAddresses.member.1'  => $to_email,
-            'Message.Subject.Data'              => $subject,
-            'Message.Subject.Charset'           => 'UTF-8',
-            'Message.Body.Html.Data'            => $html_body,
-            'Message.Body.Html.Charset'         => 'UTF-8',
+            'Action'                             => 'SendRawEmail',
+            'RawMessage.Data'                    => base64_encode( $raw ),
+            // Set the envelope sender/recipient explicitly so SES doesn't have
+            // to parse them out of the headers.
+            'Source'                             => $from_email,
+            'Destinations.member.1'              => $to_email,
         );
-
-        if ( $text_body ) {
-            $params['Message.Body.Text.Data']    = $text_body;
-            $params['Message.Body.Text.Charset'] = 'UTF-8';
-        }
-
-        if ( $reply_to ) {
-            $params['ReplyToAddresses.member.1'] = $reply_to;
-        }
 
         $result = $this->request( $params );
 
@@ -108,6 +106,62 @@ class Client {
             'message_id' => $message_id,
             'error'      => null,
         );
+    }
+
+    /**
+     * Build a raw RFC 5322 MIME message.
+     *
+     * If a text body is present we send multipart/alternative (text + html),
+     * which also helps deliverability; otherwise a single html part.
+     * Custom headers (List-Unsubscribe etc.) are written verbatim.
+     */
+    private function build_raw_message( $from_email, $from_name, $to_email, $subject, $html_body, $text_body, $reply_to, $headers ) {
+        $eol      = "\r\n";
+        $from     = $from_name
+            ? '=?UTF-8?B?' . base64_encode( $from_name ) . '?= <' . $from_email . '>'
+            : $from_email;
+        $boundary = 'snel_' . hash( 'sha256', $from_email . $to_email . $subject );
+
+        $lines = array();
+        $lines[] = 'From: ' . $from;
+        $lines[] = 'To: ' . $to_email;
+        $lines[] = 'Subject: =?UTF-8?B?' . base64_encode( $subject ) . '?=';
+        if ( $reply_to ) {
+            $lines[] = 'Reply-To: ' . $reply_to;
+        }
+
+        // Custom headers — this is where List-Unsubscribe finally lands.
+        foreach ( $headers as $name => $value ) {
+            // Strip CR/LF to prevent header injection.
+            $name  = preg_replace( '/[\r\n]+/', '', $name );
+            $value = preg_replace( '/[\r\n]+/', '', $value );
+            $lines[] = $name . ': ' . $value;
+        }
+
+        $lines[] = 'MIME-Version: 1.0';
+
+        if ( $text_body ) {
+            $lines[] = 'Content-Type: multipart/alternative; boundary="' . $boundary . '"';
+            $lines[] = '';
+            $lines[] = '--' . $boundary;
+            $lines[] = 'Content-Type: text/plain; charset=UTF-8';
+            $lines[] = 'Content-Transfer-Encoding: base64';
+            $lines[] = '';
+            $lines[] = chunk_split( base64_encode( $text_body ) );
+            $lines[] = '--' . $boundary;
+            $lines[] = 'Content-Type: text/html; charset=UTF-8';
+            $lines[] = 'Content-Transfer-Encoding: base64';
+            $lines[] = '';
+            $lines[] = chunk_split( base64_encode( $html_body ) );
+            $lines[] = '--' . $boundary . '--';
+        } else {
+            $lines[] = 'Content-Type: text/html; charset=UTF-8';
+            $lines[] = 'Content-Transfer-Encoding: base64';
+            $lines[] = '';
+            $lines[] = chunk_split( base64_encode( $html_body ) );
+        }
+
+        return implode( $eol, $lines );
     }
 
     /**

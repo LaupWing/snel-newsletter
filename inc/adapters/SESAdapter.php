@@ -28,7 +28,7 @@ class SESAdapter implements AdapterInterface {
             return array( 'success' => false, 'message_id' => null, 'error' => 'SES not configured.' );
         }
 
-        return $client->send( $from_email, $from_name, $to_email, $subject, $html, $text, $reply_to );
+        return $client->send( $from_email, $from_name, $to_email, $subject, $html, $text, $reply_to, $headers );
     }
 
     // ─── Tracking: SES doesn't do this, so WE handle it ─────────────────────────

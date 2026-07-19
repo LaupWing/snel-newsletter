@@ -38,8 +38,11 @@ class Rest {
         ) );
 
         // Unsubscribe — public, no auth.
+        // GET = human clicks the footer link (shows a confirmation page).
+        // POST = Gmail/Yahoo one-click (List-Unsubscribe-Post); must be accepted
+        // or the one-click button fails and people hit "Report Spam" instead.
         register_rest_route( $this->namespace, '/t/unsubscribe', array(
-            'methods'             => 'GET',
+            'methods'             => array( 'GET', 'POST' ),
             'callback'            => array( $this->controller, 'unsubscribe' ),
             'permission_callback' => '__return_true',
         ) );
