@@ -149,7 +149,24 @@ class Processor {
         ) );
 
         if ( empty( $rows ) ) {
-            // No more emails — mark campaigns as sent.
+            // Nothing due *right now* — but that doesn't mean we're done. Rows
+            // can still be sitting in 'delayed' with a future delayed_until
+            // (warmup spacing / cooldowns). Finalizing here would abandon them
+            // AND end the single-event chain, orphaning the campaign. So only
+            // finalize when the queue is genuinely empty; otherwise reschedule
+            // the drainer for when the next delayed row comes due.
+            $next_due = $wpdb->get_var(
+                "SELECT MIN(delayed_until) FROM $queue
+                 WHERE status = 'delayed' AND delayed_until IS NOT NULL"
+            );
+
+            if ( $next_due ) {
+                $delay = max( 30, strtotime( $next_due ) - time() );
+                wp_schedule_single_event( time() + $delay, self::CRON_HOOK );
+                return;
+            }
+
+            // Queue truly drained — mark campaigns as sent.
             self::finalize_campaigns();
             return;
         }
