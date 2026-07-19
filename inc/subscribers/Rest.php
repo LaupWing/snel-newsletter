@@ -50,6 +50,13 @@ class Rest {
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
 
+        // Return all subscriber IDs matching a filter stack (select-all-matching).
+        register_rest_route( $this->namespace, '/subscribers/query-ids', array(
+            'methods'             => 'POST',
+            'callback'            => array( $this->controller, 'query_ids' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
+
         register_rest_route( $this->namespace, '/tags', array(
             'methods'             => 'GET',
             'callback'            => array( $this->controller, 'tags' ),

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Users, Search, Plus, Upload, Tag, ChevronLeft, ChevronRight, Trash2, Workflow } from 'lucide-react';
+import { Users, Search, Plus, Upload, Tag, ChevronLeft, ChevronRight, Trash2, Workflow, SlidersHorizontal } from 'lucide-react';
 import Select from '../../components/Select';
 import SubscriberRow from './SubscriberRow';
 import SubscriberDetail from './SubscriberDetail';
@@ -8,6 +8,7 @@ import AddSubscriberModal from './AddSubscriberModal';
 import ImportCSVModal from './ImportCSVModal';
 import BulkTagModal from './BulkTagModal';
 import EnrollAutomationModal from './EnrollAutomationModal';
+import FilterBar from './FilterBar';
 
 const API_URL = window.snelNewsletter?.restUrl;
 const NONCE = window.snelNewsletter?.nonce;
@@ -45,7 +46,11 @@ export default function Subscribers() {
     const [ search, setSearch ] = useState( '' );
     const [ filterTag, setFilterTag ] = useState( '' );
     const [ filterStatus, setFilterStatus ] = useState( '' );
+    const [ advFilters, setAdvFilters ] = useState( [] );
+    const [ showFilters, setShowFilters ] = useState( false );
     const [ selected, setSelected ] = useState( [] );
+    const [ selectAllMatching, setSelectAllMatching ] = useState( false );
+    const [ total, setTotal ] = useState( 0 );
     const [ showAddModal, setShowAddModal ] = useState( false );
     const [ showImportModal, setShowImportModal ] = useState( false );
     const [ showBulkTagModal, setShowBulkTagModal ] = useState( false );
@@ -56,23 +61,33 @@ export default function Subscribers() {
     const [ counts, setCounts ] = useState( { total: 0, active: 0, unsubscribed: 0, bounced: 0 } );
     const [ loading, setLoading ] = useState( true );
 
+    // Merge the quick controls (search / tag / status) and the advanced filter
+    // rows into one AND-ed condition stack the server understands.
+    const buildFilters = useCallback( () => {
+        const f = [];
+        if ( search ) f.push( { field: 'search', operator: 'contains', value: search } );
+        if ( filterTag ) f.push( { field: 'tag', operator: 'has', value: filterTag } );
+        if ( filterStatus ) f.push( { field: 'status', operator: 'is', value: filterStatus } );
+        return f.concat( advFilters );
+    }, [ search, filterTag, filterStatus, advFilters ] );
+
     const loadSubscribers = useCallback( () => {
         setLoading( true );
-        const params = new URLSearchParams( { page, per_page: 20 } );
-        if ( search ) params.set( 'search', search );
-        if ( filterTag ) params.set( 'tag', filterTag );
-        if ( filterStatus ) params.set( 'status', filterStatus );
+        const filters = buildFilters();
+        const params  = new URLSearchParams( { page, per_page: 20 } );
+        if ( filters.length ) params.set( 'filters', JSON.stringify( filters ) );
 
         api( `/subscribers?${ params }` ).then( ( data ) => {
             setSubscribers( data.subscribers || [] );
             setTotalPages( data.pages || 1 );
+            setTotal( data.total || 0 );
             setCounts( data.counts || counts );
             setLoading( false );
         } ).catch( ( e ) => {
             console.error( '[snel-newsletter] load subscribers failed:', e );
             setLoading( false );
         } );
-    }, [ page, search, filterTag, filterStatus ] );
+    }, [ page, buildFilters ] );
 
     const loadTags = useCallback( () => {
         api( '/tags' ).then( ( data ) => {
@@ -90,14 +105,40 @@ export default function Subscribers() {
         return () => clearTimeout( timer );
     }, [ searchInput ] );
 
-    const allSelected = subscribers.length > 0 && selected.length === subscribers.length;
+    const allSelected = subscribers.length > 0 && subscribers.every( ( s ) => selected.includes( s.id ) );
+
+    const clearSelection = () => {
+        setSelected( [] );
+        setSelectAllMatching( false );
+    };
 
     const toggleAll = () => {
+        setSelectAllMatching( false );
         setSelected( allSelected ? [] : subscribers.map( ( s ) => s.id ) );
     };
 
     const toggleOne = ( id ) => {
+        setSelectAllMatching( false );
         setSelected( ( prev ) => prev.includes( id ) ? prev.filter( ( x ) => x !== id ) : [ ...prev, id ] );
+    };
+
+    // "Select all N matching" — pull every matching ID so bulk actions hit the
+    // whole filtered set, not just the visible page.
+    const selectAllMatchingRows = () => {
+        api( '/subscribers/query-ids', {
+            method: 'POST',
+            body: JSON.stringify( { filters: buildFilters() } ),
+        } ).then( ( data ) => {
+            setSelected( data.ids || [] );
+            setSelectAllMatching( true );
+        } ).catch( ( e ) => alert( e.message ) );
+    };
+
+    // Changing any filter invalidates the current selection and page.
+    const handleAdvFiltersChange = ( next ) => {
+        setAdvFilters( next );
+        setPage( 1 );
+        clearSelection();
     };
 
     // Rejects on failure — AddSubscriberModal renders the message.
@@ -125,11 +166,16 @@ export default function Subscribers() {
 
     const handleBulkDelete = () => {
         if ( ! selected.length ) return;
+        const msg = selectAllMatching
+            ? __( 'Delete all', 'snel-newsletter' ) + ` ${ selected.length } ` + __( 'matching subscribers? This cannot be undone.', 'snel-newsletter' )
+            : __( 'Delete', 'snel-newsletter' ) + ` ${ selected.length } ` + __( 'subscribers?', 'snel-newsletter' );
+        if ( ! window.confirm( msg ) ) return;
+
         api( '/subscribers/bulk-delete', {
             method: 'POST',
             body: JSON.stringify( { ids: selected } ),
         } ).then( () => {
-            setSelected( [] );
+            clearSelection();
             loadSubscribers();
             loadTags();
         } ).catch( ( e ) => alert( e.message ) );
@@ -244,35 +290,61 @@ export default function Subscribers() {
                                 className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:shadow-[0_0_0_1px_#3b82f6] w-64"
                             />
                         </div>
-                        <Select
-                            value={ filterTag }
-                            onChange={ ( v ) => { setFilterTag( v ); setPage( 1 ); } }
-                            options={ [
-                                { value: '', label: __( 'All tags', 'snel-newsletter' ) },
-                                ...allTags.map( ( tag ) => ( { value: tag, label: tag } ) ),
-                            ] }
-                        />
-                        <Select
-                            value={ filterStatus }
-                            onChange={ ( v ) => { setFilterStatus( v ); setPage( 1 ); } }
-                            options={ [
-                                { value: '', label: __( 'All statuses', 'snel-newsletter' ) },
-                                { value: 'active', label: __( 'Active', 'snel-newsletter' ) },
-                                { value: 'unsubscribed', label: __( 'Unsubscribed', 'snel-newsletter' ) },
-                                { value: 'bounced', label: __( 'Bounced', 'snel-newsletter' ) },
-                            ] }
-                        />
+                        {/* Quick tag/status filters — hidden while a selection is
+                            active to free up room for the bulk-action buttons. */}
+                        { selected.length === 0 && (
+                            <>
+                                <Select
+                                    value={ filterTag }
+                                    onChange={ ( v ) => { setFilterTag( v ); setPage( 1 ); clearSelection(); } }
+                                    options={ [
+                                        { value: '', label: __( 'All tags', 'snel-newsletter' ) },
+                                        ...allTags.map( ( tag ) => ( { value: tag, label: tag } ) ),
+                                    ] }
+                                />
+                                <Select
+                                    value={ filterStatus }
+                                    onChange={ ( v ) => { setFilterStatus( v ); setPage( 1 ); clearSelection(); } }
+                                    options={ [
+                                        { value: '', label: __( 'All statuses', 'snel-newsletter' ) },
+                                        { value: 'active', label: __( 'Active', 'snel-newsletter' ) },
+                                        { value: 'unsubscribed', label: __( 'Unsubscribed', 'snel-newsletter' ) },
+                                        { value: 'bounced', label: __( 'Bounced', 'snel-newsletter' ) },
+                                    ] }
+                                />
+                                <button
+                                    type="button"
+                                    onClick={ () => setShowFilters( ( v ) => ! v ) }
+                                    className={ `inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-lg transition-colors ${ showFilters || advFilters.length > 0 ? 'text-blue-700 bg-blue-50 border-blue-200' : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-50' }` }
+                                >
+                                    <SlidersHorizontal size={ 12 } />
+                                    { __( 'Filters', 'snel-newsletter' ) }
+                                    { advFilters.length > 0 && (
+                                        <span className="inline-flex items-center justify-center w-4 h-4 text-[10px] font-semibold text-white bg-blue-600 rounded-full">
+                                            { advFilters.length }
+                                        </span>
+                                    ) }
+                                </button>
+                            </>
+                        ) }
                     </div>
                     { selected.length > 0 && (
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-500">{ selected.length } { __( 'selected', 'snel-newsletter' ) }</span>
                             <button
                                 type="button"
+                                onClick={ clearSelection }
+                                className="text-xs text-gray-400 hover:text-gray-600 underline"
+                            >
+                                { __( 'Clear', 'snel-newsletter' ) }
+                            </button>
+                            <button
+                                type="button"
                                 onClick={ handleBulkDelete }
                                 className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
                             >
                                 <Trash2 size={ 12 } />
-                                { __( 'Delete', 'snel-newsletter' ) }
+                                { selectAllMatching ? __( 'Delete all', 'snel-newsletter' ) : __( 'Delete', 'snel-newsletter' ) }
                             </button>
                             <button type="button" onClick={ () => setShowBulkTagModal( true ) } className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
                                 <Tag size={ 12 } />
@@ -285,6 +357,30 @@ export default function Subscribers() {
                         </div>
                     ) }
                 </div>
+
+                {/* Advanced stacked filters. */}
+                { showFilters && selected.length === 0 && (
+                    <FilterBar filters={ advFilters } onChange={ handleAdvFiltersChange } allTags={ allTags } />
+                ) }
+
+                {/* Select-all-matching banner — shown once the whole visible page
+                    is selected but more rows match the current filters. */}
+                { allSelected && ! selectAllMatching && total > subscribers.length && (
+                    <div className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-800">
+                        <span>{ subscribers.length } { __( 'on this page selected.', 'snel-newsletter' ) }</span>
+                        <button type="button" onClick={ selectAllMatchingRows } className="font-semibold underline hover:text-blue-900">
+                            { __( 'Select all', 'snel-newsletter' ) } { total } { __( 'matching', 'snel-newsletter' ) }
+                        </button>
+                    </div>
+                ) }
+                { selectAllMatching && (
+                    <div className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-100 border-b border-blue-200 text-xs text-blue-900 font-medium">
+                        <span>{ __( 'All', 'snel-newsletter' ) } { selected.length } { __( 'matching subscribers selected.', 'snel-newsletter' ) }</span>
+                        <button type="button" onClick={ clearSelection } className="underline hover:text-blue-950">
+                            { __( 'Clear selection', 'snel-newsletter' ) }
+                        </button>
+                    </div>
+                ) }
 
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[900px]">

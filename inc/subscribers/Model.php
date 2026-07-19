@@ -94,6 +94,200 @@ class Model {
     }
 
     /**
+     * SQL expression per engagement metric, computed off the tracking table.
+     * Mirrors the metric definitions used by dynamic tags (see sync_dynamic_tag).
+     * NULLIF guards division-by-zero for subscribers with no campaigns — a NULL
+     * result simply fails any HAVING comparison, excluding them, which is right.
+     */
+    private static function metric_expr( $metric ) {
+        switch ( $metric ) {
+            case 'open_rate':
+                return "ROUND(SUM(CASE WHEN tr.type = 'open' THEN 1 ELSE 0 END) / NULLIF(COUNT(DISTINCT tr.campaign_id),0) * 100, 2)";
+            case 'click_rate':
+                return "ROUND(COUNT(DISTINCT CASE WHEN tr.type = 'click' THEN tr.campaign_id END) / NULLIF(COUNT(DISTINCT tr.campaign_id),0) * 100, 2)";
+            case 'opens':
+                return "SUM(CASE WHEN tr.type = 'open' THEN 1 ELSE 0 END)";
+            case 'clicks':
+                return "SUM(CASE WHEN tr.type = 'click' THEN 1 ELSE 0 END)";
+            case 'emails_received':
+                return "COUNT(DISTINCT tr.campaign_id)";
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Turn an array of filter conditions into SQL fragments.
+     *
+     * Each condition is { field, operator, value }. Fields split three ways:
+     *  - metrics (open_rate, clicks, …) → HAVING on a grouped tracking join
+     *  - status / search               → plain WHERE on the subscribers table
+     *  - tag                           → EXISTS / NOT EXISTS on the tags table
+     *
+     * All conditions are AND-ed. Returns where/having SQL plus their params in
+     * the order they must be bound (where first, then having).
+     *
+     * @return array { where: string[], where_params: array, having: string[], having_params: array, needs_tracking: bool }
+     */
+    private static function build_conditions( $filters ) {
+        global $wpdb;
+        $tags_table = self::tags_table();
+
+        $op_map = array( 'gt' => '>', 'gte' => '>=', 'lt' => '<', 'lte' => '<=', 'eq' => '=' );
+
+        $where          = array();
+        $where_params   = array();
+        $having         = array();
+        $having_params  = array();
+        $needs_tracking = false;
+
+        foreach ( (array) $filters as $f ) {
+            $field    = $f['field'] ?? '';
+            $operator = $f['operator'] ?? '';
+            $value    = $f['value'] ?? '';
+
+            // Metric → HAVING clause.
+            $expr = self::metric_expr( $field );
+            if ( $expr ) {
+                $sql_op = $op_map[ $operator ] ?? null;
+                if ( ! $sql_op || $value === '' ) {
+                    continue;
+                }
+                $needs_tracking  = true;
+                $having[]        = "$expr $sql_op %f";
+                $having_params[] = (float) $value;
+                continue;
+            }
+
+            // Status → WHERE.
+            if ( $field === 'status' ) {
+                if ( $value === '' ) {
+                    continue;
+                }
+                $where[]        = 's.status = %s';
+                $where_params[] = sanitize_text_field( $value );
+                continue;
+            }
+
+            // Search → WHERE (email or name).
+            if ( $field === 'search' ) {
+                if ( $value === '' ) {
+                    continue;
+                }
+                $like           = '%' . $wpdb->esc_like( $value ) . '%';
+                $where[]        = '(s.email LIKE %s OR s.name LIKE %s)';
+                $where_params[] = $like;
+                $where_params[] = $like;
+                continue;
+            }
+
+            // Tag → EXISTS / NOT EXISTS.
+            if ( $field === 'tag' ) {
+                if ( $value === '' ) {
+                    continue;
+                }
+                $exists         = $operator === 'not_has' ? 'NOT EXISTS' : 'EXISTS';
+                $where[]        = "$exists (SELECT 1 FROM $tags_table te WHERE te.subscriber_id = s.id AND te.tag = %s)";
+                $where_params[] = sanitize_text_field( $value );
+                continue;
+            }
+        }
+
+        return array(
+            'where'          => $where,
+            'where_params'   => $where_params,
+            'having'         => $having,
+            'having_params'  => $having_params,
+            'needs_tracking' => $needs_tracking,
+        );
+    }
+
+    /**
+     * Query subscribers by a stack of filter conditions (all AND-ed), paginated.
+     *
+     * @param array $filters  Array of { field, operator, value }.
+     * @return array { subscribers, total, page, per_page, pages }
+     */
+    public static function query( $filters, $page = 1, $per_page = 20 ) {
+        global $wpdb;
+
+        $table    = self::table();
+        $tracking = $wpdb->prefix . 'snel_tracking';
+        $page     = max( 1, (int) $page );
+        $per_page = max( 1, min( 100, (int) $per_page ) );
+        $offset   = ( $page - 1 ) * $per_page;
+
+        $c          = self::build_conditions( $filters );
+        $where_sql  = $c['where'] ? 'WHERE ' . implode( ' AND ', $c['where'] ) : '';
+        $having_sql = $c['having'] ? 'HAVING ' . implode( ' AND ', $c['having'] ) : '';
+
+        // The tracking join + GROUP BY are only needed when a metric filter is
+        // in play; otherwise it's a plain filtered table scan.
+        if ( $c['needs_tracking'] ) {
+            $join     = "LEFT JOIN $tracking tr ON tr.subscriber_id = s.id";
+            $group    = 'GROUP BY s.id';
+            $inner    = "SELECT s.id FROM $table s $join $where_sql $group $having_sql";
+            $count_sql = "SELECT COUNT(*) FROM ( $inner ) x";
+        } else {
+            $join      = '';
+            $group     = '';
+            $count_sql = "SELECT COUNT(*) FROM $table s $where_sql";
+        }
+
+        $all_params = array_merge( $c['where_params'], $c['having_params'] );
+
+        $total = $all_params
+            ? (int) $wpdb->get_var( $wpdb->prepare( $count_sql, $all_params ) )
+            : (int) $wpdb->get_var( $count_sql );
+
+        $rows_sql = "SELECT s.* FROM $table s $join $where_sql $group $having_sql
+                     ORDER BY s.created_at DESC LIMIT %d OFFSET %d";
+        $rows = $wpdb->get_results( $wpdb->prepare( $rows_sql, array_merge( $all_params, array( $per_page, $offset ) ) ) );
+
+        if ( $rows ) {
+            $rows = self::attach_tags( $rows );
+        }
+
+        return array(
+            'subscribers' => $rows ?: array(),
+            'total'       => $total,
+            'page'        => $page,
+            'per_page'    => $per_page,
+            'pages'       => (int) ceil( $total / $per_page ),
+        );
+    }
+
+    /**
+     * Return every subscriber ID matching a filter stack — no pagination.
+     * Powers "select all N matching" so bulk actions can act on the whole set.
+     */
+    public static function ids_for_filters( $filters ) {
+        global $wpdb;
+
+        $table    = self::table();
+        $tracking = $wpdb->prefix . 'snel_tracking';
+
+        $c          = self::build_conditions( $filters );
+        $where_sql  = $c['where'] ? 'WHERE ' . implode( ' AND ', $c['where'] ) : '';
+        $having_sql = $c['having'] ? 'HAVING ' . implode( ' AND ', $c['having'] ) : '';
+
+        if ( $c['needs_tracking'] ) {
+            $sql = "SELECT s.id FROM $table s
+                    LEFT JOIN $tracking tr ON tr.subscriber_id = s.id
+                    $where_sql GROUP BY s.id $having_sql";
+        } else {
+            $sql = "SELECT s.id FROM $table s $where_sql";
+        }
+
+        $params = array_merge( $c['where_params'], $c['having_params'] );
+        $ids    = $params
+            ? $wpdb->get_col( $wpdb->prepare( $sql, $params ) )
+            : $wpdb->get_col( $sql );
+
+        return array_map( 'intval', $ids );
+    }
+
+    /**
      * Get status counts.
      */
     public static function counts() {

@@ -15,17 +15,73 @@ class Controller {
      * List subscribers.
      */
     public function list( \WP_REST_Request $request ) {
-        $result = Model::list( array(
-            'page'     => $request->get_param( 'page' ),
-            'per_page' => $request->get_param( 'per_page' ),
-            'search'   => sanitize_text_field( $request->get_param( 'search' ) ?: '' ),
-            'tag'      => sanitize_text_field( $request->get_param( 'tag' ) ?: '' ),
-            'status'   => sanitize_text_field( $request->get_param( 'status' ) ?: '' ),
-        ) );
+        $filters = self::parse_filters( $request );
+
+        if ( ! empty( $filters ) ) {
+            // Advanced stacked filters (metrics, tags, status, search — all AND-ed).
+            $result = Model::query(
+                $filters,
+                $request->get_param( 'page' ),
+                $request->get_param( 'per_page' )
+            );
+        } else {
+            // Legacy simple listing path.
+            $result = Model::list( array(
+                'page'     => $request->get_param( 'page' ),
+                'per_page' => $request->get_param( 'per_page' ),
+                'search'   => sanitize_text_field( $request->get_param( 'search' ) ?: '' ),
+                'tag'      => sanitize_text_field( $request->get_param( 'tag' ) ?: '' ),
+                'status'   => sanitize_text_field( $request->get_param( 'status' ) ?: '' ),
+            ) );
+        }
 
         $result['counts'] = Model::counts();
 
         return rest_ensure_response( $result );
+    }
+
+    /**
+     * Every subscriber ID matching the current filter stack — for "select all
+     * N matching" so a bulk action (delete/tag/enroll) can hit the whole set,
+     * not just the visible page.
+     *
+     * Body: { filters: [ { field, operator, value }, ... ] }
+     */
+    public function query_ids( \WP_REST_Request $request ) {
+        $filters = self::parse_filters( $request );
+        $ids     = Model::ids_for_filters( $filters );
+
+        return rest_ensure_response( array( 'ids' => $ids, 'total' => count( $ids ) ) );
+    }
+
+    /**
+     * Pull the filter stack out of a request, from either a JSON `filters`
+     * body/param or a `filters` query string, and sanitize each condition.
+     */
+    private static function parse_filters( \WP_REST_Request $request ) {
+        $raw = $request->get_param( 'filters' );
+
+        if ( is_string( $raw ) ) {
+            $raw = json_decode( $raw, true );
+        }
+
+        if ( ! is_array( $raw ) ) {
+            return array();
+        }
+
+        $clean = array();
+        foreach ( $raw as $f ) {
+            if ( ! is_array( $f ) || empty( $f['field'] ) ) {
+                continue;
+            }
+            $clean[] = array(
+                'field'    => sanitize_text_field( $f['field'] ),
+                'operator' => sanitize_text_field( $f['operator'] ?? '' ),
+                'value'    => is_scalar( $f['value'] ?? '' ) ? sanitize_text_field( (string) ( $f['value'] ?? '' ) ) : '',
+            );
+        }
+
+        return $clean;
     }
 
     /**
