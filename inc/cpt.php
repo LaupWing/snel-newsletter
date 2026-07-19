@@ -49,6 +49,43 @@ add_action( 'init', function () {
         },
     ) );
 
+    // Which audience mode the editor picked: '', 'all', 'tags', or 'custom'.
+    // Empty means nothing chosen yet — the editor blocks publishing until set.
+    register_post_meta( 'snel_newsletter', '_snel_nl_audience', array(
+        'type'          => 'string',
+        'single'        => true,
+        'default'       => '',
+        'show_in_rest'  => true,
+        'auth_callback' => function () {
+            return current_user_can( 'edit_posts' );
+        },
+    ) );
+
+    // Custom-list audience: a stack of { field, operator, value } filter
+    // conditions (same engine as the subscribers page). When set, the campaign
+    // sends to everyone matching instead of by tag.
+    register_post_meta( 'snel_newsletter', '_snel_nl_audience_filters', array(
+        'type'          => 'array',
+        'single'        => true,
+        'default'       => array(),
+        'show_in_rest'  => array(
+            'schema' => array(
+                'type'  => 'array',
+                'items' => array(
+                    'type'       => 'object',
+                    'properties' => array(
+                        'field'    => array( 'type' => 'string' ),
+                        'operator' => array( 'type' => 'string' ),
+                        'value'    => array( 'type' => 'string' ),
+                    ),
+                ),
+            ),
+        ),
+        'auth_callback' => function () {
+            return current_user_can( 'edit_posts' );
+        },
+    ) );
+
     // Marks a campaign as a workflow (automation) email rather than a one-time
     // broadcast. Workflow emails stay drafts — the broadcast pipeline only fires
     // on publish, while the automation engine sends the draft content directly.

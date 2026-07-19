@@ -477,3 +477,13 @@ body.snel-nl-workflow-email .editor-post-publish-panel__toggle,
 body.snel-nl-workflow-email .editor-post-publish-button {
     display: none !important;
 }
+
+/* No audience picked yet — make the disabled Publish button obviously dead. */
+body.snel-nl-publish-locked .editor-post-publish-button__button,
+body.snel-nl-publish-locked .editor-post-publish-panel__toggle {
+    opacity: 0.45 !important;
+    filter: grayscale(1) !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+    box-shadow: none !important;
+}

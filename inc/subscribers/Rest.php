@@ -57,6 +57,13 @@ class Rest {
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
 
+        // A subscriber's per-campaign open/click history (review-list modal).
+        register_rest_route( $this->namespace, '/subscribers/(?P<id>\d+)/history', array(
+            'methods'             => 'GET',
+            'callback'            => array( $this->controller, 'history' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
+
         register_rest_route( $this->namespace, '/tags', array(
             'methods'             => 'GET',
             'callback'            => array( $this->controller, 'tags' ),

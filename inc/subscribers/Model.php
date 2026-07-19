@@ -146,6 +146,21 @@ class Model {
             $operator = $f['operator'] ?? '';
             $value    = $f['value'] ?? '';
 
+            // Time-windowed engagement → EXISTS on recent tracking rows.
+            // "opened_in_days" / "clicked_in_days", value = number of days.
+            if ( $field === 'opened_in_days' || $field === 'clicked_in_days' ) {
+                $days = (int) $value;
+                if ( $days <= 0 ) {
+                    continue;
+                }
+                $tracking       = $wpdb->prefix . 'snel_tracking';
+                $type           = $field === 'opened_in_days' ? 'open' : 'click';
+                $where[]        = "EXISTS (SELECT 1 FROM $tracking tw WHERE tw.subscriber_id = s.id AND tw.type = %s AND tw.created_at >= DATE_SUB(NOW(), INTERVAL %d DAY))";
+                $where_params[] = $type;
+                $where_params[] = $days;
+                continue;
+            }
+
             // Metric → HAVING clause.
             $expr = self::metric_expr( $field );
             if ( $expr ) {
@@ -285,6 +300,31 @@ class Model {
             : $wpdb->get_col( $sql );
 
         return array_map( 'intval', $ids );
+    }
+
+    /**
+     * A subscriber's send history: every campaign they were queued for, with
+     * whether they opened/clicked it. Powers the "review list" modal so you can
+     * see who actually engaged with which email.
+     */
+    public static function history( $subscriber_id ) {
+        global $wpdb;
+
+        $queue    = $wpdb->prefix . 'snel_send_queue';
+        $tracking = $wpdb->prefix . 'snel_tracking';
+
+        return $wpdb->get_results( $wpdb->prepare(
+            "SELECT q.campaign_id, p.post_title AS subject, q.status, q.sent_at,
+                    MAX(CASE WHEN t.type = 'open'  THEN 1 ELSE 0 END) AS opened,
+                    MAX(CASE WHEN t.type = 'click' THEN 1 ELSE 0 END) AS clicked
+             FROM $queue q
+             LEFT JOIN {$wpdb->posts} p ON p.ID = q.campaign_id
+             LEFT JOIN $tracking t ON t.campaign_id = q.campaign_id AND t.subscriber_id = q.subscriber_id
+             WHERE q.subscriber_id = %d
+             GROUP BY q.campaign_id, p.post_title, q.status, q.sent_at
+             ORDER BY q.sent_at DESC, q.campaign_id DESC",
+            $subscriber_id
+        ) ) ?: array();
     }
 
     /**

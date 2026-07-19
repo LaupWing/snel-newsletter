@@ -34,8 +34,16 @@ class Processor {
         $tags_table = $wpdb->prefix . 'snel_subscriber_tags';
         $queue      = self::table();
 
-        // Get subscriber IDs.
-        if ( ! empty( $tags ) ) {
+        // Get subscriber IDs. A custom filter audience (set in the editor) wins
+        // over tags; either way we only ever send to active subscribers.
+        $filters = get_post_meta( $campaign_id, '_snel_nl_audience_filters', true );
+
+        if ( is_array( $filters ) && ! empty( $filters ) ) {
+            // Force the audience to active subscribers regardless of what was
+            // filtered on — a broadcast must never hit unsubscribed/bounced.
+            $filters[] = array( 'field' => 'status', 'operator' => 'is', 'value' => 'active' );
+            $ids = \Snel\Newsletter\Subscribers\Model::ids_for_filters( $filters );
+        } elseif ( ! empty( $tags ) ) {
             $placeholders = implode( ',', array_fill( 0, count( $tags ), '%s' ) );
             $ids = $wpdb->get_col( $wpdb->prepare(
                 "SELECT DISTINCT s.id FROM $sub_table s

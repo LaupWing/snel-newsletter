@@ -55,6 +55,15 @@ class Controller {
     }
 
     /**
+     * A subscriber's per-campaign send/open/click history.
+     */
+    public function history( \WP_REST_Request $request ) {
+        $id = (int) $request->get_param( 'id' );
+
+        return rest_ensure_response( array( 'history' => Model::history( $id ) ) );
+    }
+
+    /**
      * Pull the filter stack out of a request, from either a JSON `filters`
      * body/param or a `filters` query string, and sanitize each condition.
      */

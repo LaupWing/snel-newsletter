@@ -1,9 +1,11 @@
-import { useState } from '@wordpress/element';
+import { useState, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { PluginDocumentSettingPanel } from '@wordpress/editor';
 import { useSelect, useDispatch } from '@wordpress/data';
-import { Users, Send, Tag, Mail, Eye, Loader2, CheckCircle, Workflow, Zap } from 'lucide-react';
+import { Users, Send, Tag, Mail, Eye, Loader2, CheckCircle, Workflow, Zap, ListFilter } from 'lucide-react';
 import EmailPreviewModal from './EmailPreviewModal';
+import FilterBar from '../pages/Subscribers/FilterBar';
+import ReviewListModal from '../pages/Subscribers/ReviewListModal';
 
 const TAGS = window.snelNewsletterEditor?.tags || [];
 const SUBSCRIBER_COUNT = window.snelNewsletterEditor?.subscriberCount || 0;
@@ -80,7 +82,23 @@ function RecipientPanel() {
         editPost( { meta: { _snel_nl_tags: value } } );
     };
 
-    const [ audience, setAudience ] = useState( selectedTags.length > 0 ? 'tags' : 'all' );
+    const filters = Array.isArray( meta._snel_nl_audience_filters ) ? meta._snel_nl_audience_filters : [];
+    const setFilters = ( next ) => editPost( { meta: { _snel_nl_audience_filters: next } } );
+
+    // Audience mode is persisted so we can tell "picked All" apart from "picked
+    // nothing yet" — nothing selected blocks publishing (see PublishGate).
+    const audience = meta._snel_nl_audience
+        || ( filters.length > 0 ? 'custom' : ( selectedTags.length > 0 ? 'tags' : '' ) );
+
+    // "Review list" opens a modal to browse the matched subscribers + history.
+    const [ showReview, setShowReview ] = useState( false );
+
+    // Switching audience clears the other mode's selection so only one applies.
+    const chooseAudience = ( mode ) => {
+        editPost( { meta: { _snel_nl_audience: mode } } );
+        if ( mode !== 'tags' ) setSelectedTags( [] );
+        if ( mode !== 'custom' ) setFilters( [] );
+    };
 
     const toggleTag = ( tag ) => {
         setSelectedTags( ( prev ) =>
@@ -88,11 +106,33 @@ function RecipientPanel() {
         );
     };
 
+    // Workflow emails send from the automation flow — no broadcast audience. We
+    // still render the panel (never conditionally unmount it) so it keeps its
+    // position at the top of the sidebar instead of jumping to the bottom.
+    const isWorkflow = meta._snel_nl_is_workflow === '1' || meta._snel_nl_is_workflow === true;
+    if ( isWorkflow ) {
+        return (
+            <PluginDocumentSettingPanel
+                name="snel-newsletter-recipients"
+                title={ __( 'Recipients', 'snel-newsletter' ) }
+                icon={ <Users size={ 16 } /> }
+                initialOpen={ false }
+            >
+                <div className="snel-newsletter-panel">
+                    <p className="snel-nl-hint">
+                        { __( 'Recipients are handled by the automation flow for workflow emails.', 'snel-newsletter' ) }
+                    </p>
+                </div>
+            </PluginDocumentSettingPanel>
+        );
+    }
+
     return (
         <PluginDocumentSettingPanel
             name="snel-newsletter-recipients"
             title={ __( 'Recipients', 'snel-newsletter' ) }
             icon={ <Users size={ 16 } /> }
+            initialOpen={ true }
         >
             <div className="snel-newsletter-panel">
                 <div className="snel-nl-field">
@@ -104,7 +144,7 @@ function RecipientPanel() {
                                 name="snel-nl-audience"
                                 value="all"
                                 checked={ audience === 'all' }
-                                onChange={ () => { setAudience( 'all' ); setSelectedTags( [] ); } }
+                                onChange={ () => chooseAudience( 'all' ) }
                             />
                             <span>{ __( 'All subscribers', 'snel-newsletter' ) }</span>
                             <span className="snel-nl-count">{ SUBSCRIBER_COUNT.toLocaleString() }</span>
@@ -115,12 +155,54 @@ function RecipientPanel() {
                                 name="snel-nl-audience"
                                 value="tags"
                                 checked={ audience === 'tags' }
-                                onChange={ () => setAudience( 'tags' ) }
+                                onChange={ () => chooseAudience( 'tags' ) }
                             />
                             <span>{ __( 'By tag', 'snel-newsletter' ) }</span>
                         </label>
+                        <label className="snel-nl-radio">
+                            <input
+                                type="radio"
+                                name="snel-nl-audience"
+                                value="custom"
+                                checked={ audience === 'custom' }
+                                onChange={ () => chooseAudience( 'custom' ) }
+                            />
+                            <span>{ __( 'Custom list', 'snel-newsletter' ) }</span>
+                        </label>
                     </div>
+                    { ! audience && (
+                        <p className="snel-nl-hint" style={ { color: '#b45309' } }>
+                            { __( 'Pick who to send to — publishing is disabled until you choose.', 'snel-newsletter' ) }
+                        </p>
+                    ) }
                 </div>
+
+                { audience === 'custom' && (
+                    <div className="snel-nl-field">
+                        <label className="snel-nl-label">
+                            <ListFilter size={ 12 } />
+                            { __( 'Build the list', 'snel-newsletter' ) }
+                        </label>
+                        <FilterBar filters={ filters } onChange={ setFilters } allTags={ TAGS } />
+                        <button
+                            type="button"
+                            onClick={ () => setShowReview( true ) }
+                            disabled={ filters.length === 0 }
+                            className="snel-nl-preview-btn"
+                            style={ { marginTop: '8px' } }
+                        >
+                            <Users size={ 14 } />
+                            { __( 'Review list', 'snel-newsletter' ) }
+                        </button>
+                        <p className="snel-nl-hint">
+                            { __( 'Only active subscribers matching every filter will receive this campaign.', 'snel-newsletter' ) }
+                        </p>
+                    </div>
+                ) }
+
+                { showReview && (
+                    <ReviewListModal filters={ filters } api={ api } onClose={ () => setShowReview( false ) } />
+                ) }
 
                 { audience === 'tags' && (
                     <div className="snel-nl-field">
@@ -286,18 +368,51 @@ function SendPanel() {
     );
 }
 
-export default function NewsletterSidebar() {
+/**
+ * Blocks publishing (and saving) until a broadcast has a valid audience, so you
+ * can't accidentally send a campaign without choosing who it goes to.
+ */
+function PublishGate() {
+    const { lockPostSaving, unlockPostSaving } = useDispatch( 'core/editor' );
     const meta = useSelect(
         ( select ) => select( 'core/editor' ).getEditedPostAttribute( 'meta' ),
         []
     ) || {};
-    const isWorkflow = meta._snel_nl_is_workflow === '1' || meta._snel_nl_is_workflow === true;
 
+    const isWorkflow = meta._snel_nl_is_workflow === '1' || meta._snel_nl_is_workflow === true;
+    const tags       = Array.isArray( meta._snel_nl_tags ) ? meta._snel_nl_tags : [];
+    const filters    = Array.isArray( meta._snel_nl_audience_filters ) ? meta._snel_nl_audience_filters : [];
+    const audience   = meta._snel_nl_audience
+        || ( filters.length > 0 ? 'custom' : ( tags.length > 0 ? 'tags' : '' ) );
+
+    const valid = isWorkflow
+        || audience === 'all'
+        || ( audience === 'tags' && tags.length > 0 )
+        || ( audience === 'custom' && filters.length > 0 );
+
+    useEffect( () => {
+        const cls = 'snel-nl-publish-locked';
+        if ( valid ) {
+            unlockPostSaving( 'snel-audience-required' );
+            document.body.classList.remove( cls );
+        } else {
+            lockPostSaving( 'snel-audience-required' );
+            document.body.classList.add( cls );
+        }
+        return () => document.body.classList.remove( cls );
+    }, [ valid ] );
+
+    return null;
+}
+
+export default function NewsletterSidebar() {
     return (
         <>
+            <PublishGate />
+            { /* Recipients first (always mounted) so it stays at the top and is
+                 the first thing you see; it self-handles the workflow case. */ }
+            <RecipientPanel />
             <CampaignTypePanel />
-            { /* Workflow emails send from the automation flow, not a broadcast audience. */ }
-            { ! isWorkflow && <RecipientPanel /> }
             <SendPanel />
         </>
     );

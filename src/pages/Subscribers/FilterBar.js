@@ -46,17 +46,21 @@ const STATUSES = [
 ];
 
 const FIELD_OPTIONS = [
+    { value: 'opened_in_days',  label: __( 'Opened in last (days)', 'snel-newsletter' ) },
+    { value: 'clicked_in_days', label: __( 'Clicked in last (days)', 'snel-newsletter' ) },
     ...METRIC_FIELDS.map( ( m ) => ( { value: m.value, label: m.label } ) ),
     { value: 'status', label: __( 'Status', 'snel-newsletter' ) },
     { value: 'tag',    label: __( 'Tag', 'snel-newsletter' ) },
 ];
 
 const isMetric = ( field ) => METRIC_FIELDS.some( ( m ) => m.value === field );
+const isDayWindow = ( field ) => field === 'opened_in_days' || field === 'clicked_in_days';
 
 /** Sensible default operator + value when the field changes. */
 function defaultsFor( field ) {
-    if ( field === 'status' ) return { operator: 'is', value: 'active' };
-    if ( field === 'tag' )    return { operator: 'has', value: '' };
+    if ( field === 'status' )       return { operator: 'is', value: 'active' };
+    if ( field === 'tag' )          return { operator: 'has', value: '' };
+    if ( isDayWindow( field ) )     return { operator: 'within', value: '30' };
     return { operator: 'gt', value: '' };
 }
 
@@ -82,8 +86,9 @@ export default function FilterBar( { filters, onChange, allTags } ) {
             ) }
 
             { filters.map( ( f, i ) => {
-                const metric = isMetric( f.field );
-                const unit   = METRIC_FIELDS.find( ( m ) => m.value === f.field )?.unit || '';
+                const metric    = isMetric( f.field );
+                const dayWindow = isDayWindow( f.field );
+                const unit      = METRIC_FIELDS.find( ( m ) => m.value === f.field )?.unit || '';
 
                 return (
                     <div key={ i } className="flex items-center gap-2 flex-wrap">
@@ -114,8 +119,25 @@ export default function FilterBar( { filters, onChange, allTags } ) {
                         { f.field === 'status' && (
                             <span className="text-xs text-gray-400">{ __( 'is', 'snel-newsletter' ) }</span>
                         ) }
+                        { dayWindow && (
+                            <span className="text-xs text-gray-400">{ __( 'in the last', 'snel-newsletter' ) }</span>
+                        ) }
 
                         {/* Value input — number for metrics, dropdown otherwise. */}
+                        { dayWindow && (
+                            <div className="relative">
+                                <input
+                                    type="number"
+                                    value={ f.value }
+                                    onChange={ ( e ) => updateRow( i, { value: e.target.value } ) }
+                                    placeholder="30"
+                                    step="1"
+                                    min="1"
+                                    className="w-24 pl-3 pr-10 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:border-blue-500 focus:shadow-[0_0_0_1px_#3b82f6]"
+                                />
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">{ __( 'days', 'snel-newsletter' ) }</span>
+                            </div>
+                        ) }
                         { metric && (
                             <div className="relative">
                                 <input
