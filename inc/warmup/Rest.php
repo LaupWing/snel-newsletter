@@ -43,47 +43,64 @@ class Rest {
         ) );
     }
 
+    /**
+     * Status for every lane, keyed by lane name.
+     */
     public function status() {
-        $enabled = Settings::is_enabled();
-        $day     = Settings::current_day();
-        $cap     = Ramp::cap_for_day( $day );
-        $sent    = $enabled ? (int) get_option( Guard::OPT_DAILY_SENT, 0 ) : 0;
+        $out = array();
+        foreach ( Settings::lanes() as $lane ) {
+            $enabled = Settings::is_enabled( $lane );
+            $day     = Settings::current_day( $lane );
+            $cap     = Ramp::cap_for_day( $day );
+            $sent    = $enabled ? Guard::sent_today( $lane ) : 0;
 
-        return rest_ensure_response( array(
-            'enabled'     => $enabled,
-            'started_at'  => Settings::started_at(),
-            'day'         => $day,
-            'cap_today'   => $cap,
-            'sent_today'  => $sent,
-            'remaining'   => $cap !== null ? max( 0, $cap - $sent ) : null,
-        ) );
+            $out[ $lane ] = array(
+                'enabled'    => $enabled,
+                'started_at' => Settings::started_at( $lane ),
+                'day'        => $day,
+                'cap_today'  => $cap,
+                'sent_today' => $sent,
+                'remaining'  => $cap !== null ? max( 0, $cap - $sent ) : null,
+            );
+        }
+
+        return rest_ensure_response( $out );
     }
 
-    public function enable() {
-        Settings::enable();
+    private function lane_param( \WP_REST_Request $request ): string {
+        $lane = sanitize_text_field( (string) ( $request->get_param( 'lane' ) ?? '' ) );
+        return in_array( $lane, Settings::lanes(), true ) ? $lane : Settings::LANE_BROADCAST;
+    }
+
+    public function enable( \WP_REST_Request $request ) {
+        $lane = $this->lane_param( $request );
+        Settings::enable( $lane );
 
         \Snel\Newsletter\Logger\Logger::info( 'warmup', 'Warmup enabled', array(
-            'day'        => Settings::current_day(),
-            'cap'        => Ramp::cap_for_day( Settings::current_day() ),
-            'started_at' => Settings::started_at(),
+            'lane'       => $lane,
+            'day'        => Settings::current_day( $lane ),
+            'started_at' => Settings::started_at( $lane ),
         ) );
 
         return rest_ensure_response( array( 'success' => true ) );
     }
 
-    public function disable() {
-        Settings::disable();
+    public function disable( \WP_REST_Request $request ) {
+        $lane = $this->lane_param( $request );
+        Settings::disable( $lane );
 
-        \Snel\Newsletter\Logger\Logger::info( 'warmup', 'Warmup disabled' );
+        \Snel\Newsletter\Logger\Logger::info( 'warmup', 'Warmup disabled', array( 'lane' => $lane ) );
 
         return rest_ensure_response( array( 'success' => true ) );
     }
 
-    public function restart() {
-        Settings::reset_ramp();
+    public function restart( \WP_REST_Request $request ) {
+        $lane = $this->lane_param( $request );
+        Settings::reset_ramp( $lane );
 
         \Snel\Newsletter\Logger\Logger::info( 'warmup', 'Warmup ramp restarted at day 1', array(
-            'started_at' => Settings::started_at(),
+            'lane'       => $lane,
+            'started_at' => Settings::started_at( $lane ),
         ) );
 
         return rest_ensure_response( array( 'success' => true ) );

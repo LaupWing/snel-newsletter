@@ -41,6 +41,10 @@ class Controller {
             'from_name'      => 'sanitize_text_field',
             'from_email'     => 'sanitize_email',
             'reply_to'       => 'sanitize_email',
+            // Automation lane sender (optional — falls back to the above).
+            'auto_from_name'  => 'sanitize_text_field',
+            'auto_from_email' => 'sanitize_email',
+            'auto_reply_to'   => 'sanitize_email',
         );
 
         foreach ( $fields as $key => $sanitizer ) {

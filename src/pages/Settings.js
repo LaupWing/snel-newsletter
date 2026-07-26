@@ -1,6 +1,6 @@
 import { useState, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Mail, Cloud, Save, Loader2, CheckCircle, AlertTriangle, Eye, EyeOff, ScrollText, Download } from 'lucide-react';
+import { Mail, Cloud, Save, Loader2, CheckCircle, AlertTriangle, Eye, EyeOff, ScrollText, Download, Zap } from 'lucide-react';
 import Select from '../components/Select';
 import Tabs from '../components/Tabs';
 
@@ -246,6 +246,48 @@ function SenderSettings( { settings, setSettings } ) {
                         </div>
                     </div>
                 ) }
+            </div>
+
+            {/* Automation lane sender — isolates automation reputation. */}
+            <div className="bg-white border border-gray-200 rounded-lg p-5">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 bg-violet-50 rounded-lg flex items-center justify-center">
+                        <Zap size={ 16 } className="text-violet-600" />
+                    </div>
+                    <div>
+                        <h2 className="text-sm font-semibold text-gray-900">{ __( 'Automation Sender', 'snel-newsletter' ) }</h2>
+                        <p className="text-xs text-gray-400">{ __( 'Send automation emails from a separate domain', 'snel-newsletter' ) }</p>
+                    </div>
+                </div>
+                <div className="mb-4 rounded-lg bg-violet-50 border border-violet-100 px-3 py-2">
+                    <p className="text-xs text-violet-700 leading-relaxed">
+                        { __( 'Optional. Use a separate subdomain (e.g. auto.yourdomain.com) so a bad automation blast never burns your broadcast reputation. Leave blank to use the sender above.', 'snel-newsletter' ) }
+                    </p>
+                </div>
+
+                <div className="space-y-4">
+                    <InputField
+                        label={ __( 'Automation From Name', 'snel-newsletter' ) }
+                        value={ settings.auto_from_name || '' }
+                        onChange={ ( v ) => setSettings( { ...settings, auto_from_name: v } ) }
+                        placeholder="Your Newsletter"
+                    />
+                    <InputField
+                        label={ __( 'Automation From Email', 'snel-newsletter' ) }
+                        type="email"
+                        value={ settings.auto_from_email || '' }
+                        onChange={ ( v ) => setSettings( { ...settings, auto_from_email: v } ) }
+                        placeholder="hello@auto.yourdomain.com"
+                        hint={ __( 'Must be a verified email or domain in AWS SES.', 'snel-newsletter' ) }
+                    />
+                    <InputField
+                        label={ __( 'Automation Reply-To', 'snel-newsletter' ) }
+                        type="email"
+                        value={ settings.auto_reply_to || '' }
+                        onChange={ ( v ) => setSettings( { ...settings, auto_reply_to: v } ) }
+                        placeholder="hello@yourdomain.com"
+                    />
+                </div>
             </div>
         </div>
     );

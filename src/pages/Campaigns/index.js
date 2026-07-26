@@ -94,8 +94,8 @@ export default function Campaigns() {
                 <div className="flex items-center gap-2">
                     <WarmupButton
                         status={ warmupStatus }
-                        onToggle={ ( val ) => api( `/warmup/${ val ? 'enable' : 'disable' }`, { method: 'POST' } ).then( loadWarmup ) }
-                        onRestart={ () => api( '/warmup/restart', { method: 'POST' } ).then( loadWarmup ) }
+                        onToggle={ ( lane, val ) => api( `/warmup/${ val ? 'enable' : 'disable' }`, { method: 'POST', body: JSON.stringify( { lane } ) } ).then( loadWarmup ) }
+                        onRestart={ ( lane ) => api( '/warmup/restart', { method: 'POST', body: JSON.stringify( { lane } ) } ).then( loadWarmup ) }
                     />
                     <a
                         href="post-new.php?post_type=snel_newsletter"

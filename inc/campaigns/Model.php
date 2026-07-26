@@ -353,6 +353,14 @@ class Model {
     }
 
     /**
+     * IDs of every campaign that is a workflow (automation) email. Used to route
+     * sends onto the automation lane.
+     */
+    public static function workflow_ids() {
+        return array_map( 'intval', array_keys( self::workflow_map() ) );
+    }
+
+    /**
      * Every campaign that counts as a workflow email: the toggle is on, OR it's
      * referenced as an email step in any automation. Returns post ID =>
      * automation name (empty string when it's flagged but not yet in a flow).

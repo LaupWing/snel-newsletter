@@ -1,10 +1,6 @@
 <?php
 /**
- * Warmup guard — the single entry point for the queue processor.
- *
- * Responsibilities:
- *  - Track how many emails have been sent today vs the daily cap.
- *  - Mark subscribers as delayed after a campaign is queued.
+ * Warmup guard — daily-cap accounting per sending lane.
  *
  * @package SnelNewsletter
  */
@@ -17,38 +13,53 @@ defined( 'ABSPATH' ) || exit;
 
 class Guard {
 
-    const OPT_DAILY_SENT = 'snel_warmup_daily_sent';
-    const OPT_DAILY_DATE = 'snel_warmup_daily_date';
+    public static function opt_daily_sent( string $lane ): string {
+        $lane = in_array( $lane, Settings::lanes(), true ) ? $lane : Settings::LANE_BROADCAST;
+        return 'snel_warmup_' . $lane . '_daily_sent';
+    }
+
+    public static function opt_daily_date( string $lane ): string {
+        $lane = in_array( $lane, Settings::lanes(), true ) ? $lane : Settings::LANE_BROADCAST;
+        return 'snel_warmup_' . $lane . '_daily_date';
+    }
 
     /**
-     * How many emails can still go out today. Returns null when unlimited.
+     * How many emails can still go out today on this lane. null = unlimited.
      */
-    public static function daily_remaining(): ?int {
-        $day = Settings::current_day();
+    public static function daily_remaining( string $lane = Settings::LANE_BROADCAST ): ?int {
+        $day = Settings::current_day( $lane );
         $cap = Ramp::cap_for_day( $day );
 
         if ( $cap === null ) {
             return null;
         }
 
-        self::maybe_reset_daily_counter();
+        self::maybe_reset_daily_counter( $lane );
 
-        $sent = (int) get_option( self::OPT_DAILY_SENT, 0 );
+        $sent = (int) get_option( self::opt_daily_sent( $lane ), 0 );
         return max( 0, $cap - $sent );
     }
 
     /**
-     * Record one successful send against the daily counter.
+     * Record one successful send against a lane's daily counter.
      */
-    public static function increment_daily(): void {
-        self::maybe_reset_daily_counter();
-        $sent = (int) get_option( self::OPT_DAILY_SENT, 0 );
-        update_option( self::OPT_DAILY_SENT, $sent + 1, false );
+    public static function increment_daily( string $lane = Settings::LANE_BROADCAST ): void {
+        self::maybe_reset_daily_counter( $lane );
+        $sent = (int) get_option( self::opt_daily_sent( $lane ), 0 );
+        update_option( self::opt_daily_sent( $lane ), $sent + 1, false );
+    }
+
+    /**
+     * Emails sent today on this lane.
+     */
+    public static function sent_today( string $lane = Settings::LANE_BROADCAST ): int {
+        self::maybe_reset_daily_counter( $lane );
+        return (int) get_option( self::opt_daily_sent( $lane ), 0 );
     }
 
     /**
      * After queue_campaign() inserts rows, mark cooldown subscribers as delayed.
-     * Returns the number of rows delayed.
+     * Cooldown is per-subscriber and lane-agnostic. Returns rows delayed.
      */
     public static function apply_cooldowns( int $campaign_id ): int {
         global $wpdb;
@@ -107,26 +118,24 @@ class Guard {
     }
 
     /**
-     * Reset the daily counter when the date has changed.
+     * Reset a lane's daily counter when the date has changed.
      */
-    private static function maybe_reset_daily_counter(): void {
+    private static function maybe_reset_daily_counter( string $lane ): void {
         $today     = current_time( 'Y-m-d' );
-        $last_date = get_option( self::OPT_DAILY_DATE, '' );
+        $last_date = get_option( self::opt_daily_date( $lane ), '' );
 
         if ( $last_date === $today ) {
             return;
         }
 
-        $day = Settings::current_day();
-        $cap = Ramp::cap_for_day( $day );
-
-        update_option( self::OPT_DAILY_SENT, 0, false );
-        update_option( self::OPT_DAILY_DATE, $today, false );
+        update_option( self::opt_daily_sent( $lane ), 0, false );
+        update_option( self::opt_daily_date( $lane ), $today, false );
 
         Logger::info( 'warmup', 'Daily counter reset', array(
+            'lane'       => $lane,
             'date'       => $today,
-            'warmup_day' => $day,
-            'cap'        => $cap ?? 'unlimited',
+            'warmup_day' => Settings::current_day( $lane ),
+            'cap'        => Ramp::cap_for_day( Settings::current_day( $lane ) ) ?? 'unlimited',
         ) );
     }
 }

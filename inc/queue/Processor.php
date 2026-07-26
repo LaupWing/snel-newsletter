@@ -118,29 +118,33 @@ class Processor {
             return;
         }
 
-        // Check daily warmup cap before fetching rows.
-        $warmup_on   = \Snel\Newsletter\Warmup\Settings::is_enabled();
-        $batch_limit = self::BATCH_SIZE;
+        // Per-lane warmup budgets (int remaining, or null = unlimited). A lane
+        // whose cap is already spent is excluded from this batch's fetch so the
+        // other lane can still drain — no starvation between lanes.
+        $workflow_ids = \Snel\Newsletter\Campaigns\Model::workflow_ids();
+        $lane_budget  = array();
+        foreach ( \Snel\Newsletter\Warmup\Settings::lanes() as $lane ) {
+            $lane_budget[ $lane ] = \Snel\Newsletter\Warmup\Settings::is_enabled( $lane )
+                ? \Snel\Newsletter\Warmup\Guard::daily_remaining( $lane )
+                : null;
+        }
 
-        if ( $warmup_on ) {
-            $remaining = \Snel\Newsletter\Warmup\Guard::daily_remaining();
+        $auto_capped      = ( $lane_budget[ \Snel\Newsletter\Warmup\Settings::LANE_AUTOMATION ] ?? null ) === 0;
+        $broadcast_capped = ( $lane_budget[ \Snel\Newsletter\Warmup\Settings::LANE_BROADCAST ] ?? null ) === 0;
 
-            if ( $remaining === 0 ) {
-                $day = \Snel\Newsletter\Warmup\Settings::current_day();
-                $cap = \Snel\Newsletter\Warmup\Ramp::cap_for_day( $day );
-
-                \Snel\Newsletter\Logger\Logger::info( 'warmup', 'Daily cap reached — pausing until tomorrow', array(
-                    'warmup_day' => $day,
-                    'cap'        => $cap,
-                ) );
-
-                wp_schedule_single_event( strtotime( 'tomorrow midnight' ) + 60, self::CRON_HOOK );
-                return;
+        // Exclude fully-capped lanes at the SQL level. workflow_ids are ints.
+        $exclude_sql = '';
+        if ( $workflow_ids ) {
+            $ids_csv = implode( ',', $workflow_ids );
+            if ( $auto_capped ) {
+                $exclude_sql .= " AND q.campaign_id NOT IN ($ids_csv)";
             }
-
-            if ( $remaining !== null ) {
-                $batch_limit = min( self::BATCH_SIZE, $remaining );
+            if ( $broadcast_capped ) {
+                $exclude_sql .= " AND q.campaign_id IN ($ids_csv)";
             }
+        } elseif ( $broadcast_capped ) {
+            // No automation campaigns exist, so a capped broadcast lane = nothing to send.
+            $exclude_sql .= ' AND 1=0';
         }
 
         // Get a batch of pending emails. Also picks up delayed rows whose wait has expired.
@@ -148,33 +152,46 @@ class Processor {
             "SELECT q.*, s.email, s.name, s.unsubscribe_token
              FROM $queue q
              INNER JOIN {$wpdb->prefix}snel_subscribers s ON s.id = q.subscriber_id
-             WHERE q.status IN ('pending', 'retrying')
-                OR (q.status = 'delayed' AND q.delayed_until <= %s)
+             WHERE ( q.status IN ('pending', 'retrying')
+                OR (q.status = 'delayed' AND q.delayed_until <= %s) )
+                $exclude_sql
              ORDER BY q.id ASC
              LIMIT %d",
             current_time( 'mysql' ),
-            $batch_limit
+            self::BATCH_SIZE
         ) );
 
         if ( empty( $rows ) ) {
-            // Nothing due *right now* — but that doesn't mean we're done. Rows
-            // can still be sitting in 'delayed' with a future delayed_until
-            // (warmup spacing / cooldowns). Finalizing here would abandon them
-            // AND end the single-event chain, orphaning the campaign. So only
-            // finalize when the queue is genuinely empty; otherwise reschedule
-            // the drainer for when the next delayed row comes due.
+            // Nothing fetchable *right now* — but that doesn't mean we're done.
+            // Rows may be waiting because their lane hit its warmup cap, or
+            // sitting in 'delayed' with a future delayed_until. Finalizing here
+            // would abandon them AND end the cron chain, orphaning the campaign.
+
+            // 1. Cap-blocked: pending/retrying rows exist but every lane is
+            //    spent for today → try again after midnight.
+            $pending = (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM $queue WHERE status IN ('pending', 'retrying')"
+            );
+            if ( $pending > 0 ) {
+                \Snel\Newsletter\Logger\Logger::info( 'warmup', 'All lanes at their daily cap — pausing until tomorrow', array(
+                    'pending' => $pending,
+                ) );
+                wp_schedule_single_event( strtotime( 'tomorrow midnight' ) + 60, self::CRON_HOOK );
+                return;
+            }
+
+            // 2. Only future-delayed rows left → reschedule for the next due one.
             $next_due = $wpdb->get_var(
                 "SELECT MIN(delayed_until) FROM $queue
                  WHERE status = 'delayed' AND delayed_until IS NOT NULL"
             );
-
             if ( $next_due ) {
                 $delay = max( 30, strtotime( $next_due ) - time() );
                 wp_schedule_single_event( time() + $delay, self::CRON_HOOK );
                 return;
             }
 
-            // Queue truly drained — mark campaigns as sent.
+            // 3. Queue truly drained — mark campaigns as sent.
             self::finalize_campaigns();
             return;
         }
@@ -188,12 +205,29 @@ class Processor {
                 continue;
             }
 
+            // Resolve which lane this send belongs to, its from-identity, and
+            // its warmup budget. Automation emails send from their own domain so
+            // a bad flow never burns the broadcast reputation.
+            $lane = in_array( (int) $row->campaign_id, $workflow_ids, true )
+                ? \Snel\Newsletter\Warmup\Settings::LANE_AUTOMATION
+                : \Snel\Newsletter\Warmup\Settings::LANE_BROADCAST;
+
+            if ( $lane_budget[ $lane ] !== null && $lane_budget[ $lane ] <= 0 ) {
+                // Lane cap reached mid-batch — leave this row pending for tomorrow.
+                continue;
+            }
+
+            $identity      = \Snel\Newsletter\Lanes\Lane::identity( $lane );
+            $row_from      = $identity['from_email'] ?: $from_email;
+            $row_from_name = $identity['from_name'] ?: $from_name;
+            $row_reply_to  = $identity['reply_to'];
+
             // Build the email.
             $content = apply_filters( 'the_content', $post->post_content );
             $preview = get_post_meta( $row->campaign_id, '_snel_nl_preview_text', true ) ?: '';
             $unsub   = rest_url( "snel-newsletter/v1/t/unsubscribe?token={$row->unsubscribe_token}" );
 
-            $html = \Snel\Newsletter\Sender\EmailTemplate::render( $content, $from_name, $unsub, $preview );
+            $html = \Snel\Newsletter\Sender\EmailTemplate::render( $content, $row_from_name, $unsub, $preview );
 
             // Inject tracking pixel if adapter doesn't handle it.
             if ( ! $adapter->handles_open_tracking() ) {
@@ -216,8 +250,8 @@ class Processor {
                 'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
             );
 
-            // Send.
-            $result = $adapter->send( $from_email, $from_name, $row->email, $subject, $html, $text, $reply_to, $headers );
+            // Send from this lane's identity.
+            $result = $adapter->send( $row_from, $row_from_name, $row->email, $subject, $html, $text, $row_reply_to, $headers );
 
             if ( $result['success'] ) {
                 $wpdb->update( $queue, array(
@@ -232,9 +266,13 @@ class Processor {
                     $row->campaign_id
                 ) );
 
-                // Track against the warmup daily cap.
-                if ( $warmup_on ) {
-                    \Snel\Newsletter\Warmup\Guard::increment_daily();
+                // Track against this lane's warmup cap (both the persistent
+                // daily counter and the in-batch budget).
+                if ( \Snel\Newsletter\Warmup\Settings::is_enabled( $lane ) ) {
+                    \Snel\Newsletter\Warmup\Guard::increment_daily( $lane );
+                    if ( $lane_budget[ $lane ] !== null ) {
+                        $lane_budget[ $lane ]--;
+                    }
                 }
             } else {
                 $retries = $row->retries + 1;
