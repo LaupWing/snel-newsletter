@@ -201,11 +201,18 @@ add_action( 'enqueue_block_editor_assets', function () {
         $count    = $counts['active'] ?? 0;
     }
 
+    $nl_settings = get_option( 'snel_newsletter_settings', array() );
+
     wp_localize_script( 'snel-newsletter-editor', 'snelNewsletterEditor', array(
         'restUrl'         => rest_url( 'snel-newsletter/v1' ),
         'nonce'           => wp_create_nonce( 'wp_rest' ),
         'subscriberCount' => $count,
         'tags'            => $tags,
+        'senders'         => array(
+            'broadcast'  => $nl_settings['from_email'] ?? '',
+            // Automation falls back to the broadcast sender when not set.
+            'automation' => $nl_settings['auto_from_email'] ?: ( $nl_settings['from_email'] ?? '' ),
+        ),
     ) );
 } );
 

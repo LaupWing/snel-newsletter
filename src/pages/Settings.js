@@ -66,6 +66,7 @@ function InputField( { label, hint, type = 'text', value, onChange, placeholder,
 
 function SesSettings( { settings, setSettings } ) {
     const [ testEmail, setTestEmail ] = useState( '' );
+    const [ testLane, setTestLane ] = useState( 'broadcast' );
     const [ testSending, setTestSending ] = useState( false );
     const [ testResult, setTestResult ] = useState( null ); // { success: bool, message: string }
 
@@ -77,7 +78,7 @@ function SesSettings( { settings, setSettings } ) {
         setTestResult( null );
         api( '/settings/test-email', {
             method: 'POST',
-            body: JSON.stringify( { email: testEmail } ),
+            body: JSON.stringify( { email: testEmail, lane: testLane } ),
         } ).then( ( data ) => {
             setTestSending( false );
             if ( data?.success ) {
@@ -157,6 +158,26 @@ function SesSettings( { settings, setSettings } ) {
                 { allFieldsFilled && (
                     <div className="mt-5 pt-4 border-t border-gray-100">
                         <p className="text-xs font-medium text-gray-700 mb-2">{ __( 'Test connection', 'snel-newsletter' ) }</p>
+                        {/* Which sender identity to test from. */}
+                        <div className="inline-flex items-center p-0.5 mb-2 bg-gray-100 rounded-lg">
+                            { [
+                                { key: 'broadcast', label: __( 'Broadcast', 'snel-newsletter' ), email: settings.from_email },
+                                { key: 'automation', label: __( 'Automation', 'snel-newsletter' ), email: settings.auto_from_email || settings.from_email },
+                            ].map( ( opt ) => (
+                                <button
+                                    key={ opt.key }
+                                    type="button"
+                                    onClick={ () => setTestLane( opt.key ) }
+                                    className={ `px-3 py-1 text-xs font-medium rounded-md transition-colors ${ testLane === opt.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700' }` }
+                                    title={ opt.email || '' }
+                                >
+                                    { opt.label }
+                                </button>
+                            ) ) }
+                        </div>
+                        <p className="text-[11px] text-gray-400 mb-2">
+                            { __( 'Sends from:', 'snel-newsletter' ) } <span className="font-medium text-gray-600">{ testLane === 'automation' ? ( settings.auto_from_email || settings.from_email || '—' ) : ( settings.from_email || '—' ) }</span>
+                        </p>
                         <div className="flex items-center gap-2">
                             <input
                                 type="email"

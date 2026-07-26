@@ -9,6 +9,7 @@ import ReviewListModal from '../pages/Subscribers/ReviewListModal';
 
 const TAGS = window.snelNewsletterEditor?.tags || [];
 const SUBSCRIBER_COUNT = window.snelNewsletterEditor?.subscriberCount || 0;
+const SENDERS = window.snelNewsletterEditor?.senders || {};
 const API_URL = window.snelNewsletterEditor?.restUrl || '';
 const NONCE = window.snelNewsletterEditor?.nonce || '';
 
@@ -119,6 +120,10 @@ function RecipientPanel() {
                 initialOpen={ false }
             >
                 <div className="snel-newsletter-panel">
+                    <div className="snel-nl-sender">
+                        <span className="snel-nl-sender-label">{ __( 'Sends from', 'snel-newsletter' ) }</span>
+                        <span className="snel-nl-sender-email">{ SENDERS.automation || __( '(set in Settings)', 'snel-newsletter' ) }</span>
+                    </div>
                     <p className="snel-nl-hint">
                         { __( 'Recipients are handled by the automation flow for workflow emails.', 'snel-newsletter' ) }
                     </p>
@@ -135,6 +140,10 @@ function RecipientPanel() {
             initialOpen={ true }
         >
             <div className="snel-newsletter-panel">
+                <div className="snel-nl-sender">
+                    <span className="snel-nl-sender-label">{ __( 'Sends from', 'snel-newsletter' ) }</span>
+                    <span className="snel-nl-sender-email">{ SENDERS.broadcast || __( '(set in Settings)', 'snel-newsletter' ) }</span>
+                </div>
                 <div className="snel-nl-field">
                     <label className="snel-nl-label">{ __( 'Send to', 'snel-newsletter' ) }</label>
                     <div className="snel-nl-radio-group">

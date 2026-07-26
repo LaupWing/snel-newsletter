@@ -80,13 +80,19 @@ class Controller {
             return new \WP_Error( 'no_credentials', 'SES credentials not configured. Save your settings first.', array( 'status' => 400 ) );
         }
 
-        $settings   = get_option( self::$option_key, array() );
-        $from_name  = $settings['from_name'] ?? 'Snel Newsletter';
-        $from_email = $settings['from_email'] ?? '';
-        $reply_to   = $settings['reply_to'] ?? '';
+        $settings = get_option( self::$option_key, array() );
+
+        // Which sending lane to test — broadcast (default) or automation.
+        $lane     = in_array( $params['lane'] ?? 'broadcast', array( 'broadcast', 'automation' ), true )
+                    ? $params['lane']
+                    : 'broadcast';
+        $identity   = \Snel\Newsletter\Lanes\Lane::identity( $lane );
+        $from_name  = $identity['from_name'] ?: 'Snel Newsletter';
+        $from_email = $identity['from_email'];
+        $reply_to   = $identity['reply_to'];
 
         if ( ! $from_email ) {
-            return new \WP_Error( 'no_from', 'From email not configured. Set it in the Sender tab.', array( 'status' => 400 ) );
+            return new \WP_Error( 'no_from', 'From email not configured for this lane. Set it in the Sender tab.', array( 'status' => 400 ) );
         }
 
         $result = $client->send(

@@ -80,7 +80,14 @@ function LaneControl( { lane, state, onToggle, onRestart } ) {
     );
 }
 
+const TABS = [
+    { key: 'progress', label: __( 'Progress', 'snel-newsletter' ) },
+    { key: 'ramp',     label: __( 'Ramp', 'snel-newsletter' ) },
+    { key: 'info',     label: __( 'Info', 'snel-newsletter' ) },
+];
+
 function WarmupModal( { status, onToggle, onRestart, onClose } ) {
+    const [ tab, setTab ] = useState( 'progress' );
     return (
         <>
             <div className="fixed inset-0 bg-black/50 z-40" onClick={ onClose } />
@@ -102,51 +109,74 @@ function WarmupModal( { status, onToggle, onRestart, onClose } ) {
                     </button>
                 </div>
 
-                <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1">
+                {/* Tabs */}
+                <div className="flex items-center gap-1 px-6 border-b border-gray-100 shrink-0">
+                    { TABS.map( ( t ) => (
+                        <button
+                            key={ t.key }
+                            type="button"
+                            onClick={ () => setTab( t.key ) }
+                            className={ `px-3 py-2 -mb-px text-sm font-medium border-b-2 transition-colors ${
+                                tab === t.key ? 'border-orange-500 text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-700'
+                            }` }
+                        >
+                            { t.label }
+                        </button>
+                    ) ) }
+                </div>
 
-                    <div className="flex items-start gap-3">
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-blue-50 shrink-0 mt-0.5">
-                            <Shield size={ 13 } className="text-blue-500" />
-                        </div>
-                        <p className="text-sm text-gray-500 leading-relaxed">
-                            { __( 'A fresh domain has zero reputation — blasting on day one triggers spam filters. Warmup ramps volume gradually. Broadcasts and automations warm up separately, so a bad automation never burns your broadcast reputation.', 'snel-newsletter' ) }
-                        </p>
-                    </div>
+                <div className="px-6 py-5 overflow-y-auto flex-1">
 
-                    {/* Per-lane controls */}
-                    <div className="space-y-3">
-                        { LANES.map( ( lane ) => (
-                            <LaneControl
-                                key={ lane.key }
-                                lane={ lane }
-                                state={ status?.[ lane.key ] }
-                                onToggle={ onToggle }
-                                onRestart={ onRestart }
-                            />
-                        ) ) }
-                    </div>
-
-                    {/* Ramp schedule */}
-                    <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
-                        <p className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200 flex items-center gap-2">
-                            <TrendingUp size={ 12 } /> { __( 'Send ramp (per lane)', 'snel-newsletter' ) }
-                        </p>
-                        <div className="divide-y divide-gray-100">
-                            { RAMP.map( ( row, i ) => (
-                                <div key={ i } className="flex items-center justify-between px-4 py-2">
-                                    <div className="flex items-center gap-2">
-                                        <Clock size={ 12 } className="text-gray-400" />
-                                        <span className="text-sm text-gray-600">{ row.day }</span>
-                                    </div>
-                                    { row.limit ? (
-                                        <span className="text-sm font-semibold text-gray-900">{ row.limit.toLocaleString() } / day</span>
-                                    ) : (
-                                        <span className="text-sm font-semibold text-emerald-600">{ __( 'Unlimited', 'snel-newsletter' ) }</span>
-                                    ) }
-                                </div>
+                    {/* Progress — per-lane controls */}
+                    { tab === 'progress' && (
+                        <div className="space-y-3">
+                            { LANES.map( ( lane ) => (
+                                <LaneControl
+                                    key={ lane.key }
+                                    lane={ lane }
+                                    state={ status?.[ lane.key ] }
+                                    onToggle={ onToggle }
+                                    onRestart={ onRestart }
+                                />
                             ) ) }
                         </div>
-                    </div>
+                    ) }
+
+                    {/* Ramp schedule */}
+                    { tab === 'ramp' && (
+                        <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                            <p className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200 flex items-center gap-2">
+                                <TrendingUp size={ 12 } /> { __( 'Send ramp (per lane)', 'snel-newsletter' ) }
+                            </p>
+                            <div className="divide-y divide-gray-100">
+                                { RAMP.map( ( row, i ) => (
+                                    <div key={ i } className="flex items-center justify-between px-4 py-2">
+                                        <div className="flex items-center gap-2">
+                                            <Clock size={ 12 } className="text-gray-400" />
+                                            <span className="text-sm text-gray-600">{ row.day }</span>
+                                        </div>
+                                        { row.limit ? (
+                                            <span className="text-sm font-semibold text-gray-900">{ row.limit.toLocaleString() } / day</span>
+                                        ) : (
+                                            <span className="text-sm font-semibold text-emerald-600">{ __( 'Unlimited', 'snel-newsletter' ) }</span>
+                                        ) }
+                                    </div>
+                                ) ) }
+                            </div>
+                        </div>
+                    ) }
+
+                    {/* Info */}
+                    { tab === 'info' && (
+                        <div className="flex items-start gap-3">
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-blue-50 shrink-0 mt-0.5">
+                                <Shield size={ 13 } className="text-blue-500" />
+                            </div>
+                            <p className="text-sm text-gray-500 leading-relaxed">
+                                { __( 'A fresh domain has zero reputation — blasting on day one triggers spam filters. Warmup ramps volume gradually. Broadcasts and automations warm up separately, so a bad automation never burns your broadcast reputation.', 'snel-newsletter' ) }
+                            </p>
+                        </div>
+                    ) }
 
                 </div>
             </div>
