@@ -381,9 +381,7 @@ class Engine {
             sprintf( 'Queued "%s"', $post->post_title )
         );
 
-        if ( ! wp_next_scheduled( \Snel\Newsletter\Queue\Processor::CRON_HOOK ) ) {
-            wp_schedule_single_event( time() + 5, \Snel\Newsletter\Queue\Processor::CRON_HOOK );
-        }
+        \Snel\Newsletter\Queue\Processor::ensure_soon();
     }
 
     /**

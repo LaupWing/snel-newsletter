@@ -86,12 +86,32 @@ class Processor {
         update_post_meta( $campaign_id, '_snel_nl_total_recipients', $total );
         update_post_meta( $campaign_id, '_snel_nl_sent_count', 0 );
 
-        // Schedule the cron to start processing.
-        if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
-            wp_schedule_single_event( time() + 5, self::CRON_HOOK );
-        }
+        // Kick the drainer to run soon.
+        self::ensure_soon();
 
         return $total;
+    }
+
+    /**
+     * Ensure the queue drainer runs within seconds.
+     *
+     * Just checking wp_next_scheduled() isn't enough: a prior batch may have
+     * *parked* the drainer far in the future (e.g. one lane hit its daily cap
+     * and paused until midnight). New work on a lane that still has budget must
+     * not wait for that — so if the next run is more than a minute out, pull it
+     * forward.
+     */
+    public static function ensure_soon() {
+        $existing = wp_next_scheduled( self::CRON_HOOK );
+
+        if ( $existing && $existing > time() + 60 ) {
+            wp_unschedule_event( $existing, self::CRON_HOOK );
+            $existing = false;
+        }
+
+        if ( ! $existing ) {
+            wp_schedule_single_event( time() + 5, self::CRON_HOOK );
+        }
     }
 
     /**

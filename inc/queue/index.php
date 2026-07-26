@@ -46,10 +46,16 @@ add_action( 'init', function () {
     }
 } );
 
-// The watchdog itself: if the drainer is gone but rows are due, re-arm it.
+// The watchdog: re-arm the drainer if it's gone, OR pull it forward if it was
+// parked far in the future (e.g. one lane hit its cap and paused until midnight)
+// while sendable rows are waiting. Without this, a capped lane can block another
+// lane's fresh sends for the rest of the day.
 add_action( SNEL_QUEUE_WATCHDOG_HOOK, function () {
-    if ( wp_next_scheduled( Snel\Newsletter\Queue\Processor::CRON_HOOK ) ) {
-        return; // Drainer already alive — nothing to do.
+    $next = wp_next_scheduled( Snel\Newsletter\Queue\Processor::CRON_HOOK );
+
+    // A run is already imminent — nothing to do.
+    if ( $next && $next <= time() + 120 ) {
+        return;
     }
 
     global $wpdb;
@@ -60,8 +66,11 @@ add_action( SNEL_QUEUE_WATCHDOG_HOOK, function () {
     );
 
     if ( $has_work ) {
-        wp_schedule_single_event( time() + 5, Snel\Newsletter\Queue\Processor::CRON_HOOK );
-        Snel\Newsletter\Logger\Logger::info( 'queue', 'Watchdog re-armed the drainer', array( 'rows' => $has_work ) );
+        Snel\Newsletter\Queue\Processor::ensure_soon();
+        Snel\Newsletter\Logger\Logger::info( 'queue', 'Watchdog armed the drainer', array(
+            'rows'    => $has_work,
+            'was_next' => $next ? gmdate( 'c', $next ) : null,
+        ) );
     }
 } );
 
