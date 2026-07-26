@@ -35,6 +35,12 @@ class Rest {
             'callback'            => array( $this, 'disable' ),
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
+
+        register_rest_route( $this->namespace, '/warmup/restart', array(
+            'methods'             => 'POST',
+            'callback'            => array( $this, 'restart' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
     }
 
     public function status() {
@@ -69,6 +75,16 @@ class Rest {
         Settings::disable();
 
         \Snel\Newsletter\Logger\Logger::info( 'warmup', 'Warmup disabled' );
+
+        return rest_ensure_response( array( 'success' => true ) );
+    }
+
+    public function restart() {
+        Settings::reset_ramp();
+
+        \Snel\Newsletter\Logger\Logger::info( 'warmup', 'Warmup ramp restarted at day 1', array(
+            'started_at' => Settings::started_at(),
+        ) );
 
         return rest_ensure_response( array( 'success' => true ) );
     }

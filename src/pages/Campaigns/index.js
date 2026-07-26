@@ -18,11 +18,13 @@ function api( path, opts = {} ) {
 
 export default function Campaigns() {
     const [ selectedCampaign, setSelectedCampaign ] = useState( null );
-    const [ warmupActive, setWarmupActive ] = useState( false );
+    const [ warmupStatus, setWarmupStatus ] = useState( null );
 
-    useEffect( () => {
-        api( '/warmup' ).then( ( data ) => setWarmupActive( !! data.enabled ) );
+    const loadWarmup = useCallback( () => {
+        api( '/warmup' ).then( setWarmupStatus );
     }, [] );
+
+    useEffect( () => { loadWarmup(); }, [ loadWarmup ] );
     const [ campaigns, setCampaigns ] = useState( [] );
     const [ search, setSearch ] = useState( '' );
     const [ filterStatus, setFilterStatus ] = useState( '' );
@@ -91,11 +93,9 @@ export default function Campaigns() {
                 </div>
                 <div className="flex items-center gap-2">
                     <WarmupButton
-                        active={ warmupActive }
-                        onToggle={ ( val ) => {
-                            setWarmupActive( val );
-                            api( `/warmup/${ val ? 'enable' : 'disable' }`, { method: 'POST' } );
-                        } }
+                        status={ warmupStatus }
+                        onToggle={ ( val ) => api( `/warmup/${ val ? 'enable' : 'disable' }`, { method: 'POST' } ).then( loadWarmup ) }
+                        onRestart={ () => api( '/warmup/restart', { method: 'POST' } ).then( loadWarmup ) }
                     />
                     <a
                         href="post-new.php?post_type=snel_newsletter"

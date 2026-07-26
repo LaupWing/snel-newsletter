@@ -20,15 +20,25 @@ class Settings {
     }
 
     public static function enable(): void {
-        // Record start date only on first enable.
-        if ( ! get_option( self::OPT_STARTED_AT ) ) {
-            update_option( self::OPT_STARTED_AT, current_time( 'Y-m-d' ) );
-        }
+        // Every enable starts a FRESH ramp. The old code set the start date only
+        // once and never cleared it, so re-enabling a warmup that had already
+        // run left current_day() past the schedule → unlimited cap → no ramp.
+        self::reset_ramp();
         update_option( self::OPT_ENABLED, 1 );
     }
 
     public static function disable(): void {
         update_option( self::OPT_ENABLED, 0 );
+    }
+
+    /**
+     * Restart the ramp at Day 1 — resets the start date and today's counter.
+     * Used by enable() and the explicit "Restart" action.
+     */
+    public static function reset_ramp(): void {
+        update_option( self::OPT_STARTED_AT, current_time( 'Y-m-d' ) );
+        update_option( Guard::OPT_DAILY_SENT, 0, false );
+        update_option( Guard::OPT_DAILY_DATE, current_time( 'Y-m-d' ), false );
     }
 
     /**

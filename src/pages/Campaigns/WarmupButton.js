@@ -1,6 +1,6 @@
 import { useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Flame, X, TrendingUp, Shield, Clock, ChevronRight } from 'lucide-react';
+import { Flame, X, TrendingUp, Shield, Clock, ChevronRight, RotateCcw } from 'lucide-react';
 
 const RAMP = [
     { day: 'Day 1',   limit: 200  },
@@ -11,7 +11,10 @@ const RAMP = [
     { day: 'Day 8+',  limit: null  },
 ];
 
-function WarmupModal( { active, onEnable, onDisable, onClose } ) {
+function WarmupModal( { active, status, onEnable, onDisable, onRestart, onClose } ) {
+    const day  = status?.day;
+    const cap  = status?.cap_today;
+    const sent = status?.sent_today || 0;
     return (
         <>
             <div className="fixed inset-0 bg-black/50 z-40" onClick={ onClose } />
@@ -93,21 +96,44 @@ function WarmupModal( { active, onEnable, onDisable, onClose } ) {
                 { /* Footer CTA */ }
                 <div className="px-6 py-4 border-t border-gray-100 shrink-0">
                     { active ? (
-                        <div className="flex items-center gap-3">
-                            <div className="flex-1 bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
-                                <div className="flex items-center gap-2">
-                                    <Flame size={ 14 } className="text-orange-500" />
-                                    <p className="text-sm font-medium text-orange-800">{ __( 'Warmup is active', 'snel-newsletter' ) }</p>
+                        <div className="space-y-3">
+                            <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Flame size={ 14 } className="text-orange-500" />
+                                        <p className="text-sm font-semibold text-orange-800">
+                                            { day ? `${ __( 'Day', 'snel-newsletter' ) } ${ day }` : __( 'Warmup active', 'snel-newsletter' ) }
+                                        </p>
+                                    </div>
+                                    <p className="text-sm font-semibold text-orange-800">
+                                        { cap === null || cap === undefined
+                                            ? __( 'Unlimited', 'snel-newsletter' )
+                                            : `${ sent.toLocaleString() } / ${ cap.toLocaleString() } ${ __( 'today', 'snel-newsletter' ) }` }
+                                    </p>
                                 </div>
-                                <p className="text-xs text-orange-600 mt-1">{ __( 'Daily send limits are being enforced.', 'snel-newsletter' ) }</p>
+                                { cap ? (
+                                    <div className="mt-2 w-full h-1.5 bg-orange-100 rounded-full overflow-hidden">
+                                        <div className="h-full bg-orange-500 rounded-full transition-all" style={ { width: `${ Math.min( 100, Math.round( ( sent / cap ) * 100 ) ) }%` } } />
+                                    </div>
+                                ) : null }
                             </div>
-                            <button
-                                type="button"
-                                onClick={ onDisable }
-                                className="px-4 py-2.5 text-sm font-medium text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 rounded-lg transition-colors shrink-0"
-                            >
-                                { __( 'Disable', 'snel-newsletter' ) }
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={ onRestart }
+                                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-700 border border-gray-300 bg-white hover:bg-gray-50 rounded-lg transition-colors"
+                                >
+                                    <RotateCcw size={ 13 } />
+                                    { __( 'Restart ramp', 'snel-newsletter' ) }
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={ onDisable }
+                                    className="px-4 py-2.5 text-sm font-medium text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 rounded-lg transition-colors shrink-0"
+                                >
+                                    { __( 'Disable', 'snel-newsletter' ) }
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         <button
@@ -128,8 +154,10 @@ function WarmupModal( { active, onEnable, onDisable, onClose } ) {
     );
 }
 
-export default function WarmupButton( { active, onToggle } ) {
+export default function WarmupButton( { status, onToggle, onRestart } ) {
     const [ modalOpen, setModalOpen ] = useState( false );
+    const active = !! status?.enabled;
+    const day    = status?.day;
 
     const handleEnable = () => {
         onToggle( true );
@@ -146,8 +174,10 @@ export default function WarmupButton( { active, onToggle } ) {
             { modalOpen && (
                 <WarmupModal
                     active={ active }
+                    status={ status }
                     onEnable={ handleEnable }
                     onDisable={ handleDisable }
+                    onRestart={ onRestart }
                     onClose={ () => setModalOpen( false ) }
                 />
             ) }
@@ -162,7 +192,7 @@ export default function WarmupButton( { active, onToggle } ) {
                     : <Flame size={ 14 } className="text-gray-400 shrink-0" />
                 }
                 { active
-                    ? <span className="warmup-flame-text">{ __( 'Warmup on', 'snel-newsletter' ) }</span>
+                    ? <span className="warmup-flame-text">{ day ? `${ __( 'Warmup · Day', 'snel-newsletter' ) } ${ day }` : __( 'Warmup on', 'snel-newsletter' ) }</span>
                     : __( 'Warmup', 'snel-newsletter' )
                 }
             </button>
