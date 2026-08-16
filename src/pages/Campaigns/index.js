@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { Send, Plus, Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import Select from '../../components/Select';
 import CampaignRow from './CampaignRow';
@@ -68,12 +68,28 @@ export default function Campaigns() {
     };
 
     const handleCancel = ( id ) => {
-        if ( ! confirm( __( 'Cancel this send? Emails not yet sent will be stopped. This cannot be undone.', 'snel-newsletter' ) ) ) return;
+        if ( ! confirm( __( 'Cancel this send? Emails not yet sent will be stopped. You can resume later.', 'snel-newsletter' ) ) ) return;
         api( `/campaigns/${ id }/cancel`, { method: 'POST' } ).then( ( res ) => {
             if ( res && res.success ) {
                 loadCampaigns();
             } else {
                 alert( res?.message || __( 'Could not cancel this campaign.', 'snel-newsletter' ) );
+            }
+        } );
+    };
+
+    const handleResume = ( id ) => {
+        if ( ! confirm( __( 'Resume this send? Only subscribers who have not received it yet will get it.', 'snel-newsletter' ) ) ) return;
+        api( `/campaigns/${ id }/resume`, { method: 'POST' } ).then( ( res ) => {
+            if ( res && res.success ) {
+                alert( sprintf(
+                    /* translators: %s: number of requeued emails */
+                    __( 'Resumed — %s emails are back in the queue. Subscribers who already received it are skipped.', 'snel-newsletter' ),
+                    ( res.resumed || 0 ).toLocaleString()
+                ) );
+                loadCampaigns();
+            } else {
+                alert( res?.message || __( 'Could not resume this campaign.', 'snel-newsletter' ) );
             }
         } );
     };
@@ -226,6 +242,7 @@ export default function Campaigns() {
                                     onDelete={ () => handleDelete( campaign.id ) }
                                     onDuplicate={ () => handleDuplicate( campaign.id ) }
                                     onCancel={ () => handleCancel( campaign.id ) }
+                                    onResume={ () => handleResume( campaign.id ) }
                                     onViewStats={ () => setSelectedCampaign( campaign.id ) }
                                 />
                             ) )

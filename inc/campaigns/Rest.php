@@ -56,6 +56,12 @@ class Rest {
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
 
+        register_rest_route( $this->namespace, '/campaigns/(?P<id>\d+)/resume', array(
+            'methods'             => 'POST',
+            'callback'            => array( $this->controller, 'resume' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
+
         register_rest_route( $this->namespace, '/campaigns/(?P<id>\d+)/stats', array(
             'methods'             => 'GET',
             'callback'            => array( $this->controller, 'stats' ),

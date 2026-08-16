@@ -1,6 +1,6 @@
 import { useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Send, Eye, MousePointerClick, Users, Clock, MoreHorizontal, Copy, Trash2, BarChart3, Loader2, Zap, Ban } from 'lucide-react';
+import { Send, Eye, MousePointerClick, Users, Clock, MoreHorizontal, Copy, Trash2, BarChart3, Loader2, Zap, Ban, Play } from 'lucide-react';
 
 const STATUS_STYLES = {
     sent: { bg: 'bg-emerald-50 text-emerald-700', label: 'Sent' },
@@ -13,7 +13,7 @@ const STATUS_STYLES = {
 
 export { STATUS_STYLES };
 
-export default function CampaignRow( { campaign, onDelete, onDuplicate, onViewStats, onCancel } ) {
+export default function CampaignRow( { campaign, onDelete, onDuplicate, onViewStats, onCancel, onResume } ) {
     const [ menuOpen, setMenuOpen ] = useState( false );
     const status = STATUS_STYLES[ campaign.status ] || STATUS_STYLES.draft;
     const canCancel = campaign.status === 'sending' || campaign.status === 'scheduled';
@@ -145,6 +145,12 @@ export default function CampaignRow( { campaign, onDelete, onDuplicate, onViewSt
                                     <button type="button" onClick={ () => { setMenuOpen( false ); onCancel && onCancel(); } } className="w-full text-left px-3 py-1.5 text-sm text-orange-600 hover:bg-orange-50 transition-colors flex items-center gap-2">
                                         <Ban size={ 12 } />
                                         { __( 'Cancel send', 'snel-newsletter' ) }
+                                    </button>
+                                ) }
+                                { campaign.status === 'cancelled' && (
+                                    <button type="button" onClick={ () => { setMenuOpen( false ); onResume && onResume(); } } className="w-full text-left px-3 py-1.5 text-sm text-green-600 hover:bg-green-50 transition-colors flex items-center gap-2">
+                                        <Play size={ 12 } />
+                                        { __( 'Resume send', 'snel-newsletter' ) }
                                     </button>
                                 ) }
                                 <button type="button" onClick={ () => { setMenuOpen( false ); onDelete && onDelete(); } } className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2">

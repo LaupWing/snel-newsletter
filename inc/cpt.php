@@ -192,13 +192,15 @@ add_action( 'enqueue_block_editor_assets', function () {
     );
 
     // Fetch real tags and subscriber count from DB.
-    $tags  = array();
-    $count = 0;
+    $tags       = array();
+    $count      = 0;
+    $tag_counts = array();
     if ( class_exists( 'Snel\Newsletter\Subscribers\Model' ) ) {
-        $tag_rows = \Snel\Newsletter\Subscribers\Model::all_tags();
-        $tags     = wp_list_pluck( $tag_rows, 'tag' );
-        $counts   = \Snel\Newsletter\Subscribers\Model::counts();
-        $count    = $counts['active'] ?? 0;
+        $tag_rows   = \Snel\Newsletter\Subscribers\Model::all_tags();
+        $tags       = wp_list_pluck( $tag_rows, 'tag' );
+        $counts     = \Snel\Newsletter\Subscribers\Model::counts();
+        $count      = $counts['active'] ?? 0;
+        $tag_counts = \Snel\Newsletter\Subscribers\Model::active_counts_by_tag();
     }
 
     $nl_settings = get_option( 'snel_newsletter_settings', array() );
@@ -208,6 +210,7 @@ add_action( 'enqueue_block_editor_assets', function () {
         'nonce'           => wp_create_nonce( 'wp_rest' ),
         'subscriberCount' => $count,
         'tags'            => $tags,
+        'tagCounts'       => $tag_counts,
         'senders'         => array(
             'broadcast'  => $nl_settings['from_email'] ?? '',
             // Automation falls back to the broadcast sender when not set.

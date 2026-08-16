@@ -344,6 +344,53 @@ class Model {
     }
 
     /**
+     * Active subscriber count per tag: array( 'tag' => 123, ... ).
+     */
+    public static function active_counts_by_tag() {
+        global $wpdb;
+        $table      = self::table();
+        $tags_table = self::tags_table();
+
+        $rows = $wpdb->get_results(
+            "SELECT t.tag, COUNT(DISTINCT t.subscriber_id) AS count
+             FROM $tags_table t
+             INNER JOIN $table s ON s.id = t.subscriber_id
+             WHERE s.status = 'active'
+             GROUP BY t.tag"
+        ) ?: array();
+
+        $counts = array();
+        foreach ( $rows as $row ) {
+            $counts[ $row->tag ] = (int) $row->count;
+        }
+        return $counts;
+    }
+
+    /**
+     * Distinct active subscribers holding ANY of the given tags — the exact
+     * audience size a tag-targeted campaign would queue.
+     */
+    public static function count_for_tags( array $tags ) {
+        global $wpdb;
+
+        $tags = array_filter( array_map( 'sanitize_text_field', $tags ) );
+        if ( empty( $tags ) ) {
+            return 0;
+        }
+
+        $table        = self::table();
+        $tags_table   = self::tags_table();
+        $placeholders = implode( ',', array_fill( 0, count( $tags ), '%s' ) );
+
+        return (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(DISTINCT s.id) FROM $table s
+             INNER JOIN $tags_table t ON t.subscriber_id = s.id
+             WHERE s.status = 'active' AND t.tag IN ($placeholders)",
+            $tags
+        ) );
+    }
+
+    /**
      * Create a subscriber. Returns insert ID or false on duplicate.
      */
     public static function create( $email, $name = '', $status = 'active' ) {

@@ -25,35 +25,57 @@ class Processor {
     }
 
     /**
-     * Queue all active subscribers (or tag-filtered) for a campaign.
+     * Resolve the subscriber IDs a campaign targets. A custom filter audience
+     * (set in the editor) wins over tags; either way we only ever send to
+     * active subscribers.
      */
-    public static function queue_campaign( $campaign_id, $tags = array() ) {
+    public static function audience_ids( $campaign_id, $tags = array() ) {
         global $wpdb;
 
         $sub_table  = $wpdb->prefix . 'snel_subscribers';
         $tags_table = $wpdb->prefix . 'snel_subscriber_tags';
-        $queue      = self::table();
 
-        // Get subscriber IDs. A custom filter audience (set in the editor) wins
-        // over tags; either way we only ever send to active subscribers.
         $filters = get_post_meta( $campaign_id, '_snel_nl_audience_filters', true );
+
+        // Safety net: the editor stores the chosen audience mode separately.
+        // If this campaign targets tags but none made it into meta, abort —
+        // never fall through to the everyone-branch below.
+        $audience = get_post_meta( $campaign_id, '_snel_nl_audience', true );
+        if ( $audience === 'tags' && empty( $tags ) && ( ! is_array( $filters ) || empty( $filters ) ) ) {
+            \Snel\Newsletter\Logger\Logger::error( 'queue', 'Campaign audience is "tags" but no tags saved — queue aborted', array(
+                'campaign_id' => $campaign_id,
+            ) );
+            return array();
+        }
 
         if ( is_array( $filters ) && ! empty( $filters ) ) {
             // Force the audience to active subscribers regardless of what was
             // filtered on — a broadcast must never hit unsubscribed/bounced.
             $filters[] = array( 'field' => 'status', 'operator' => 'is', 'value' => 'active' );
-            $ids = \Snel\Newsletter\Subscribers\Model::ids_for_filters( $filters );
-        } elseif ( ! empty( $tags ) ) {
+            return \Snel\Newsletter\Subscribers\Model::ids_for_filters( $filters );
+        }
+
+        if ( ! empty( $tags ) ) {
             $placeholders = implode( ',', array_fill( 0, count( $tags ), '%s' ) );
-            $ids = $wpdb->get_col( $wpdb->prepare(
+            return $wpdb->get_col( $wpdb->prepare(
                 "SELECT DISTINCT s.id FROM $sub_table s
                  INNER JOIN $tags_table t ON t.subscriber_id = s.id
                  WHERE s.status = 'active' AND t.tag IN ($placeholders)",
                 $tags
             ) );
-        } else {
-            $ids = $wpdb->get_col( "SELECT id FROM $sub_table WHERE status = 'active'" );
         }
+
+        return $wpdb->get_col( "SELECT id FROM $sub_table WHERE status = 'active'" );
+    }
+
+    /**
+     * Queue all active subscribers (or tag-filtered) for a campaign.
+     */
+    public static function queue_campaign( $campaign_id, $tags = array() ) {
+        global $wpdb;
+
+        $queue = self::table();
+        $ids   = self::audience_ids( $campaign_id, $tags );
 
         if ( empty( $ids ) ) {
             return 0;
@@ -90,6 +112,56 @@ class Processor {
         self::ensure_soon();
 
         return $total;
+    }
+
+    /**
+     * Resume a cancelled campaign: flip its cancelled queue rows back to
+     * pending — but only for subscribers still in the campaign's audience —
+     * and restart the drainer. Already-sent rows stay sent, so nobody
+     * receives the campaign twice.
+     */
+    public static function resume_campaign( $campaign_id ) {
+        global $wpdb;
+
+        $queue = self::table();
+        $tags  = get_post_meta( $campaign_id, '_snel_nl_tags', true ) ?: array();
+        $ids   = self::audience_ids( $campaign_id, $tags );
+
+        if ( empty( $ids ) ) {
+            return 0;
+        }
+
+        $ids_csv = implode( ',', array_map( 'intval', $ids ) );
+        $resumed = (int) $wpdb->query( $wpdb->prepare(
+            "UPDATE $queue SET status = 'pending', error_message = ''
+             WHERE campaign_id = %d AND status = 'cancelled' AND subscriber_id IN ($ids_csv)",
+            $campaign_id
+        ) );
+
+        // Rebuild progress totals from the queue itself — the campaign may
+        // have been partially sent before it was cancelled.
+        $total = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM $queue WHERE campaign_id = %d AND status IN ('sent', 'pending', 'retrying', 'delayed')",
+            $campaign_id
+        ) );
+        $sent = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM $queue WHERE campaign_id = %d AND status = 'sent'",
+            $campaign_id
+        ) );
+
+        update_post_meta( $campaign_id, '_snel_nl_send_status', 'sending' );
+        update_post_meta( $campaign_id, '_snel_nl_total_recipients', $total );
+        update_post_meta( $campaign_id, '_snel_nl_sent_count', $sent );
+
+        \Snel\Newsletter\Logger\Logger::info( 'queue', 'Campaign resumed', array(
+            'campaign_id' => $campaign_id,
+            'resumed'     => $resumed,
+            'already_sent' => $sent,
+        ) );
+
+        self::ensure_soon();
+
+        return $resumed;
     }
 
     /**
@@ -222,6 +294,14 @@ class Processor {
             $post = get_post( $row->campaign_id );
             if ( ! $post ) {
                 $wpdb->update( $queue, array( 'status' => 'failed', 'error_message' => 'Campaign not found' ), array( 'id' => $row->id ) );
+                continue;
+            }
+
+            // A cancelled campaign must never send, even if some of its rows
+            // are still pending (cancel racing an in-flight batch, or rows
+            // reset by hand).
+            if ( get_post_meta( $row->campaign_id, '_snel_nl_send_status', true ) === 'cancelled' ) {
+                $wpdb->update( $queue, array( 'status' => 'cancelled' ), array( 'id' => $row->id ) );
                 continue;
             }
 

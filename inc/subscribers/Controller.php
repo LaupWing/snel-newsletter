@@ -178,6 +178,17 @@ class Controller {
     }
 
     /**
+     * Distinct active-subscriber count for a comma-separated tag selection.
+     */
+    public function audience_count( \WP_REST_Request $request ) {
+        $tags = array_filter( explode( ',', (string) $request->get_param( 'tags' ) ) );
+
+        return rest_ensure_response( array(
+            'count' => Model::count_for_tags( $tags ),
+        ) );
+    }
+
+    /**
      * Add tags to a subscriber.
      */
     public function add_tags( \WP_REST_Request $request ) {

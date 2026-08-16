@@ -1,5 +1,5 @@
 import { useState, useEffect } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { PluginDocumentSettingPanel } from '@wordpress/editor';
 import { useSelect, useDispatch } from '@wordpress/data';
 import { Users, Send, Tag, Mail, Eye, Loader2, CheckCircle, Workflow, Zap, ListFilter } from 'lucide-react';
@@ -8,6 +8,7 @@ import FilterBar from '../pages/Subscribers/FilterBar';
 import ReviewListModal from '../pages/Subscribers/ReviewListModal';
 
 const TAGS = window.snelNewsletterEditor?.tags || [];
+const TAG_COUNTS = window.snelNewsletterEditor?.tagCounts || {};
 const SUBSCRIBER_COUNT = window.snelNewsletterEditor?.subscriberCount || 0;
 const SENDERS = window.snelNewsletterEditor?.senders || {};
 const API_URL = window.snelNewsletterEditor?.restUrl || '';
@@ -93,6 +94,21 @@ function RecipientPanel() {
 
     // "Review list" opens a modal to browse the matched subscribers + history.
     const [ showReview, setShowReview ] = useState( false );
+
+    // Live audience size for the tag selection. Overlapping tags make this a
+    // distinct count, so it comes from the server rather than summing per-tag.
+    const [ tagAudience, setTagAudience ] = useState( null );
+    useEffect( () => {
+        if ( selectedTags.length === 0 ) {
+            setTagAudience( null );
+            return;
+        }
+        let stale = false;
+        api( `/audience/count?tags=${ encodeURIComponent( selectedTags.join( ',' ) ) }` )
+            .then( ( res ) => { if ( ! stale ) setTagAudience( res?.count ?? null ); } )
+            .catch( () => {} );
+        return () => { stale = true; };
+    }, [ selectedTags.join( ',' ) ] );
 
     // Switching audience clears the other mode's selection so only one applies.
     const chooseAudience = ( mode ) => {
@@ -226,12 +242,19 @@ function RecipientPanel() {
                                 >
                                     <Tag size={ 10 } />
                                     { tag }
+                                    <span className="snel-nl-count">{ ( TAG_COUNTS[ tag ] || 0 ).toLocaleString() }</span>
                                 </button>
                             ) ) }
                         </div>
                         { selectedTags.length > 0 && (
                             <p className="snel-nl-hint">
-                                { __( 'Subscribers matching any selected tag will receive this campaign.', 'snel-newsletter' ) }
+                                { tagAudience !== null
+                                    ? sprintf(
+                                        /* translators: %s: number of subscribers */
+                                        __( '%s active subscribers will receive this campaign.', 'snel-newsletter' ),
+                                        tagAudience.toLocaleString()
+                                    )
+                                    : __( 'Subscribers matching any selected tag will receive this campaign.', 'snel-newsletter' ) }
                             </p>
                         ) }
                     </div>

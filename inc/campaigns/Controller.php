@@ -147,6 +147,31 @@ class Controller {
     }
 
     /**
+     * Resume a cancelled campaign — requeue its unsent emails (audience-checked)
+     * and restart the drainer. Already-sent subscribers are never requeued.
+     */
+    public function resume( \WP_REST_Request $request ) {
+        $id       = (int) $request->get_param( 'id' );
+        $campaign = Model::find( $id );
+
+        if ( ! $campaign ) {
+            return new \WP_Error( 'not_found', 'Campaign not found.', array( 'status' => 404 ) );
+        }
+
+        if ( $campaign['status'] !== 'cancelled' ) {
+            return new \WP_Error( 'not_resumable', 'Only cancelled campaigns can be resumed.', array( 'status' => 400 ) );
+        }
+
+        $resumed = \Snel\Newsletter\Queue\Processor::resume_campaign( $id );
+
+        if ( $resumed === 0 ) {
+            return new \WP_Error( 'nothing_to_resume', 'No unsent emails left to resume for this campaign.', array( 'status' => 400 ) );
+        }
+
+        return rest_ensure_response( array( 'success' => true, 'resumed' => $resumed ) );
+    }
+
+    /**
      * Duplicate a campaign.
      */
     public function duplicate( \WP_REST_Request $request ) {

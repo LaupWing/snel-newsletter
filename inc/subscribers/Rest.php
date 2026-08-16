@@ -76,6 +76,13 @@ class Rest {
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
 
+        // Distinct active-subscriber count for a tag selection (editor sidebar).
+        register_rest_route( $this->namespace, '/audience/count', array(
+            'methods'             => 'GET',
+            'callback'            => array( $this->controller, 'audience_count' ),
+            'permission_callback' => array( $this, 'permission_check' ),
+        ) );
+
         register_rest_route( $this->namespace, '/subscribers/(?P<id>\d+)/tags', array(
             'methods'             => 'POST',
             'callback'            => array( $this->controller, 'add_tags' ),

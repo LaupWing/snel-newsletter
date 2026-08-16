@@ -75,6 +75,26 @@ add_action( SNEL_QUEUE_WATCHDOG_HOOK, function () {
 } );
 
 /**
+ * Queue a campaign on shutdown instead of mid-request.
+ *
+ * Gutenberg's REST save persists post meta (audience mode, tags, filters)
+ * AFTER the post itself transitions to publish. Queueing inside the
+ * transition hook therefore reads stale meta — a tag-targeted campaign
+ * would fall through to the everyone-branch and broadcast to the full list.
+ * By shutdown, every meta field in the request has been saved.
+ */
+function snel_newsletter_queue_on_shutdown( $post_id ) {
+    static $queued = array();
+    if ( isset( $queued[ $post_id ] ) ) return;
+    $queued[ $post_id ] = true;
+
+    add_action( 'shutdown', function () use ( $post_id ) {
+        $tags = get_post_meta( $post_id, '_snel_nl_tags', true ) ?: array();
+        Snel\Newsletter\Queue\Processor::queue_campaign( $post_id, $tags );
+    } );
+}
+
+/**
  * Hook into campaign publish to queue emails.
  * Handles both immediate publish and scheduled (future → publish) campaigns.
  */
@@ -82,8 +102,7 @@ add_action( 'transition_post_status', function ( $new_status, $old_status, $post
     if ( $post->post_type !== 'snel_newsletter' ) return;
     if ( $new_status !== 'publish' || $old_status === 'publish' ) return;
 
-    $tags = get_post_meta( $post->ID, '_snel_nl_tags', true ) ?: array();
-    Snel\Newsletter\Queue\Processor::queue_campaign( $post->ID, $tags );
+    snel_newsletter_queue_on_shutdown( $post->ID );
 }, 10, 3 );
 
 // Explicit hook for when WordPress auto-publishes a scheduled campaign.
@@ -93,6 +112,5 @@ add_action( 'future_to_publish', function ( $post ) {
     $send_status = get_post_meta( $post->ID, '_snel_nl_send_status', true );
     if ( $send_status === 'sending' || $send_status === 'sent' ) return;
 
-    $tags = get_post_meta( $post->ID, '_snel_nl_tags', true ) ?: array();
-    Snel\Newsletter\Queue\Processor::queue_campaign( $post->ID, $tags );
+    snel_newsletter_queue_on_shutdown( $post->ID );
 } );
