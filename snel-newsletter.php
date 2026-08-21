@@ -13,22 +13,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-// Auto-updater — pulls releases from GitHub.
-if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
-    require_once __DIR__ . '/vendor/autoload.php';
-
-    $snel_newsletter_updater = YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
-        'https://github.com/LaupWing/snel-newsletter/',
-        __FILE__,
-        'snel-newsletter'
-    );
-}
-
 define( 'SNEL_NEWSLETTER_VERSION', '1.9.11' );
 define( 'SNEL_NEWSLETTER_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SNEL_NEWSLETTER_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
-// Load modules.
+require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/core/updater.php';
+
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/logger/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/admin.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/cpt.php';
