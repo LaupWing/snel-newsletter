@@ -20,6 +20,11 @@ module in a fixed order. No logic lives here.
 **Updater.** `inc/core/updater.php`: update checks go through GitHub releases,
 not wordpress.org. Needs `vendor/` from `composer install`.
 
+**Install.** `inc/core/install.php` (`SOT:INSTALL`): one function calls every
+module's `Install::create_tables()`. Runs on activation and on every version
+bump (`snel_newsletter_db_version` option, checked on `admin_init`). dbDelta
+makes it safe to re-run. Schema per table lives in each module's `Install.php`.
+
 ## Domains
 
 _Filled in as we walk through each folder._

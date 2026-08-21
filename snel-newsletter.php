@@ -40,29 +40,7 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
     require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/cli.php';
 }
 
-// Create tables on activation.
-register_activation_hook( __FILE__, function () {
-    Snel\Newsletter\Subscribers\Install::create_tables();
-    Snel\Newsletter\Tracking\Install::create_tables();
-    Snel\Newsletter\Queue\Install::create_tables();
-    Snel\Newsletter\Logger\Install::create_tables();
-    Snel\Newsletter\Automations\Install::create_tables();
-    Snel\Newsletter\Warmup\Install::maybe_add_columns();
-} );
-
-// Auto-create tables on version update.
-add_action( 'admin_init', function () {
-    $db_version = get_option( 'snel_newsletter_db_version', '0' );
-    if ( version_compare( $db_version, SNEL_NEWSLETTER_VERSION, '<' ) ) {
-        Snel\Newsletter\Subscribers\Install::create_tables();
-        Snel\Newsletter\Tracking\Install::create_tables();
-        Snel\Newsletter\Queue\Install::create_tables();
-        Snel\Newsletter\Logger\Install::create_tables();
-        Snel\Newsletter\Automations\Install::create_tables();
-        Snel\Newsletter\Warmup\Install::maybe_add_columns();
-        update_option( 'snel_newsletter_db_version', SNEL_NEWSLETTER_VERSION );
-    }
-} );
+require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/core/install.php';
 
 // Self-heal: reschedule the queue cron if it's gone but rows are still waiting.
 add_action( 'admin_init', function () {
