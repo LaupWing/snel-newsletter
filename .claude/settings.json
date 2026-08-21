@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Review the comments in the file that was just edited: $ARGUMENTS. Rules: comments are concise, max 2 lines per block, only above large blocks (a class, a function, a distinct section), never inside a function or next to a variable unless truly needed. If a comment breaks a rule, reply with the line number and which rule. If all comments comply, reply OK.",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
