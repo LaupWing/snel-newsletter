@@ -34,6 +34,10 @@ campaigns. Redirect the default list to the React page, own block category,
 whitelist of email-safe blocks, sidebar bundle with its start data, renamed
 publish buttons.
 
+**Admin.** `inc/core/admin.php`: the "Newsletter" menu with seven sub pages.
+Each page is one empty div; `build/index.js` reads `data-page` and mounts the
+matching React screen. REST url and nonce are passed via `snelNewsletter`.
+
 ## Domains
 
 _Filled in as we walk through each folder._

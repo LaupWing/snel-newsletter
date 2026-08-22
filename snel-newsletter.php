@@ -21,7 +21,7 @@ define('SNEL_NEWSLETTER_PLUGIN_URL', plugin_dir_url(__FILE__));
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/core/updater.php';
 
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/logger/index.php';
-require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/admin.php';
+require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/core/admin.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/core/cpt.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/core/editor.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/subscribers/index.php';
