@@ -32,7 +32,7 @@ Columns are documented per table as we walk through each module.
 ## Post meta (`snel_newsletter` posts)
 
 A campaign is a WordPress post of type `snel_newsletter` (`SOT:CAMPAIGN-CPT`,
-`inc/cpt.php`). Extra fields live in `wp_postmeta`, all prefixed `_snel_nl_`.
+`inc/core/cpt.php`). Extra fields live in `wp_postmeta`, all prefixed `_snel_nl_`.
 
 Written by the editor sidebar (registered with `show_in_rest`):
 

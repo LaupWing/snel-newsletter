@@ -22,7 +22,8 @@ require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/core/updater.php';
 
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/logger/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/admin.php';
-require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/cpt.php';
+require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/core/cpt.php';
+require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/core/editor.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/subscribers/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/campaigns/index.php';
 require_once SNEL_NEWSLETTER_PLUGIN_DIR . 'inc/lanes/Lane.php';

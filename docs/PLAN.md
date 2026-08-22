@@ -21,7 +21,7 @@ Volgorde is de route van een e-mail: binnenkomen, opslaan, versturen, terugmeten
 
 - [ ] **0. Bootstrap**: hoe laadt alles, welke crons bestaan, welke tabellen zijn er
   - [x] `snel-newsletter.php`: alleen constants + requires. Updater, install en cron-self-heal naar `inc/core/`
-  - [ ] `inc/cpt.php`
+  - [x] `inc/cpt.php`: gesplitst in `core/cpt.php` (post type + meta) en `core/editor.php` (Gutenberg)
   - [ ] `inc/admin.php`
 - [ ] **1. Subscribers** `inc/subscribers/`: tabellen `snel_subscribers`, `snel_subscriber_tags`, `snel_tag_rules`; statussen; import; dynamic tags
 - [ ] **2. Bronnen** `inc/cpt-sources/`: hoe stromen subscribers binnen vanuit andere post types; auto-sync

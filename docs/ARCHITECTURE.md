@@ -25,6 +25,15 @@ module's `Install::create_tables()`. Runs on activation and on every version
 bump (`snel_newsletter_db_version` option, checked on `admin_init`). dbDelta
 makes it safe to re-run. Schema per table lives in each module's `Install.php`.
 
+**Campaign post type.** `inc/core/cpt.php` (`SOT:CAMPAIGN-CPT`): a campaign is
+a post of type `snel_newsletter`, not public, Gutenberg on. Four meta fields
+decide the audience; see [DATA.md](DATA.md#post-meta-snel_newsletter-posts).
+
+**Editor.** `inc/core/editor.php`: everything that bends Gutenberg for
+campaigns. Redirect the default list to the React page, own block category,
+whitelist of email-safe blocks, sidebar bundle with its start data, renamed
+publish buttons.
+
 ## Domains
 
 _Filled in as we walk through each folder._
