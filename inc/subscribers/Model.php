@@ -1,39 +1,33 @@
 <?php
-/**
- * Subscriber database queries.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Subscribers;
 
 defined( 'ABSPATH' ) || exit;
 
+// SOT:MODEL — all SQL for a domain lives in its Model; Controller and Rest never query.
 class Model {
 
     private static $table       = 'snel_subscribers';
     private static $tags_table  = 'snel_subscriber_tags';
     private static $rules_table = 'snel_tag_rules';
 
-    private static function table() {
+    private static function table(): string {
         global $wpdb;
         return $wpdb->prefix . self::$table;
     }
 
-    private static function tags_table() {
+    private static function tags_table(): string {
         global $wpdb;
         return $wpdb->prefix . self::$tags_table;
     }
 
-    private static function rules_table() {
+    private static function rules_table(): string {
         global $wpdb;
         return $wpdb->prefix . self::$rules_table;
     }
 
-    /**
-     * List subscribers with filters and pagination.
-     */
-    public static function list( $args = array() ) {
+    // Legacy list; the subscribers page moves to query() with the filter engine.
+    public static function list( array $args = array() ): array {
         global $wpdb;
 
         $table      = self::table();
@@ -70,16 +64,13 @@ class Model {
         $where_sql = implode( ' AND ', $where );
         $offset    = ( $page - 1 ) * $per_page;
 
-        // Count.
         $count_sql = "SELECT COUNT(DISTINCT s.id) FROM $table s $join WHERE $where_sql";
         $total     = $values ? (int) $wpdb->get_var( $wpdb->prepare( $count_sql, $values ) ) : (int) $wpdb->get_var( $count_sql );
 
-        // Rows.
         $query = "SELECT DISTINCT s.* FROM $table s $join WHERE $where_sql ORDER BY s.created_at DESC LIMIT %d OFFSET %d";
         $args  = array_merge( $values, array( $per_page, $offset ) );
         $rows  = $wpdb->get_results( $wpdb->prepare( $query, $args ) );
 
-        // Attach tags.
         if ( $rows ) {
             $rows = self::attach_tags( $rows );
         }
@@ -93,13 +84,9 @@ class Model {
         );
     }
 
-    /**
-     * SQL expression per engagement metric, computed off the tracking table.
-     * Mirrors the metric definitions used by dynamic tags (see sync_dynamic_tag).
-     * NULLIF guards division-by-zero for subscribers with no campaigns — a NULL
-     * result simply fails any HAVING comparison, excluding them, which is right.
-     */
-    private static function metric_expr( $metric ) {
+    // Same metric definitions as sync_dynamic_tag(); keep them in step.
+    // NULLIF makes subscribers without campaigns NULL, so they fail every HAVING compare.
+    private static function metric_expr( string $metric ): ?string {
         switch ( $metric ) {
             case 'open_rate':
                 return "ROUND(SUM(CASE WHEN tr.type = 'open' THEN 1 ELSE 0 END) / NULLIF(COUNT(DISTINCT tr.campaign_id),0) * 100, 2)";
@@ -116,20 +103,9 @@ class Model {
         }
     }
 
-    /**
-     * Turn an array of filter conditions into SQL fragments.
-     *
-     * Each condition is { field, operator, value }. Fields split three ways:
-     *  - metrics (open_rate, clicks, …) → HAVING on a grouped tracking join
-     *  - status / search               → plain WHERE on the subscribers table
-     *  - tag                           → EXISTS / NOT EXISTS on the tags table
-     *
-     * All conditions are AND-ed. Returns where/having SQL plus their params in
-     * the order they must be bound (where first, then having).
-     *
-     * @return array { where: string[], where_params: array, having: string[], having_params: array, needs_tracking: bool }
-     */
-    private static function build_conditions( $filters ) {
+    // Metrics become HAVING on a grouped tracking join, status/search plain WHERE, tag EXISTS.
+    // Params come back in bind order: where first, then having.
+    private static function build_conditions( array $filters ): array {
         global $wpdb;
         $tags_table = self::tags_table();
 
@@ -146,8 +122,6 @@ class Model {
             $operator = $f['operator'] ?? '';
             $value    = $f['value'] ?? '';
 
-            // Time-windowed engagement → EXISTS on recent tracking rows.
-            // "opened_in_days" / "clicked_in_days", value = number of days.
             if ( $field === 'opened_in_days' || $field === 'clicked_in_days' ) {
                 $days = (int) $value;
                 if ( $days <= 0 ) {
@@ -161,7 +135,6 @@ class Model {
                 continue;
             }
 
-            // Metric → HAVING clause.
             $expr = self::metric_expr( $field );
             if ( $expr ) {
                 $sql_op = $op_map[ $operator ] ?? null;
@@ -174,7 +147,6 @@ class Model {
                 continue;
             }
 
-            // Status → WHERE.
             if ( $field === 'status' ) {
                 if ( $value === '' ) {
                     continue;
@@ -184,7 +156,6 @@ class Model {
                 continue;
             }
 
-            // Search → WHERE (email or name).
             if ( $field === 'search' ) {
                 if ( $value === '' ) {
                     continue;
@@ -196,7 +167,6 @@ class Model {
                 continue;
             }
 
-            // Tag → EXISTS / NOT EXISTS.
             if ( $field === 'tag' ) {
                 if ( $value === '' ) {
                     continue;
@@ -217,13 +187,7 @@ class Model {
         );
     }
 
-    /**
-     * Query subscribers by a stack of filter conditions (all AND-ed), paginated.
-     *
-     * @param array $filters  Array of { field, operator, value }.
-     * @return array { subscribers, total, page, per_page, pages }
-     */
-    public static function query( $filters, $page = 1, $per_page = 20 ) {
+    public static function query( array $filters, $page = 1, $per_page = 20 ): array {
         global $wpdb;
 
         $table    = self::table();
@@ -236,8 +200,6 @@ class Model {
         $where_sql  = $c['where'] ? 'WHERE ' . implode( ' AND ', $c['where'] ) : '';
         $having_sql = $c['having'] ? 'HAVING ' . implode( ' AND ', $c['having'] ) : '';
 
-        // The tracking join + GROUP BY are only needed when a metric filter is
-        // in play; otherwise it's a plain filtered table scan.
         if ( $c['needs_tracking'] ) {
             $join     = "LEFT JOIN $tracking tr ON tr.subscriber_id = s.id";
             $group    = 'GROUP BY s.id';
@@ -272,11 +234,7 @@ class Model {
         );
     }
 
-    /**
-     * Return every subscriber ID matching a filter stack — no pagination.
-     * Powers "select all N matching" so bulk actions can act on the whole set.
-     */
-    public static function ids_for_filters( $filters ) {
+    public static function ids_for_filters( array $filters ): array {
         global $wpdb;
 
         $table    = self::table();
@@ -302,12 +260,7 @@ class Model {
         return array_map( 'intval', $ids );
     }
 
-    /**
-     * A subscriber's send history: every campaign they were queued for, with
-     * whether they opened/clicked it. Powers the "review list" modal so you can
-     * see who actually engaged with which email.
-     */
-    public static function history( $subscriber_id ) {
+    public static function history( int $subscriber_id ): array {
         global $wpdb;
 
         $queue    = $wpdb->prefix . 'snel_send_queue';
@@ -327,10 +280,7 @@ class Model {
         ) ) ?: array();
     }
 
-    /**
-     * Get status counts.
-     */
-    public static function counts() {
+    public static function counts(): array {
         global $wpdb;
         $table = self::table();
 
@@ -343,10 +293,7 @@ class Model {
         );
     }
 
-    /**
-     * Active subscriber count per tag: array( 'tag' => 123, ... ).
-     */
-    public static function active_counts_by_tag() {
+    public static function active_counts_by_tag(): array {
         global $wpdb;
         $table      = self::table();
         $tags_table = self::tags_table();
@@ -366,11 +313,7 @@ class Model {
         return $counts;
     }
 
-    /**
-     * Distinct active subscribers holding ANY of the given tags — the exact
-     * audience size a tag-targeted campaign would queue.
-     */
-    public static function count_for_tags( array $tags ) {
+    public static function count_for_tags( array $tags ): int {
         global $wpdb;
 
         $tags = array_filter( array_map( 'sanitize_text_field', $tags ) );
@@ -390,14 +333,10 @@ class Model {
         ) );
     }
 
-    /**
-     * Create a subscriber. Returns insert ID or false on duplicate.
-     */
-    public static function create( $email, $name = '', $status = 'active' ) {
+    public static function create( string $email, string $name = '', string $status = 'active' ) {
         global $wpdb;
         $table = self::table();
 
-        // Check duplicate.
         $exists = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $table WHERE email = %s", $email ) );
         if ( $exists ) {
             return false;
@@ -415,10 +354,7 @@ class Model {
         return $wpdb->insert_id;
     }
 
-    /**
-     * Update a subscriber's fields.
-     */
-    public static function update( $id, $data ) {
+    public static function update( int $id, array $data ): bool {
         global $wpdb;
         $table = self::table();
 
@@ -442,10 +378,7 @@ class Model {
         return true;
     }
 
-    /**
-     * Delete a subscriber and their tags.
-     */
-    public static function delete( $id ) {
+    public static function delete( int $id ): bool {
         global $wpdb;
 
         $wpdb->delete( self::tags_table(), array( 'subscriber_id' => $id ), array( '%d' ) );
@@ -454,10 +387,7 @@ class Model {
         return true;
     }
 
-    /**
-     * Delete multiple subscribers.
-     */
-    public static function bulk_delete( $ids ) {
+    public static function bulk_delete( array $ids ): int {
         global $wpdb;
 
         $ids_in = implode( ',', array_map( 'intval', $ids ) );
@@ -468,10 +398,7 @@ class Model {
         return count( $ids );
     }
 
-    /**
-     * Replace all tags for a subscriber.
-     */
-    public static function set_tags( $id, $tags ) {
+    public static function set_tags( int $id, array $tags ): bool {
         global $wpdb;
         $tags_table = self::tags_table();
 
@@ -493,10 +420,7 @@ class Model {
         return true;
     }
 
-    /**
-     * Add tags to a subscriber (ignores duplicates).
-     */
-    public static function add_tags( $id, $tags ) {
+    public static function add_tags( int $id, array $tags ): bool {
         global $wpdb;
         $tags_table = self::tags_table();
 
@@ -516,10 +440,7 @@ class Model {
         return true;
     }
 
-    /**
-     * Add a tag to multiple subscribers.
-     */
-    public static function bulk_add_tag( $ids, $tag ) {
+    public static function bulk_add_tag( array $ids, string $tag ): bool {
         global $wpdb;
         $tags_table = self::tags_table();
 
@@ -534,10 +455,7 @@ class Model {
         return true;
     }
 
-    /**
-     * Remove a tag from multiple subscribers.
-     */
-    public static function bulk_remove_tag( $ids, $tag ) {
+    public static function bulk_remove_tag( array $ids, string $tag ): bool {
         global $wpdb;
         $tags_table = self::tags_table();
         $ids_in     = implode( ',', array_map( 'intval', $ids ) );
@@ -550,35 +468,24 @@ class Model {
         return true;
     }
 
-    /**
-     * Rename a tag across all subscribers.
-     */
-    /**
-     * Rename a tag everywhere. Returns how many subscriber rows were moved.
-     */
-    public static function rename_tag_global( $old_tag, $new_tag ) {
+    public static function rename_tag_global( string $old_tag, string $new_tag ): int {
         global $wpdb;
         $tags_table = self::tags_table();
 
-        // Insert new tag for subscribers who don't already have it.
         $wpdb->query( $wpdb->prepare(
             "INSERT IGNORE INTO $tags_table (subscriber_id, tag)
              SELECT subscriber_id, %s FROM $tags_table WHERE tag = %s",
             $new_tag, $old_tag
         ) );
 
-        // The caller upserts a rule under the new name, so drop the old rule
-        // row — otherwise the old name lingers on as an empty tag.
+        // The caller upserts a rule under the new name; without dropping the old
+        // rule row the old name lingers on as an empty tag.
         $wpdb->delete( self::rules_table(), array( 'tag' => $old_tag ), array( '%s' ) );
 
-        // Delete the old tag.
         return (int) $wpdb->delete( $tags_table, array( 'tag' => $old_tag ), array( '%s' ) );
     }
 
-    /**
-     * Delete a tag from all subscribers, and forget its rule.
-     */
-    public static function delete_tag_global( $tag ) {
+    public static function delete_tag_global( string $tag ): bool {
         global $wpdb;
 
         $wpdb->delete( self::tags_table(), array( 'tag' => $tag ), array( '%s' ) );
@@ -587,16 +494,9 @@ class Model {
         return true;
     }
 
-    /**
-     * Create a tag that has no subscribers yet.
-     *
-     * Tags normally exist only because a subscriber carries one. Creating an
-     * empty tag therefore means writing a rule row and nothing else — that row
-     * is what keeps the tag visible in the list until someone is tagged.
-     *
-     * @return bool False if the tag already exists.
-     */
-    public static function create_tag( $tag, $type = 'static', $metric = null, $operator = null, $threshold = null ) {
+    // Tags only exist through subscribers, so an empty tag is just a rule row;
+    // that row keeps it visible in the list until someone is tagged.
+    public static function create_tag( string $tag, string $type = 'static', ?string $metric = null, ?string $operator = null, $threshold = null ): bool {
         if ( self::tag_exists( $tag ) ) {
             return false;
         }
@@ -606,10 +506,7 @@ class Model {
         return true;
     }
 
-    /**
-     * Does this tag exist — either on a subscriber, or as a rule?
-     */
-    public static function tag_exists( $tag ) {
+    public static function tag_exists( string $tag ): bool {
         global $wpdb;
         $tags_table  = self::tags_table();
         $rules_table = self::rules_table();
@@ -624,16 +521,13 @@ class Model {
         ) );
     }
 
-    /**
-     * Get all unique tags with counts and rule info.
-     */
-    public static function all_tags() {
+    public static function all_tags(): array {
         global $wpdb;
         $tags_table  = self::tags_table();
         $rules_table = self::rules_table();
 
-        // A tag lives in two places: on subscribers, and (optionally) as a rule.
-        // Union both so a freshly created tag with no subscribers still shows up.
+        // A tag lives on subscribers and optionally as a rule; union both so a
+        // freshly created tag with no subscribers still shows up.
         $rows = $wpdb->get_results(
             "SELECT all_tags.tag,
                     ( SELECT COUNT(*) FROM $tags_table st WHERE st.tag = all_tags.tag ) as count,
@@ -655,10 +549,7 @@ class Model {
         return $rows;
     }
 
-    /**
-     * Save rule for a tag (upsert).
-     */
-    public static function save_tag_rule( $tag, $type, $metric = null, $operator = null, $threshold = null ) {
+    public static function save_tag_rule( string $tag, string $type, ?string $metric = null, ?string $operator = null, $threshold = null ): bool {
         global $wpdb;
         $rules_table = self::rules_table();
 
@@ -694,11 +585,7 @@ class Model {
         return true;
     }
 
-    /**
-     * Evaluate a dynamic tag rule and sync subscriber_tags for it.
-     * Returns count of subscribers now tagged.
-     */
-    public static function sync_dynamic_tag( $tag ) {
+    public static function sync_dynamic_tag( string $tag ): int {
         global $wpdb;
 
         $rules_table    = self::rules_table();
@@ -728,10 +615,8 @@ class Model {
 
         $threshold = (float) $rule->threshold;
 
-        // Build the subquery for the metric value per subscriber.
         switch ( $rule->metric ) {
             case 'open_rate':
-                // (distinct opens / distinct campaigns received) * 100
                 $metric_expr = "ROUND(SUM(CASE WHEN tr.type = 'open' THEN 1 ELSE 0 END) / COUNT(DISTINCT tr.campaign_id) * 100, 2)";
                 break;
             case 'click_rate':
@@ -750,7 +635,6 @@ class Model {
                 return 0;
         }
 
-        // Find matching subscriber IDs.
         $matching_ids = $wpdb->get_col( $wpdb->prepare(
             "SELECT s.id
              FROM $subs_table s
@@ -760,10 +644,8 @@ class Model {
             $threshold
         ) );
 
-        // Clear all current assignments for this dynamic tag.
         $wpdb->delete( $tags_table, array( 'tag' => $tag ), array( '%s' ) );
 
-        // Re-insert matching.
         if ( $matching_ids ) {
             foreach ( $matching_ids as $id ) {
                 $wpdb->query( $wpdb->prepare(
@@ -776,20 +658,14 @@ class Model {
         return count( $matching_ids );
     }
 
-    /**
-     * Get all subscriber emails (for duplicate checking).
-     */
-    public static function all_emails() {
+    public static function all_emails(): array {
         global $wpdb;
         $table = self::table();
 
         return $wpdb->get_col( "SELECT email FROM $table" );
     }
 
-    /**
-     * Find a subscriber id by email. Returns int or null.
-     */
-    public static function find_by_email( $email ) {
+    public static function find_by_email( string $email ): ?int {
         global $wpdb;
         $table = self::table();
 
@@ -798,10 +674,7 @@ class Model {
         return $id ? (int) $id : null;
     }
 
-    /**
-     * Attach tags array to a list of subscriber rows.
-     */
-    private static function attach_tags( $rows ) {
+    private static function attach_tags( array $rows ): array {
         global $wpdb;
         $tags_table = self::tags_table();
 

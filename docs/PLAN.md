@@ -62,6 +62,8 @@ Oranje, deze maand
 
 Geel, refactor
 - [ ] Zie review, sectie 🟡
+- [ ] Dunne `Core\Model`-basisklasse (table, prepare, insert/update/delete, paginatie) zodra 3 Models doorlopen zijn. Geen query builder.
+- [ ] `Subscribers\Model::list()` weg; Controller alleen via `query()` + filter-engine laten lopen
 
 ## Log
 - 2026-08-21: plan gemaakt. Review afgerond. Nog niets gefixt.
