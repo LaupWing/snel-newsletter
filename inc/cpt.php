@@ -1,15 +1,9 @@
 <?php
-/**
- * Newsletter custom post type.
- *
- * @package SnelNewsletter
- */
 
 defined( 'ABSPATH' ) || exit;
 
-/**
- * Register the newsletter CPT.
- */
+// SOT:CAMPAIGN-CPT
+// Not public (no front-end URL), menu is built in admin.php, REST on for Gutenberg.
 add_action( 'init', function () {
     register_post_type( 'snel_newsletter', array(
         'labels'       => array(
@@ -25,15 +19,14 @@ add_action( 'init', function () {
         ),
         'public'       => false,
         'show_ui'      => true,
-        'show_in_menu' => false, // We handle the menu ourselves.
-        'show_in_rest' => true,  // Required for Gutenberg.
+        'show_in_menu' => false,
+        'show_in_rest' => true,
         'supports'     => array( 'title', 'editor', 'custom-fields' ),
         'has_archive'  => false,
         'rewrite'      => false,
     ) );
 
-    // Recipient tags chosen in the editor sidebar. Exposed to REST so the
-    // block editor can persist the selection to post meta.
+    // Exposed to REST so the sidebar can save the chosen tags.
     register_post_meta( 'snel_newsletter', '_snel_nl_tags', array(
         'type'          => 'array',
         'single'        => true,
@@ -61,9 +54,8 @@ add_action( 'init', function () {
         },
     ) );
 
-    // Custom-list audience: a stack of { field, operator, value } filter
-    // conditions (same engine as the subscribers page). When set, the campaign
-    // sends to everyone matching instead of by tag.
+    // Custom-list audience: filter rules, same engine as the subscribers page.
+    // When set, the campaign sends to everyone matching instead of by tag.
     register_post_meta( 'snel_newsletter', '_snel_nl_audience_filters', array(
         'type'          => 'array',
         'single'        => true,
@@ -86,9 +78,8 @@ add_action( 'init', function () {
         },
     ) );
 
-    // Marks a campaign as a workflow (automation) email rather than a one-time
-    // broadcast. Workflow emails stay drafts — the broadcast pipeline only fires
-    // on publish, while the automation engine sends the draft content directly.
+    // Workflow emails stay drafts: the broadcast pipeline fires on publish,
+    // the automation engine sends the draft content directly.
     register_post_meta( 'snel_newsletter', '_snel_nl_is_workflow', array(
         'type'          => 'string',
         'single'        => true,

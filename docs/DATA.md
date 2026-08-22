@@ -31,4 +31,17 @@ Columns are documented per table as we walk through each module.
 
 ## Post meta (`snel_newsletter` posts)
 
-_Filled in as we walk through each folder._
+A campaign is a WordPress post of type `snel_newsletter` (`SOT:CAMPAIGN-CPT`,
+`inc/cpt.php`). Extra fields live in `wp_postmeta`, all prefixed `_snel_nl_`.
+
+Written by the editor sidebar (registered with `show_in_rest`):
+
+| Meta | Type | Holds |
+|---|---|---|
+| `_snel_nl_tags` | array | chosen tags, e.g. `["all"]` |
+| `_snel_nl_audience` | string | `tags` or `filters` |
+| `_snel_nl_audience_filters` | array | filter rules for a custom list |
+| `_snel_nl_is_workflow` | bool | campaign belongs to an automation |
+
+These four decide who receives the campaign; the queue reads them at publish.
+Meta written by PHP only (send status, counts) is documented with the queue.

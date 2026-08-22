@@ -11,7 +11,7 @@ Regels
 - Elke keuze die we tegenkomen die niet uit de code blijkt: één regel in `docs/adr/SUMMARY.md`.
 - Korte sessies. Eén of twee mappen per keer is genoeg.
 - Eén ding tegelijk, superlangzaam. Per bestand of per blok: Claude toont het, we sparren, we schonen meteen op, dan pas het volgende. Geen grote leesstukken.
-- Committen alleen aan het eind van de dag, nooit tussendoor. Tussentijds bijhouden in `COMMITS.md`.
+- Committen per afgerond blok, op Loc's teken.
 - Docs groeien mee, niet achteraf. Bij elk blok dat we doorlopen: `docs/ARCHITECTURE.md` krijgt zijn alinea, `SOT:` markers komen op de canonieke plek in de code, en zodra data erbij komt (tabel, meta, flow) wordt `docs/DATA.md` in dezelfde stap bijgewerkt.
 - Comments: alleen het *waarom* of een invariant die de code niet kan tonen. Nooit wat-een-regel-doet, geen sectiekoppen, geen herhaling van de functienaam. Claude voegt geen comment toe tenzij hij aan die regel voldoet.
 

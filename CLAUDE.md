@@ -16,5 +16,4 @@ Plan and progress: `docs/PLAN.md`. Read it first.
 - Bootstrap `snel-newsletter.php` only defines constants and requires files.
 
 ## Git
-- Never commit during the day.
-- Every change gets a section in `COMMITS.md` (commit message + files). At the end of the day we commit section by section, then remove it.
+- Commit per finished block, push right after. Only when Loc says so.
