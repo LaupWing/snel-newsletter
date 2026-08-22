@@ -1,14 +1,10 @@
 <?php
-/**
- * Subscriber database table creation.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Subscribers;
 
 defined( 'ABSPATH' ) || exit;
 
+// SOT:SUBSCRIBER-SCHEMA
 class Install {
 
     public static function create_tables() {

@@ -29,6 +29,14 @@ All prefixed with `{$wpdb->prefix}snel_`. Created by `SOT:INSTALL`
 
 Columns are documented per table as we walk through each module.
 
+### subscribers (`SOT:SUBSCRIBER-SCHEMA`, `inc/subscribers/Install.php`)
+
+| Table | Columns | Notes |
+|---|---|---|
+| `snel_subscribers` | `id`, `email` (unique), `name`, `status`, `unsubscribe_token`, `created_at` | `status`: `active`, `unsubscribed`, `bounced`, `complained`. Only `active` ever receives mail. |
+| `snel_subscriber_tags` | `subscriber_id`, `tag` | unique per pair; one subscriber, many tags |
+| `snel_tag_rules` | `tag` (unique), `type`, `metric`, `operator`, `threshold` | `type` `static` = assigned by hand; `dynamic` = auto-assigned when `metric operator threshold` holds, e.g. `open_rate > 50` |
+
 ## Post meta (`snel_newsletter` posts)
 
 A campaign is a WordPress post of type `snel_newsletter` (`SOT:CAMPAIGN-CPT`,
