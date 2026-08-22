@@ -1,14 +1,10 @@
 <?php
-/**
- * Subscriber REST route definitions.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Subscribers;
 
 defined( 'ABSPATH' ) || exit;
 
+// SOT:REST — admin routes are wired here only; every route carries a manage_options permission_callback.
 class Rest {
 
     private $controller;
@@ -19,7 +15,7 @@ class Rest {
         add_action( 'rest_api_init', array( $this, 'register_routes' ) );
     }
 
-    public function register_routes() {
+    public function register_routes(): void {
         register_rest_route( $this->namespace, '/subscribers', array(
             'methods'             => 'GET',
             'callback'            => array( $this->controller, 'list' ),
@@ -50,14 +46,12 @@ class Rest {
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
 
-        // Return all subscriber IDs matching a filter stack (select-all-matching).
         register_rest_route( $this->namespace, '/subscribers/query-ids', array(
             'methods'             => 'POST',
             'callback'            => array( $this->controller, 'query_ids' ),
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
 
-        // A subscriber's per-campaign open/click history (review-list modal).
         register_rest_route( $this->namespace, '/subscribers/(?P<id>\d+)/history', array(
             'methods'             => 'GET',
             'callback'            => array( $this->controller, 'history' ),
@@ -76,7 +70,6 @@ class Rest {
             'permission_callback' => array( $this, 'permission_check' ),
         ) );
 
-        // Distinct active-subscriber count for a tag selection (editor sidebar).
         register_rest_route( $this->namespace, '/audience/count', array(
             'methods'             => 'GET',
             'callback'            => array( $this->controller, 'audience_count' ),
@@ -126,7 +119,7 @@ class Rest {
         ) );
     }
 
-    public function permission_check() {
+    public function permission_check(): bool {
         return current_user_can( 'manage_options' );
     }
 }

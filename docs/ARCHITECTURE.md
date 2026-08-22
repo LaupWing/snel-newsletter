@@ -40,4 +40,13 @@ matching React screen. REST url and nonce are passed via `snelNewsletter`.
 
 ## Domains
 
-_Filled in as we walk through each folder._
+Every domain folder follows the same skeleton: `Install` (schema), `Model`
+(all SQL, `SOT:MODEL`), `Controller` (request → Model → response,
+`SOT:CONTROLLER`), `Rest` (routes + permissions, `SOT:REST`), `index.php`
+(requires + `new Rest()`).
+
+**Subscribers.** `inc/subscribers/`: the list and its tags. Three tables
+(`SOT:SUBSCRIBER-SCHEMA`). Filter engine in `Model::build_conditions()` turns
+UI filter rows into WHERE/HAVING/EXISTS; `ids_for_filters()` is what the queue
+uses for custom-list campaigns. `Validator` rejects junk addresses on import.
+Dynamic tags are rules in `snel_tag_rules`, recomputed by `sync_dynamic_tag()`.

@@ -23,7 +23,7 @@ Volgorde is de route van een e-mail: binnenkomen, opslaan, versturen, terugmeten
   - [x] `snel-newsletter.php`: alleen constants + requires. Updater, install en cron-self-heal naar `inc/core/`
   - [x] `inc/cpt.php`: gesplitst in `core/cpt.php` (post type + meta) en `core/editor.php` (Gutenberg)
   - [x] `inc/admin.php` → `core/admin.php`: error_logs weg. Stats-refresh blijft tot tracking.
-- [ ] **1. Subscribers** `inc/subscribers/`: tabellen `snel_subscribers`, `snel_subscriber_tags`, `snel_tag_rules`; statussen; import; dynamic tags
+- [x] **1. Subscribers** `inc/subscribers/`: tabellen `snel_subscribers`, `snel_subscriber_tags`, `snel_tag_rules`; statussen; import; dynamic tags
 - [ ] **2. Bronnen** `inc/cpt-sources/`: hoe stromen subscribers binnen vanuit andere post types; auto-sync
 - [ ] **3. Campaigns** `inc/campaigns/` + CPT-meta `_snel_nl_*`: wat is een campaign, welke meta, audience-keuze
 - [ ] **4. Queue** `inc/queue/`: tabel `snel_send_queue`, statussen, publish → queue → batch, cron + watchdog
@@ -68,3 +68,4 @@ Geel, refactor
 ## Log
 - 2026-08-21: plan gemaakt. Review afgerond. Nog niets gefixt.
 - 2026-08-21: bootstrap opgeschoond, `inc/core/` gestart (updater, install, cron). Docs-skeletten + eerste ADR.
+- 2026-08-21: subscribers doorlopen. Comments + types in alle 6 bestanden, SOT-markers op schema/model/controller/rest.
