@@ -52,3 +52,11 @@ Every domain folder follows the same skeleton: `Install` (schema), `Model`
 UI filter rows into WHERE/HAVING/EXISTS; `ids_for_filters()` is what the queue
 uses for custom-list campaigns. `Validator` rejects junk addresses on import.
 Dynamic tags are rules in `snel_tag_rules`, recomputed by `sync_dynamic_tag()`.
+
+**CPT sources.** `inc/cpt-sources/`: pulls addresses that already live elsewhere
+in WordPress (a post type, a custom table) into `snel_subscribers`. `Scanner`
+discovers email-like fields by sampling, `Store` keeps one config per source in
+a single option (shape in [DATA.md](DATA.md#source-configs)), `Importer`
+(`SOT:IMPORT`) upserts idempotently, `AutoSync` runs every source hourly and on
+`save_post`. Third-party code can push instantly via
+`snel_newsletter_sync_source( $id )`.

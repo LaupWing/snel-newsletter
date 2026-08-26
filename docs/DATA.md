@@ -37,6 +37,24 @@ Columns are documented per table as we walk through each module.
 | `snel_subscriber_tags` | `subscriber_id`, `tag` | unique per pair; one subscriber, many tags |
 | `snel_tag_rules` | `tag` (unique), `type`, `metric`, `operator`, `threshold` | `type` `static` = assigned by hand; `dynamic` = auto-assigned when `metric operator threshold` holds, e.g. `open_rate > 50` |
 
+## Source configs
+
+One option (`snel_newsletter_cpt_sources`) holds every configured source, keyed
+by id. Real example:
+
+```
+inquiry:                        <- the contact form post type
+  kind:        cpt              <- or `custom` for an own table
+  email_field: _inquiry_email   <- which meta key holds the address
+  manual_tags: []               <- tags every import gets
+  auto_sync:   true             <- hourly cron + on save_post
+  last_result: {imported, tagged, skipped, invalid, junk}
+```
+
+Flow: new post/row -> `Importer` reads the email field -> junk check
+(`Validator`) -> exists? tag only : create subscriber. Counters land in
+`last_result`, shown on the Sources page.
+
 ## Post meta (`snel_newsletter` posts)
 
 A campaign is a WordPress post of type `snel_newsletter` (`SOT:CAMPAIGN-CPT`,

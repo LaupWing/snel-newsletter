@@ -1,17 +1,11 @@
 <?php
-/**
- * CPT Sources — auto-sync.
- *
- * Post-type sources sync on publish. Custom providers have no save hook, so
- * they sync on demand (call snel_newsletter_sync_source) and hourly via cron.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\CptSources;
 
 defined( 'ABSPATH' ) || exit;
 
+// Post-type sources sync on publish. Custom providers have no save hook, so
+// they sync on demand (snel_newsletter_sync_source) and hourly via cron.
 class AutoSync {
 
 	const CRON_HOOK = 'snel_newsletter_sync_custom_sources';
@@ -25,10 +19,7 @@ class AutoSync {
 		add_action( 'snel_newsletter_sync_source', array( $this, 'sync_source' ) );
 	}
 
-	/**
-	 * A post-type source syncs the moment a post is published.
-	 */
-	public function on_save_post( $post_id, $post, $update ) {
+	public function on_save_post( int $post_id, \WP_Post $post, bool $update ): void {
 		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
 			return;
 		}
@@ -50,14 +41,8 @@ class AutoSync {
 		Importer::sync_post( $post_id, $config );
 	}
 
-	/**
-	 * Run one source now, regardless of kind. Respects auto_sync being off
-	 * only for the cron path — an explicit call always runs.
-	 *
-	 * @param string $id
-	 * @return array|null Counts, or null if the source isn't configured.
-	 */
-	public function sync_source( $id ) {
+	// auto_sync only gates the cron path; an explicit call always runs.
+	public function sync_source( string $id ): ?array {
 		$config = Store::get( $id );
 
 		if ( ! $config ) {
@@ -70,15 +55,9 @@ class AutoSync {
 		return $result;
 	}
 
-	/**
-	 * Cron: sync every source that has auto_sync enabled, whatever its kind.
-	 *
-	 * Post-type sources can't rely on save_post alone: a form plugin inserts the
-	 * post first and writes the email meta after, so the hook reads an empty
-	 * field and skips the row for good. This sweep re-reads the meta once it is
-	 * actually there.
-	 */
-	public function sync_custom_sources() {
+	// Sweep is needed even for post types: a form plugin can write the email meta
+	// after insert, so save_post reads an empty field and skips the row for good.
+	public function sync_custom_sources(): void {
 		foreach ( Store::all() as $id => $config ) {
 			$config = wp_parse_args( $config, Store::defaults() );
 
@@ -95,7 +74,7 @@ class AutoSync {
 		}
 	}
 
-	public function maybe_schedule_cron() {
+	public function maybe_schedule_cron(): void {
 		if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
 			wp_schedule_event( time() + HOUR_IN_SECONDS, 'hourly', self::CRON_HOOK );
 		}

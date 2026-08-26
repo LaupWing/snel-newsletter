@@ -24,7 +24,7 @@ Volgorde is de route van een e-mail: binnenkomen, opslaan, versturen, terugmeten
   - [x] `inc/cpt.php`: gesplitst in `core/cpt.php` (post type + meta) en `core/editor.php` (Gutenberg)
   - [x] `inc/admin.php` → `core/admin.php`: error_logs weg. Stats-refresh blijft tot tracking.
 - [x] **1. Subscribers** `inc/subscribers/`: tabellen `snel_subscribers`, `snel_subscriber_tags`, `snel_tag_rules`; statussen; import; dynamic tags
-- [ ] **2. Bronnen** `inc/cpt-sources/`: hoe stromen subscribers binnen vanuit andere post types; auto-sync
+- [x] **2. Bronnen** `inc/cpt-sources/`: hoe stromen subscribers binnen vanuit andere post types; auto-sync
 - [ ] **3. Campaigns** `inc/campaigns/` + CPT-meta `_snel_nl_*`: wat is een campaign, welke meta, audience-keuze
 - [ ] **4. Queue** `inc/queue/`: tabel `snel_send_queue`, statussen, publish → queue → batch, cron + watchdog
 - [ ] **5. Warmup + lanes** `inc/warmup/`, `inc/lanes/`: daily cap, cooldown, broadcast vs automation lane
@@ -59,6 +59,7 @@ Oranje, deze maand
 - [ ] Unsubscribe via POST-confirm
 - [ ] Subscriber-delete cascade
 - [ ] `set_tags` diff i.p.v. replace-all
+- [ ] Frequency-guard: max 1 mail per subscriber per X uur, bron-onafhankelijk, in de batch-fetch (Cooldown-mechaniek hergebruiken, ook zonder warmup)
 
 Geel, architectuur (in deze volgorde)
 - [x] Autoloader + `Plugin::boot()` (eigen autoloader in `core/autoload.php`, geen composer nodig): bootstrap wordt constants + één boot-call; `inc/cpt-sources/` → `inc/cpt_sources/` of namespace-uitzondering
@@ -82,3 +83,4 @@ Niet doen (bewust)
 - 2026-08-21: bootstrap opgeschoond, `inc/core/` gestart (updater, install, cron). Docs-skeletten + eerste ADR.
 - 2026-08-21: subscribers doorlopen. Comments + types in alle 6 bestanden, SOT-markers op schema/model/controller/rest.
 - 2026-08-26: autoloader + Plugin::boot. Bootstrap is 3 regels; alle require_once uit de index-bestanden. Getest op de lokale site.
+- 2026-08-26: cpt-sources doorlopen en opgeschoond (258 regels comments weg, types). SOT:IMPORT, docs bijgewerkt. Dubbele-mail-melding onderzocht: vals alarm (broadcast + automation op dezelfde dag). Frequency-guard op oranje gezet.

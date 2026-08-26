@@ -1,11 +1,5 @@
 <?php
-/**
- * CPT Sources — saved source configurations.
- *
- * One config per post type, stored in a single option.
- *
- * @package SnelNewsletter
- */
+// One config per source id, all together in a single option.
 
 namespace Snel\Newsletter\CptSources;
 
@@ -15,9 +9,6 @@ class Store {
 
 	const OPTION = 'snel_newsletter_cpt_sources';
 
-	/**
-	 * Default shape of a source config.
-	 */
 	public static function defaults() {
 		return array(
 			'id'          => '',
@@ -33,29 +24,18 @@ class Store {
 		);
 	}
 
-	/**
-	 * All saved configs, keyed by post type.
-	 *
-	 * @return array<string,array>
-	 */
 	public static function all() {
 		$saved = get_option( self::OPTION, array() );
 
 		return is_array( $saved ) ? $saved : array();
 	}
 
-	/**
-	 * One config, or null.
-	 */
 	public static function get( $id ) {
 		$all = self::all();
 
 		return isset( $all[ $id ] ) ? wp_parse_args( $all[ $id ], self::defaults() ) : null;
 	}
 
-	/**
-	 * Save a config. Returns the stored config.
-	 */
 	public static function save( $id, $config ) {
 		$all = self::all();
 
@@ -81,9 +61,6 @@ class Store {
 		update_option( self::OPTION, $all, false );
 	}
 
-	/**
-	 * Record the outcome of a sync run.
-	 */
 	public static function record_sync( $id, $result ) {
 		$all = self::all();
 		if ( ! isset( $all[ $id ] ) ) {
@@ -95,12 +72,6 @@ class Store {
 		update_option( self::OPTION, $all, false );
 	}
 
-	/**
-	 * Normalise a tag list: trim, drop empties, dedupe, cap length.
-	 *
-	 * @param array|string $tags
-	 * @return string[]
-	 */
 	public static function clean_tags( $tags ) {
 		if ( is_string( $tags ) ) {
 			$tags = preg_split( '/[,;|]+/', $tags, -1, PREG_SPLIT_NO_EMPTY );

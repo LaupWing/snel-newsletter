@@ -1,38 +1,14 @@
 <?php
-/**
- * Custom source providers.
- *
- * Anything that isn't a post type — a custom DB table, a form plugin, an
- * external list — registers itself through the `snel_newsletter_sources`
- * filter and becomes selectable alongside the scanned post types.
- *
- *   add_filter( 'snel_newsletter_sources', function ( $sources ) {
- *       $sources['my_leads'] = [
- *           'label'       => 'CTA Leads',
- *           'description' => 'Emails captured by download CTAs.',
- *           'count'       => fn() => 42,
- *           'rows'        => fn() => [
- *               [ 'email' => 'a@b.nl', 'name' => 'Anna', 'tags' => [ 'download' ] ],
- *           ],
- *       ];
- *       return $sources;
- *   } );
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\CptSources;
 
 defined( 'ABSPATH' ) || exit;
 
+// Non-post-type sources (custom tables, form plugins, external lists) register via the
+// `snel_newsletter_sources` filter: [ 'id' => [ label, description, count: fn, rows: fn ] ].
 class Providers {
 
-	/**
-	 * All registered custom sources, normalised.
-	 *
-	 * @return array<string,array>
-	 */
-	public static function all() {
+	public static function all(): array {
 		$raw = apply_filters( 'snel_newsletter_sources', array() );
 
 		if ( ! is_array( $raw ) ) {
@@ -62,22 +38,13 @@ class Providers {
 		return $out;
 	}
 
-	/**
-	 * One registered source, or null.
-	 */
-	public static function get( $id ) {
+	public static function get( string $id ): ?array {
 		$all = self::all();
 
 		return $all[ $id ] ?? null;
 	}
 
-	/**
-	 * Pull the rows from a provider, normalised to { email, name, tags }.
-	 *
-	 * @param string $id
-	 * @return array[]
-	 */
-	public static function rows( $id ) {
+	public static function rows( string $id ): array {
 		$source = self::get( $id );
 
 		if ( ! $source ) {
@@ -110,10 +77,8 @@ class Providers {
 		return $out;
 	}
 
-	/**
-	 * Shape a provider like a scanned post type so the UI can render both.
-	 */
-	public static function as_source( $provider ) {
+	// Shaped like a scanned post type so the UI can render both.
+	public static function as_source( array $provider ): array {
 		return array(
 			'id'           => $provider['id'],
 			'kind'         => 'custom',

@@ -1,12 +1,6 @@
 <?php
-/**
- * CPT Sources — post type + field discovery.
- *
- * WordPress never declares which meta keys a post type "has", so we sample
- * existing posts and score each key on how email-like / tag-like its values are.
- *
- * @package SnelNewsletter
- */
+// WP never declares which meta keys a post type has, so we sample
+// existing posts and score each key on how email-like its values are.
 
 namespace Snel\Newsletter\CptSources;
 
@@ -14,7 +8,7 @@ defined( 'ABSPATH' ) || exit;
 
 class Scanner {
 
-	/** Post types we never offer as a source. */
+	// Post types we never offer as a source.
 	private static $excluded = array(
 		'snel_newsletter', 'attachment', 'revision', 'nav_menu_item',
 		'custom_css', 'customize_changeset', 'oembed_cache', 'user_request',
@@ -22,14 +16,8 @@ class Scanner {
 		'wp_navigation', 'wp_font_family', 'wp_font_face',
 	);
 
-	/** How many meta values to sample per key. */
 	const SAMPLE_SIZE = 25;
 
-	/**
-	 * Scan every eligible post type for email + tag field candidates.
-	 *
-	 * @return array
-	 */
 	public static function scan() {
 		$out = array();
 
@@ -110,12 +98,6 @@ class Scanner {
 		return $out;
 	}
 
-	/**
-	 * Sample meta keys for a post type and score each one.
-	 *
-	 * @param string $post_type
-	 * @return array<string,array>
-	 */
 	private static function meta_keys( $post_type ) {
 		global $wpdb;
 
@@ -164,9 +146,6 @@ class Scanner {
 		return $out;
 	}
 
-	/**
-	 * How confident are we that this key holds an email address? 0.0–1.0
-	 */
 	private static function score_email( $key, $values ) {
 		$valid = 0;
 		foreach ( $values as $v ) {
@@ -187,9 +166,6 @@ class Scanner {
 		return min( 1.0, round( $ratio + $name_bonus, 2 ) );
 	}
 
-	/**
-	 * How tag-like is this key? Name-driven, since tags are just short text.
-	 */
 	private static function score_tags( $key, $values ) {
 		if ( ! preg_match( '/tag|categor|topic|interes|segment|group|onderwerp|type/i', $key ) ) {
 			return 0.0;
@@ -217,16 +193,6 @@ class Scanner {
 		return strlen( $value ) > $len ? substr( $value, 0, $len ) . '…' : $value;
 	}
 
-	/**
-	 * Preview what would be imported for a given mapping.
-	 *
-	 * @param string $post_type
-	 * @param string $email_field
-	 * @param string $tag_field   Meta key or taxonomy name. Empty for none.
-	 * @param string $tag_source  'meta' | 'taxonomy'
-	 * @param int    $limit
-	 * @return array
-	 */
 	public static function preview( $post_type, $email_field, $tag_field = '', $tag_source = 'meta', $manual_tags = array(), $limit = 10 ) {
 		global $wpdb;
 
@@ -256,17 +222,6 @@ class Scanner {
 		return self::preview_rows( $rows, $manual_tags, $limit, $tag_fn );
 	}
 
-	/**
-	 * Score a set of { id, title, email, tags } rows against the subscriber table.
-	 *
-	 * Shared by post-type sources and custom providers.
-	 *
-	 * @param array[]       $rows
-	 * @param array         $manual_tags Tags applied to every row.
-	 * @param int           $limit       How many rows to return for display.
-	 * @param callable|null $tag_fn      Resolves a row's tags, called only for displayed rows.
-	 * @return array
-	 */
 	public static function preview_rows( $rows, $manual_tags = array(), $limit = 10, $tag_fn = null ) {
 		$existing = array_flip( array_map( 'strtolower', \Snel\Newsletter\Subscribers\Model::all_emails() ) );
 
@@ -339,11 +294,6 @@ class Scanner {
 		);
 	}
 
-	/**
-	 * Read the tag values off a post for the chosen field.
-	 *
-	 * @return string[]
-	 */
 	public static function read_tags( $post_id, $field, $source = 'meta' ) {
 		if ( ! $field ) {
 			return array();

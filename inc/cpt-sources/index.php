@@ -1,9 +1,4 @@
 <?php
-/**
- * CPT Sources feature — entry point.
- *
- * @package SnelNewsletter
- */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -12,18 +7,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 new Snel\Newsletter\CptSources\Rest();
 new Snel\Newsletter\CptSources\AutoSync();
 
-/**
- * Sync one configured source into the subscriber table, right now.
- *
- * Call this after writing a row to your own table:
- *
- *   snel_newsletter_sync_source( 'snel_leads' );
- *
- * Safe to call when the source isn't configured yet — returns null.
- *
- * @param string $id Source id (post type name, or the key you registered).
- * @return array|null Counts: imported, tagged, skipped, invalid.
- */
+// Public helper: sync one source now, e.g. right after your own code inserts a lead.
+// Safe when the source is not configured yet; returns null then.
 function snel_newsletter_sync_source( $id ) {
 	$config = Snel\Newsletter\CptSources\Store::get( $id );
 

@@ -1,9 +1,4 @@
 <?php
-/**
- * CPT Sources — REST business logic.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\CptSources;
 
@@ -11,13 +6,7 @@ defined( 'ABSPATH' ) || exit;
 
 class Controller {
 
-	/**
-	 * GET /cpt-sources/scan
-	 *
-	 * Scanned post types + registered custom providers, each merged with its
-	 * saved config (if any).
-	 */
-	public function scan() {
+	public function scan(): \WP_REST_Response {
 		$sources = Scanner::scan();
 
 		foreach ( Providers::all() as $provider ) {
@@ -44,10 +33,7 @@ class Controller {
 		return rest_ensure_response( $sources );
 	}
 
-	/**
-	 * GET /cpt-sources/preview
-	 */
-	public function preview( $request ) {
+	public function preview( \WP_REST_Request $request ) {
 		$id = sanitize_key( $request->get_param( 'id' ) ?: $request->get_param( 'post_type' ) );
 
 		if ( ! $id ) {
@@ -56,7 +42,6 @@ class Controller {
 
 		$manual_tags = Store::clean_tags( (string) $request->get_param( 'manual_tags' ) );
 
-		// Custom provider.
 		if ( Providers::get( $id ) ) {
 			$rows = array();
 			foreach ( Providers::rows( $id ) as $row ) {
@@ -71,7 +56,6 @@ class Controller {
 			return rest_ensure_response( Scanner::preview_rows( $rows, $manual_tags ) );
 		}
 
-		// Post type.
 		if ( ! post_type_exists( $id ) ) {
 			return new \WP_Error( 'invalid_source', 'Unknown source.', array( 'status' => 400 ) );
 		}
@@ -90,12 +74,8 @@ class Controller {
 		);
 	}
 
-	/**
-	 * Build a Store config from the request, or a WP_Error.
-	 *
-	 * @return array|\WP_Error
-	 */
-	private function config_from_request( $request ) {
+	// Returns array( $id, $config ) or a WP_Error.
+	private function config_from_request( \WP_REST_Request $request ) {
 		$id = sanitize_key( $request->get_param( 'id' ) ?: $request->get_param( 'post_type' ) );
 
 		if ( ! $id ) {
@@ -129,10 +109,7 @@ class Controller {
 		return array( $id, $config );
 	}
 
-	/**
-	 * POST /cpt-sources — save (or update) a source config.
-	 */
-	public function save( $request ) {
+	public function save( \WP_REST_Request $request ) {
 		$parsed = $this->config_from_request( $request );
 
 		if ( is_wp_error( $parsed ) ) {
@@ -147,21 +124,13 @@ class Controller {
 		) );
 	}
 
-	/**
-	 * DELETE /cpt-sources/(?P<id>[\w-]+)
-	 */
-	public function delete( $request ) {
+	public function delete( \WP_REST_Request $request ): \WP_REST_Response {
 		Store::delete( sanitize_key( $request->get_param( 'id' ) ) );
 
 		return rest_ensure_response( array( 'success' => true ) );
 	}
 
-	/**
-	 * POST /cpt-sources/(?P<id>[\w-]+)/import
-	 *
-	 * Saves the posted config, then runs a full import.
-	 */
-	public function import( $request ) {
+	public function import( \WP_REST_Request $request ) {
 		$parsed = $this->config_from_request( $request );
 
 		if ( is_wp_error( $parsed ) ) {
