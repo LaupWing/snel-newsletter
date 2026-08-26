@@ -60,12 +60,25 @@ Oranje, deze maand
 - [ ] Subscriber-delete cascade
 - [ ] `set_tags` diff i.p.v. replace-all
 
-Geel, refactor
-- [ ] Zie review, sectie 🟡
-- [ ] Dunne `Core\Model`-basisklasse (table, prepare, insert/update/delete, paginatie) zodra 3 Models doorlopen zijn. Geen query builder.
-- [ ] `Subscribers\Model::list()` weg; Controller alleen via `query()` + filter-engine laten lopen
+Geel, architectuur (in deze volgorde)
+- [x] Autoloader + `Plugin::boot()` (eigen autoloader in `core/autoload.php`, geen composer nodig): bootstrap wordt constants + één boot-call; `inc/cpt-sources/` → `inc/cpt_sources/` of namespace-uitzondering
+- [ ] Grenzen doorvoeren in oude code: SQL alleen in Model (campaigns Controller), logica uit `index.php` (queue)
+- [ ] Queue uit de request: publish zet vlag + cron-event, drainer doet het queuen
+- [ ] Eén klok: UTC overal (`current_time` vs `NOW()` vs `strtotime`)
+- [ ] Status-constanten i.p.v. losse strings (`Queue\Status::PENDING` …); "has work"-predicaat één keer
+- [ ] `Processor::process_batch` splitsen (fetch / render / record)
+- [ ] Dunne `Core\Model`-basisklasse zodra 3 Models doorlopen zijn. Geen query builder.
+- [ ] Tests op 3 paden: audience-selectie, dubbel-verzend, unsubscribe
+- [ ] `Subscribers\Model::list()` weg; Controller alleen via `query()`
+- [ ] Frontend: één `api.js`, één `Modal`, console.logs weg
+
+Niet doen (bewust)
+- Query builder / ORM bovenop `$wpdb`
+- Big-bang rewrite
+- Frontend-router / global state; huidige `data-page`-mount volstaat
 
 ## Log
 - 2026-08-21: plan gemaakt. Review afgerond. Nog niets gefixt.
 - 2026-08-21: bootstrap opgeschoond, `inc/core/` gestart (updater, install, cron). Docs-skeletten + eerste ADR.
 - 2026-08-21: subscribers doorlopen. Comments + types in alle 6 bestanden, SOT-markers op schema/model/controller/rest.
+- 2026-08-26: autoloader + Plugin::boot. Bootstrap is 3 regels; alle require_once uit de index-bestanden. Getest op de lokale site.

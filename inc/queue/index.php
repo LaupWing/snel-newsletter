@@ -9,9 +9,6 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-require_once __DIR__ . '/Install.php';
-require_once __DIR__ . '/Processor.php';
-
 // Register the cron hook.
 add_action( Snel\Newsletter\Queue\Processor::CRON_HOOK, array( 'Snel\Newsletter\Queue\Processor', 'process_batch' ) );
 

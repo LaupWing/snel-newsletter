@@ -14,8 +14,10 @@ Depth lives in the code: grep `SOT:` for the canonical implementation of a patte
 
 ## Core (plumbing)
 
-**Bootstrap.** `snel-newsletter.php` defines three constants and requires every
-module in a fixed order. No logic lives here.
+**Bootstrap.** `snel-newsletter.php` is three lines: constants, the autoloader
+(`inc/core/autoload.php`, maps `Snel\Newsletter\Foo\Bar` to `inc/foo/Bar.php`),
+and `Core\Plugin::boot()` (`SOT:BOOT`) — whose two lists ARE the plugin: core
+files that always run, and one `index.php` per domain that wires its hooks.
 
 **Updater.** `inc/core/updater.php`: update checks go through GitHub releases,
 not wordpress.org. Needs `vendor/` from `composer install`.
