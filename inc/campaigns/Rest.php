@@ -1,9 +1,4 @@
 <?php
-/**
- * Campaign REST route definitions.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Campaigns;
 
@@ -19,7 +14,7 @@ class Rest {
         add_action( 'rest_api_init', array( $this, 'register_routes' ) );
     }
 
-    public function register_routes() {
+    public function register_routes(): void {
         register_rest_route( $this->namespace, '/dashboard', array(
             'methods'             => 'GET',
             'callback'            => array( $this->controller, 'dashboard' ),
@@ -69,7 +64,7 @@ class Rest {
         ) );
     }
 
-    public function permission_check() {
+    public function permission_check(): bool {
         return current_user_can( 'manage_options' );
     }
 }

@@ -60,3 +60,9 @@ a single option (shape in [DATA.md](DATA.md#source-configs)), `Importer`
 (`SOT:IMPORT`) upserts idempotently, `AutoSync` runs every source hourly and on
 `save_post`. Third-party code can push instantly via
 `snel_newsletter_sync_source( $id )`.
+
+**Campaigns.** `inc/campaigns/`: the list/dashboard REST layer over campaign
+posts. `Model::list()` merges post data, cached stat meta and, for workflow
+emails, live tracking stats; `cancel`/`resume` flip queue rows via the queue's
+Processor. Known debt: `Controller::stats()` holds raw SQL and the list path
+has N+1 stat queries (see PLAN.md).

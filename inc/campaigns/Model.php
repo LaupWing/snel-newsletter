@@ -1,27 +1,15 @@
 <?php
-/**
- * Campaign database queries.
- *
- * Uses the snel_newsletter CPT for storage.
- * Campaign meta: _snel_nl_recipients, _snel_nl_tags, _snel_nl_send_status,
- *                _snel_nl_sent_count, _snel_nl_total_recipients,
- *                _snel_nl_preview_text
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Campaigns;
 
 defined( 'ABSPATH' ) || exit;
 
+// Campaigns live in the snel_newsletter CPT; meta keys are prefixed _snel_nl_*.
 class Model {
 
     private static $post_type = 'snel_newsletter';
 
-    /**
-     * List campaigns with optional filters.
-     */
-    public static function list( $args = array() ) {
+    public static function list( array $args = array() ): array {
         $page     = max( 1, (int) ( $args['page'] ?? 1 ) );
         $per_page = max( 1, min( 100, (int) ( $args['per_page'] ?? 20 ) ) );
         $search   = $args['search'] ?? '';
@@ -41,17 +29,14 @@ class Model {
             $query_args['s'] = $search;
         }
 
-        // Which campaigns are workflow emails (post ID => automation name|'').
         $workflow_map = self::workflow_map();
 
-        // Filter by type: broadcast (standalone) vs workflow (automation email).
         if ( $type === 'workflow' ) {
             $query_args['post__in'] = ! empty( $workflow_map ) ? array_keys( $workflow_map ) : array( 0 );
         } elseif ( $type === 'broadcast' && ! empty( $workflow_map ) ) {
             $query_args['post__not_in'] = array_keys( $workflow_map );
         }
 
-        // Map our status to WP post_status + meta.
         if ( $status === 'sent' ) {
             $query_args['post_status'] = 'publish';
             $query_args['meta_query']  = array(
@@ -100,16 +85,11 @@ class Model {
         );
     }
 
-    /**
-     * Get status counts.
-     */
-    public static function counts() {
+    public static function counts(): array {
         $all_statuses = wp_count_posts( self::$post_type );
 
-        // Count campaigns by send-status meta. Sending + cancelled campaigns are
-        // otherwise indistinguishable from 'sent' (all 'publish'), and a
-        // cancelled campaign that was unscheduled sits under 'draft' — so tally
-        // each explicitly to keep the chips honest.
+        // Sending + cancelled campaigns are otherwise indistinguishable from 'sent'
+        // (all 'publish'), and an unscheduled cancel sits under 'draft' — tally each.
         $count_by_send_status = function ( $value, $post_status ) {
             $q = new \WP_Query( array(
                 'post_type'      => self::$post_type,
@@ -130,7 +110,6 @@ class Model {
         $cancelled         = $cancelled_publish + $cancelled_draft;
         $total             = $published + $draft_total + (int) ( $all_statuses->future ?? 0 );
 
-        // Workflow emails = those flagged or referenced in an automation.
         $workflow = count( self::workflow_map() );
 
         return array(
@@ -145,12 +124,9 @@ class Model {
         );
     }
 
-    /**
-     * Pooled open/click rates across all sent (published) campaigns.
-     * Rate = total opens|clicks / total recipients, so larger campaigns
-     * weigh proportionally. Returns whole-number percentages.
-     */
-    public static function performance() {
+    // Pooled rate = total opens|clicks / total recipients, so larger campaigns
+    // weigh proportionally. Whole-number percentages.
+    public static function performance(): array {
         global $wpdb;
 
         $row = $wpdb->get_row( $wpdb->prepare(
@@ -174,10 +150,7 @@ class Model {
         );
     }
 
-    /**
-     * Get a single campaign by ID.
-     */
-    public static function find( $id ) {
+    public static function find( int $id ): ?array {
         $post = get_post( $id );
         if ( ! $post || $post->post_type !== self::$post_type ) {
             return null;
@@ -185,20 +158,14 @@ class Model {
         return self::format( $post );
     }
 
-    /**
-     * Delete a campaign.
-     */
-    public static function delete( $id ) {
+    public static function delete( int $id ): bool {
         wp_delete_post( $id, true );
         return true;
     }
 
-    /**
-     * Cancel a campaign that's sending (or scheduled): halt every queued email
-     * that hasn't gone out yet and flag the campaign as cancelled. Already-sent
-     * emails are left untouched. Returns the number of queued rows stopped.
-     */
-    public static function cancel( $id ) {
+    // Halt every queued email that hasn't gone out yet and flag the campaign
+    // cancelled. Already-sent emails stay. Returns queued rows stopped, or false.
+    public static function cancel( int $id ) {
         global $wpdb;
 
         $post = get_post( $id );
@@ -208,7 +175,6 @@ class Model {
 
         $queue = $wpdb->prefix . 'snel_send_queue';
 
-        // Anything not yet sent — pending, retrying, or delayed — is stopped.
         $stopped = (int) $wpdb->query( $wpdb->prepare(
             "UPDATE $queue SET status = 'cancelled'
              WHERE campaign_id = %d AND status IN ('pending', 'retrying', 'delayed')",
@@ -216,8 +182,7 @@ class Model {
         ) );
 
         // A scheduled campaign hasn't queued yet — pull it off the schedule so
-        // WordPress won't auto-publish and send it. future→draft doesn't trip
-        // the publish/queue hook (that only fires on transition to 'publish').
+        // WP won't auto-publish it. future→draft doesn't trip the publish hook.
         if ( $post->post_status === 'future' ) {
             wp_update_post( array( 'ID' => $id, 'post_status' => 'draft' ) );
         }
@@ -227,10 +192,7 @@ class Model {
         return $stopped;
     }
 
-    /**
-     * Duplicate a campaign (as draft).
-     */
-    public static function duplicate( $id ) {
+    public static function duplicate( int $id ) {
         $post = get_post( $id );
         if ( ! $post || $post->post_type !== self::$post_type ) {
             return false;
@@ -244,7 +206,6 @@ class Model {
         ) );
 
         if ( $new_id ) {
-            // Copy meta.
             $meta_keys = array( '_snel_nl_recipients', '_snel_nl_tags', '_snel_nl_preview_text' );
             foreach ( $meta_keys as $key ) {
                 $value = get_post_meta( $id, $key, true );
@@ -257,13 +218,7 @@ class Model {
         return $new_id;
     }
 
-    /**
-     * Format a WP_Post into a campaign object.
-     *
-     * @param \WP_Post $post
-     * @param array    $workflow_map Post ID => automation name (or '') for workflow emails.
-     */
-    private static function format( $post, $workflow_map = array() ) {
+    private static function format( \WP_Post $post, array $workflow_map = array() ): array {
         $send_status = get_post_meta( $post->ID, '_snel_nl_send_status', true );
         $sent_count  = (int) get_post_meta( $post->ID, '_snel_nl_sent_count', true );
         $total       = (int) get_post_meta( $post->ID, '_snel_nl_total_recipients', true );
@@ -274,8 +229,8 @@ class Model {
         $is_workflow     = array_key_exists( $post->ID, $workflow_map );
         $automation_name = $is_workflow ? $workflow_map[ $post->ID ] : '';
 
-        // Determine display status. Cancelled wins over post_status, since a
-        // cancelled campaign may have been unscheduled back to draft.
+        // Cancelled wins over post_status: a cancelled campaign may have been
+        // unscheduled back to draft.
         if ( $send_status === 'cancelled' ) {
             $status = 'cancelled';
         } elseif ( $post->post_status === 'draft' ) {
@@ -290,9 +245,8 @@ class Model {
             $status = 'sent';
         }
 
-        // Workflow emails send from the automation flow (as drafts), so the
-        // broadcast meta above is empty. Pull real numbers from the send queue
-        // and tracking tables instead, keyed by campaign_id.
+        // Workflow emails send from the automation flow (as drafts), so broadcast
+        // meta is empty — pull real numbers from the queue/tracking tables instead.
         if ( $is_workflow ) {
             $stats      = self::tracking_stats( $post->ID );
             $total      = $stats['recipients'];
@@ -321,12 +275,9 @@ class Model {
         );
     }
 
-    /**
-     * Live send/open/click stats for one campaign, read from the send queue
-     * and tracking tables. Used for workflow emails, whose sends are logged
-     * there (by campaign_id) rather than in the broadcast post meta.
-     */
-    private static function tracking_stats( $campaign_id ) {
+    // Live per-campaign stats from snel_send_queue + snel_tracking, used for
+    // workflow emails whose sends are logged there rather than in post meta.
+    private static function tracking_stats( int $campaign_id ): array {
         global $wpdb;
 
         $queue    = $wpdb->prefix . 'snel_send_queue';
@@ -352,25 +303,17 @@ class Model {
         return compact( 'recipients', 'sent', 'opened', 'clicked' );
     }
 
-    /**
-     * IDs of every campaign that is a workflow (automation) email. Used to route
-     * sends onto the automation lane.
-     */
-    public static function workflow_ids() {
+    public static function workflow_ids(): array {
         return array_map( 'intval', array_keys( self::workflow_map() ) );
     }
 
-    /**
-     * Every campaign that counts as a workflow email: the toggle is on, OR it's
-     * referenced as an email step in any automation. Returns post ID =>
-     * automation name (empty string when it's flagged but not yet in a flow).
-     */
-    private static function workflow_map() {
+    // A campaign counts as workflow when its toggle is on OR it's an email step
+    // in any automation. Returns post ID => automation name ('' if only flagged).
+    private static function workflow_map(): array {
         global $wpdb;
 
         $map = array();
 
-        // 1. Emails referenced in automation steps.
         $automations = $wpdb->get_results(
             "SELECT name, steps FROM {$wpdb->prefix}snel_automations"
         );
@@ -383,7 +326,6 @@ class Model {
             }
         }
 
-        // 2. Emails explicitly flagged via the editor toggle.
         $flagged = $wpdb->get_col( $wpdb->prepare(
             "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value = '1'",
             '_snel_nl_is_workflow'
@@ -398,10 +340,8 @@ class Model {
         return $map;
     }
 
-    /**
-     * Collect email-step campaign IDs from a (possibly nested) steps array.
-     */
-    private static function collect_campaign_ids( $steps ) {
+    // Recurses into condition branches; steps come from decoded automation JSON.
+    private static function collect_campaign_ids( $steps ): array {
         $ids = array();
         foreach ( (array) $steps as $step ) {
             $type = $step['type'] ?? '';

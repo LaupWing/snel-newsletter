@@ -1,9 +1,4 @@
 <?php
-/**
- * Campaign business logic.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Campaigns;
 
@@ -11,9 +6,6 @@ defined( 'ABSPATH' ) || exit;
 
 class Controller {
 
-    /**
-     * List campaigns.
-     */
     public function list( \WP_REST_Request $request ) {
         $result = Model::list( array(
             'page'     => $request->get_param( 'page' ),
@@ -28,9 +20,6 @@ class Controller {
         return rest_ensure_response( $result );
     }
 
-    /**
-     * Aggregate stats + recent campaigns for the dashboard overview.
-     */
     public function dashboard( \WP_REST_Request $request ) {
         $subscribers = \Snel\Newsletter\Subscribers\Model::counts();
         $campaigns   = Model::counts();
@@ -60,9 +49,6 @@ class Controller {
         ) );
     }
 
-    /**
-     * Get a single campaign.
-     */
     public function get( \WP_REST_Request $request ) {
         $id       = (int) $request->get_param( 'id' );
         $campaign = Model::find( $id );
@@ -74,9 +60,6 @@ class Controller {
         return rest_ensure_response( $campaign );
     }
 
-    /**
-     * Delete a campaign.
-     */
     public function delete( \WP_REST_Request $request ) {
         $id = (int) $request->get_param( 'id' );
         Model::delete( $id );
@@ -84,9 +67,6 @@ class Controller {
         return rest_ensure_response( array( 'success' => true ) );
     }
 
-    /**
-     * Get campaign stats + subscriber send list.
-     */
     public function stats( \WP_REST_Request $request ) {
         global $wpdb;
 
@@ -126,9 +106,6 @@ class Controller {
         ) ) );
     }
 
-    /**
-     * Cancel a sending or scheduled campaign — halt every unsent queued email.
-     */
     public function cancel( \WP_REST_Request $request ) {
         $id       = (int) $request->get_param( 'id' );
         $campaign = Model::find( $id );
@@ -146,10 +123,8 @@ class Controller {
         return rest_ensure_response( array( 'success' => true, 'cancelled' => $stopped ) );
     }
 
-    /**
-     * Resume a cancelled campaign — requeue its unsent emails (audience-checked)
-     * and restart the drainer. Already-sent subscribers are never requeued.
-     */
+    // Requeues unsent emails (audience-checked) and restarts the drainer.
+    // Already-sent subscribers are never requeued.
     public function resume( \WP_REST_Request $request ) {
         $id       = (int) $request->get_param( 'id' );
         $campaign = Model::find( $id );
@@ -171,9 +146,6 @@ class Controller {
         return rest_ensure_response( array( 'success' => true, 'resumed' => $resumed ) );
     }
 
-    /**
-     * Duplicate a campaign.
-     */
     public function duplicate( \WP_REST_Request $request ) {
         $id     = (int) $request->get_param( 'id' );
         $new_id = Model::duplicate( $id );

@@ -70,4 +70,16 @@ Written by the editor sidebar (registered with `show_in_rest`):
 | `_snel_nl_is_workflow` | bool | campaign belongs to an automation |
 
 These four decide who receives the campaign; the queue reads them at publish.
-Meta written by PHP only (send status, counts) is documented with the queue.
+
+Written by PHP during/after sending (campaigns module reads these for the list):
+
+| Meta | Holds |
+|---|---|
+| `_snel_nl_send_status` | `sending` while queue rows remain, `sent` after finalize, `cancelled` |
+| `_snel_nl_total_recipients` / `_snel_nl_sent_count` | progress counters |
+| `_snel_nl_opened` / `_snel_nl_clicked` | cached from `snel_tracking`; can lag (see PLAN.md) |
+| `_snel_nl_preview_text` | preheader; currently never saved by the editor (red issue 5) |
+
+Workflow campaigns (steps of an automation) are recognized by their id appearing
+in an automation's `steps` JSON, not by meta alone; their stats are read live
+from `snel_tracking` instead of the cached meta.
