@@ -85,4 +85,4 @@ Niet doen (bewust)
 - 2026-08-26: autoloader + Plugin::boot. Bootstrap is 3 regels; alle require_once uit de index-bestanden. Getest op de lokale site.
 - 2026-08-26: cpt-sources doorlopen en opgeschoond (258 regels comments weg, types). SOT:IMPORT, docs bijgewerkt. Dubbele-mail-melding onderzocht: vals alarm (broadcast + automation op dezelfde dag). Frequency-guard op oranje gezet.
 - 2026-08-26: campaigns doorlopen en opgeschoond. Cancel simpel in Model, resume-logica woont bij de queue. Morgen: stap 4, de queue.
-- 2026-08-27: queue doorlopen (watchdog, shutdown-queueing, ensure_soon begrepen). process_batch gesplitst in benoemde stappen, has_pending_work ontdubbeld, commit c58e2fc (push door Loc). Volgende sessie: fix b (status=active + cancel-opruiming), dan fix a (row-claiming), dan CLI neutraliseren.
+- 2026-08-27: queue doorlopen (watchdog, shutdown-queueing, ensure_soon begrepen). process_batch gesplitst in benoemde stappen, has_pending_work ontdubbeld, commit c58e2fc (push door Loc). Volgende sessie: eerst Invariants-blok bovenin DATA.md (de 5 nooit-breken-regels), dan fix b (status=active + cancel-opruiming), fix a (row-claiming), CLI neutraliseren.
