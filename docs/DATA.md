@@ -83,3 +83,6 @@ Written by PHP during/after sending (campaigns module reads these for the list):
 Workflow campaigns (steps of an automation) are recognized by their id appearing
 in an automation's `steps` JSON, not by meta alone; their stats are read live
 from `snel_tracking` instead of the cached meta.
+
+The mail body IS `post_content`, rendered fresh for every send. Editing a
+campaign while its queue is still draining changes what late recipients get.

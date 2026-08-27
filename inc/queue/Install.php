@@ -1,9 +1,4 @@
 <?php
-/**
- * Queue database table creation.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Queue;
 
@@ -11,7 +6,7 @@ defined( 'ABSPATH' ) || exit;
 
 class Install {
 
-    public static function create_tables() {
+    public static function create_tables(): void {
         global $wpdb;
 
         $charset = $wpdb->get_charset_collate();

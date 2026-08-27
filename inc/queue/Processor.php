@@ -1,12 +1,4 @@
 <?php
-/**
- * Queue Processor.
- *
- * Handles queuing subscribers for a campaign and processing the send queue
- * in batches via WP Cron. Supports warm-up (gradual increase in batch size).
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Queue;
 
@@ -19,17 +11,13 @@ class Processor {
     const CRON_HOOK      = 'snel_newsletter_process_queue';
     const CRON_INTERVAL  = 60;   // Seconds between batches.
 
-    private static function table() {
+    private static function table(): string {
         global $wpdb;
         return $wpdb->prefix . 'snel_send_queue';
     }
 
-    /**
-     * Resolve the subscriber IDs a campaign targets. A custom filter audience
-     * (set in the editor) wins over tags; either way we only ever send to
-     * active subscribers.
-     */
-    public static function audience_ids( $campaign_id, $tags = array() ) {
+    // Only active subscribers ever come out of here; filters win over tags.
+    public static function audience_ids( int $campaign_id, array $tags = array() ): array {
         global $wpdb;
 
         $sub_table  = $wpdb->prefix . 'snel_subscribers';
@@ -37,9 +25,8 @@ class Processor {
 
         $filters = get_post_meta( $campaign_id, '_snel_nl_audience_filters', true );
 
-        // Safety net: the editor stores the chosen audience mode separately.
-        // If this campaign targets tags but none made it into meta, abort —
-        // never fall through to the everyone-branch below.
+        // Safety net: if the campaign targets tags but none made it into meta,
+        // abort — never fall through to the everyone-branch below.
         $audience = get_post_meta( $campaign_id, '_snel_nl_audience', true );
         if ( $audience === 'tags' && empty( $tags ) && ( ! is_array( $filters ) || empty( $filters ) ) ) {
             \Snel\Newsletter\Logger\Logger::error( 'queue', 'Campaign audience is "tags" but no tags saved — queue aborted', array(
@@ -49,8 +36,8 @@ class Processor {
         }
 
         if ( is_array( $filters ) && ! empty( $filters ) ) {
-            // Force the audience to active subscribers regardless of what was
-            // filtered on — a broadcast must never hit unsubscribed/bounced.
+            // Force active regardless of the chosen filters — a broadcast must
+            // never hit unsubscribed/bounced.
             $filters[] = array( 'field' => 'status', 'operator' => 'is', 'value' => 'active' );
             return \Snel\Newsletter\Subscribers\Model::ids_for_filters( $filters );
         }
@@ -68,10 +55,7 @@ class Processor {
         return $wpdb->get_col( "SELECT id FROM $sub_table WHERE status = 'active'" );
     }
 
-    /**
-     * Queue all active subscribers (or tag-filtered) for a campaign.
-     */
-    public static function queue_campaign( $campaign_id, $tags = array() ) {
+    public static function queue_campaign( int $campaign_id, array $tags = array() ): int {
         global $wpdb;
 
         $queue = self::table();
@@ -81,7 +65,6 @@ class Processor {
             return 0;
         }
 
-        // Insert into queue (ignore duplicates).
         $values = array();
         $place  = array();
         foreach ( $ids as $id ) {
@@ -98,29 +81,21 @@ class Processor {
 
         $total = count( $ids );
 
-        // Apply subscriber cooldowns if warmup is enabled.
         if ( \Snel\Newsletter\Warmup\Settings::is_enabled() ) {
             \Snel\Newsletter\Warmup\Guard::apply_cooldowns( $campaign_id );
         }
 
-        // Update campaign meta.
         update_post_meta( $campaign_id, '_snel_nl_send_status', 'sending' );
         update_post_meta( $campaign_id, '_snel_nl_total_recipients', $total );
         update_post_meta( $campaign_id, '_snel_nl_sent_count', 0 );
 
-        // Kick the drainer to run soon.
         self::ensure_soon();
 
         return $total;
     }
 
-    /**
-     * Resume a cancelled campaign: flip its cancelled queue rows back to
-     * pending — but only for subscribers still in the campaign's audience —
-     * and restart the drainer. Already-sent rows stay sent, so nobody
-     * receives the campaign twice.
-     */
-    public static function resume_campaign( $campaign_id ) {
+    // Only subscribers still in the audience resume; sent rows stay sent, so no doubles.
+    public static function resume_campaign( int $campaign_id ): int {
         global $wpdb;
 
         $queue = self::table();
@@ -138,8 +113,8 @@ class Processor {
             $campaign_id
         ) );
 
-        // Rebuild progress totals from the queue itself — the campaign may
-        // have been partially sent before it was cancelled.
+        // Rebuild progress totals from the queue itself — the campaign may have
+        // been partially sent before it was cancelled.
         $total = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(*) FROM $queue WHERE campaign_id = %d AND status IN ('sent', 'pending', 'retrying', 'delayed')",
             $campaign_id
@@ -164,16 +139,9 @@ class Processor {
         return $resumed;
     }
 
-    /**
-     * Ensure the queue drainer runs within seconds.
-     *
-     * Just checking wp_next_scheduled() isn't enough: a prior batch may have
-     * *parked* the drainer far in the future (e.g. one lane hit its daily cap
-     * and paused until midnight). New work on a lane that still has budget must
-     * not wait for that — so if the next run is more than a minute out, pull it
-     * forward.
-     */
-    public static function ensure_soon() {
+    // Make the drainer run within seconds. A prior batch may have parked it far
+    // out (capped lane paused until midnight); new work must not wait for that.
+    public static function ensure_soon(): void {
         $existing = wp_next_scheduled( self::CRON_HOOK );
 
         if ( $existing && $existing > time() + 60 ) {
@@ -186,20 +154,14 @@ class Processor {
         }
     }
 
-    /**
-     * Process a batch of queued emails.
-     * Called by WP Cron.
-     */
-    public static function process_batch() {
+    public static function process_batch(): void {
         global $wpdb;
 
-        $queue    = self::table();
         $adapter  = \Snel\Newsletter\Adapters\Manager::get_active();
         $settings = get_option( 'snel_newsletter_settings', array() );
 
         $from_email = $settings['from_email'] ?? '';
         $from_name  = $settings['from_name'] ?? '';
-        $reply_to   = $settings['reply_to'] ?? '';
 
         if ( ! $from_email || ! $adapter->is_configured() ) {
             \Snel\Newsletter\Logger\Logger::error( 'queue', 'Batch aborted — missing from_email or adapter not configured', array(
@@ -210,21 +172,55 @@ class Processor {
             return;
         }
 
-        // Per-lane warmup budgets (int remaining, or null = unlimited). A lane
-        // whose cap is already spent is excluded from this batch's fetch so the
-        // other lane can still drain — no starvation between lanes.
         $workflow_ids = \Snel\Newsletter\Campaigns\Model::workflow_ids();
-        $lane_budget  = array();
+        $lane_budget  = self::lane_budgets();
+        $rows         = self::fetch_batch( self::capped_lane_sql( $workflow_ids, $lane_budget ) );
+
+        if ( empty( $rows ) ) {
+            self::handle_empty_batch();
+            return;
+        }
+
+        \Snel\Newsletter\Logger\Logger::info( 'queue', 'Batch started', array( 'count' => count( $rows ) ) );
+
+        foreach ( $rows as $row ) {
+            self::send_row( $row, $adapter, $from_email, $from_name, $workflow_ids, $lane_budget );
+        }
+
+        \Snel\Newsletter\Logger\Logger::info( 'queue', 'Batch finished', array( 'count' => count( $rows ) ) );
+
+        self::refresh_campaign_stats( $rows );
+
+        wp_schedule_single_event( time() + self::CRON_INTERVAL, self::CRON_HOOK );
+    }
+
+    // Per-lane warmup budget: int remaining, null = unlimited.
+    // Single source for "is there queue work"; watchdog and self-heal both use it.
+    public static function has_pending_work(): bool {
+        global $wpdb;
+        $queue = self::table();
+        return (bool) $wpdb->get_var(
+            "SELECT COUNT(*) FROM $queue
+             WHERE status IN ('pending', 'retrying')
+                OR (status = 'delayed' AND delayed_until <= NOW())"
+        );
+    }
+
+    private static function lane_budgets(): array {
+        $budget = array();
         foreach ( \Snel\Newsletter\Warmup\Settings::lanes() as $lane ) {
-            $lane_budget[ $lane ] = \Snel\Newsletter\Warmup\Settings::is_enabled( $lane )
+            $budget[ $lane ] = \Snel\Newsletter\Warmup\Settings::is_enabled( $lane )
                 ? \Snel\Newsletter\Warmup\Guard::daily_remaining( $lane )
                 : null;
         }
+        return $budget;
+    }
 
+    // A spent lane is excluded from the fetch so the other lane still drains — no starvation.
+    private static function capped_lane_sql( array $workflow_ids, array $lane_budget ): string {
         $auto_capped      = ( $lane_budget[ \Snel\Newsletter\Warmup\Settings::LANE_AUTOMATION ] ?? null ) === 0;
         $broadcast_capped = ( $lane_budget[ \Snel\Newsletter\Warmup\Settings::LANE_BROADCAST ] ?? null ) === 0;
 
-        // Exclude fully-capped lanes at the SQL level. workflow_ids are ints.
         $exclude_sql = '';
         if ( $workflow_ids ) {
             $ids_csv = implode( ',', $workflow_ids );
@@ -239,8 +235,14 @@ class Processor {
             $exclude_sql .= ' AND 1=0';
         }
 
-        // Get a batch of pending emails. Also picks up delayed rows whose wait has expired.
-        $rows = $wpdb->get_results( $wpdb->prepare(
+        return $exclude_sql;
+    }
+
+    private static function fetch_batch( string $exclude_sql ): array {
+        global $wpdb;
+        $queue = self::table();
+
+        return $wpdb->get_results( $wpdb->prepare(
             "SELECT q.*, s.email, s.name, s.unsubscribe_token
              FROM $queue q
              INNER JOIN {$wpdb->prefix}snel_subscribers s ON s.id = q.subscriber_id
@@ -252,173 +254,158 @@ class Processor {
             current_time( 'mysql' ),
             self::BATCH_SIZE
         ) );
+    }
 
-        if ( empty( $rows ) ) {
-            // Nothing fetchable *right now* — but that doesn't mean we're done.
-            // Rows may be waiting because their lane hit its warmup cap, or
-            // sitting in 'delayed' with a future delayed_until. Finalizing here
-            // would abandon them AND end the cron chain, orphaning the campaign.
+    // Nothing fetchable now != done: rows may be cap-blocked or future-delayed.
+    // Finalizing too early would abandon them and end the cron chain.
+    private static function handle_empty_batch(): void {
+        global $wpdb;
+        $queue = self::table();
 
-            // 1. Cap-blocked: pending/retrying rows exist but every lane is
-            //    spent for today → try again after midnight.
-            $pending = (int) $wpdb->get_var(
-                "SELECT COUNT(*) FROM $queue WHERE status IN ('pending', 'retrying')"
-            );
-            if ( $pending > 0 ) {
-                \Snel\Newsletter\Logger\Logger::info( 'warmup', 'All lanes at their daily cap — pausing until tomorrow', array(
-                    'pending' => $pending,
-                ) );
-                wp_schedule_single_event( strtotime( 'tomorrow midnight' ) + 60, self::CRON_HOOK );
-                return;
-            }
-
-            // 2. Only future-delayed rows left → reschedule for the next due one.
-            $next_due = $wpdb->get_var(
-                "SELECT MIN(delayed_until) FROM $queue
-                 WHERE status = 'delayed' AND delayed_until IS NOT NULL"
-            );
-            if ( $next_due ) {
-                $delay = max( 30, strtotime( $next_due ) - time() );
-                wp_schedule_single_event( time() + $delay, self::CRON_HOOK );
-                return;
-            }
-
-            // 3. Queue truly drained — mark campaigns as sent.
-            self::finalize_campaigns();
+        $pending = (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM $queue WHERE status IN ('pending', 'retrying')"
+        );
+        if ( $pending > 0 ) {
+            \Snel\Newsletter\Logger\Logger::info( 'warmup', 'All lanes at their daily cap — pausing until tomorrow', array(
+                'pending' => $pending,
+            ) );
+            wp_schedule_single_event( strtotime( 'tomorrow midnight' ) + 60, self::CRON_HOOK );
             return;
         }
 
-        \Snel\Newsletter\Logger\Logger::info( 'queue', 'Batch started', array( 'count' => count( $rows ) ) );
-
-        foreach ( $rows as $row ) {
-            $post = get_post( $row->campaign_id );
-            if ( ! $post ) {
-                $wpdb->update( $queue, array( 'status' => 'failed', 'error_message' => 'Campaign not found' ), array( 'id' => $row->id ) );
-                continue;
-            }
-
-            // A cancelled campaign must never send, even if some of its rows
-            // are still pending (cancel racing an in-flight batch, or rows
-            // reset by hand).
-            if ( get_post_meta( $row->campaign_id, '_snel_nl_send_status', true ) === 'cancelled' ) {
-                $wpdb->update( $queue, array( 'status' => 'cancelled' ), array( 'id' => $row->id ) );
-                continue;
-            }
-
-            // Resolve which lane this send belongs to, its from-identity, and
-            // its warmup budget. Automation emails send from their own domain so
-            // a bad flow never burns the broadcast reputation.
-            $lane = in_array( (int) $row->campaign_id, $workflow_ids, true )
-                ? \Snel\Newsletter\Warmup\Settings::LANE_AUTOMATION
-                : \Snel\Newsletter\Warmup\Settings::LANE_BROADCAST;
-
-            if ( $lane_budget[ $lane ] !== null && $lane_budget[ $lane ] <= 0 ) {
-                // Lane cap reached mid-batch — leave this row pending for tomorrow.
-                continue;
-            }
-
-            $identity      = \Snel\Newsletter\Lanes\Lane::identity( $lane );
-            $row_from      = $identity['from_email'] ?: $from_email;
-            $row_from_name = $identity['from_name'] ?: $from_name;
-            $row_reply_to  = $identity['reply_to'];
-
-            // Build the email.
-            $content = apply_filters( 'the_content', $post->post_content );
-            $preview = get_post_meta( $row->campaign_id, '_snel_nl_preview_text', true ) ?: '';
-            $unsub   = rest_url( "snel-newsletter/v1/t/unsubscribe?token={$row->unsubscribe_token}" );
-
-            $html = \Snel\Newsletter\Sender\EmailTemplate::render( $content, $row_from_name, $unsub, $preview );
-
-            // Inject tracking pixel if adapter doesn't handle it.
-            if ( ! $adapter->handles_open_tracking() ) {
-                $pixel_url = rest_url( "snel-newsletter/v1/t/open?c={$row->campaign_id}&s={$row->subscriber_id}" );
-                $pixel     = '<img src="' . esc_url( $pixel_url ) . '" width="1" height="1" style="display:block;width:1px;height:1px;border:0;" alt="">';
-                $html      = str_replace( '</body>', $pixel . '</body>', $html );
-            }
-
-            // Rewrite links for click tracking if adapter doesn't handle it.
-            if ( ! $adapter->handles_click_tracking() ) {
-                $html = self::rewrite_links( $html, $row->campaign_id, $row->subscriber_id );
-            }
-
-            $text    = \Snel\Newsletter\Sender\EmailTemplate::to_plain_text( $html );
-            $subject = $post->post_title;
-
-            // Add List-Unsubscribe header.
-            $headers = array(
-                'List-Unsubscribe'      => '<' . $unsub . '>',
-                'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
-            );
-
-            // Send from this lane's identity.
-            $result = $adapter->send( $row_from, $row_from_name, $row->email, $subject, $html, $text, $row_reply_to, $headers );
-
-            if ( $result['success'] ) {
-                $wpdb->update( $queue, array(
-                    'status'     => 'sent',
-                    'message_id' => $result['message_id'] ?? '',
-                    'sent_at'    => current_time( 'mysql' ),
-                ), array( 'id' => $row->id ) );
-
-                // Increment sent count.
-                $wpdb->query( $wpdb->prepare(
-                    "UPDATE {$wpdb->postmeta} SET meta_value = meta_value + 1 WHERE post_id = %d AND meta_key = '_snel_nl_sent_count'",
-                    $row->campaign_id
-                ) );
-
-                // Track against this lane's warmup cap (both the persistent
-                // daily counter and the in-batch budget).
-                if ( \Snel\Newsletter\Warmup\Settings::is_enabled( $lane ) ) {
-                    \Snel\Newsletter\Warmup\Guard::increment_daily( $lane );
-                    if ( $lane_budget[ $lane ] !== null ) {
-                        $lane_budget[ $lane ]--;
-                    }
-                }
-            } else {
-                $retries = $row->retries + 1;
-                $status  = $retries >= self::MAX_RETRIES ? 'failed' : 'retrying';
-                $error   = $result['error'] ?? 'Unknown error';
-
-                $wpdb->update( $queue, array(
-                    'status'        => $status,
-                    'retries'       => $retries,
-                    'error_message' => $error,
-                ), array( 'id' => $row->id ) );
-
-                $level = $status === 'failed' ? 'error' : 'warning';
-                \Snel\Newsletter\Logger\Logger::$level( 'queue', 'Send ' . $status, array(
-                    'to'          => $row->email,
-                    'campaign_id' => $row->campaign_id,
-                    'retries'     => $retries,
-                    'error'       => $error,
-                ) );
-            }
+        $next_due = $wpdb->get_var(
+            "SELECT MIN(delayed_until) FROM $queue
+             WHERE status = 'delayed' AND delayed_until IS NOT NULL"
+        );
+        if ( $next_due ) {
+            $delay = max( 30, strtotime( $next_due ) - time() );
+            wp_schedule_single_event( time() + $delay, self::CRON_HOOK );
+            return;
         }
 
-        \Snel\Newsletter\Logger\Logger::info( 'queue', 'Batch finished', array( 'count' => count( $rows ) ) );
+        self::finalize_campaigns();
+    }
 
-        // Refresh open/click stats for all campaigns touched in this batch.
-        $campaign_ids = array_unique( array_column( (array) $rows, 'campaign_id' ) );
+    private static function send_row( object $row, $adapter, string $from_email, string $from_name, array $workflow_ids, array &$lane_budget ): void {
+        global $wpdb;
+        $queue = self::table();
+
+        $post = get_post( $row->campaign_id );
+        if ( ! $post ) {
+            $wpdb->update( $queue, array( 'status' => 'failed', 'error_message' => 'Campaign not found' ), array( 'id' => $row->id ) );
+            return;
+        }
+
+        // A cancelled campaign must never send, even with rows still pending
+        // (cancel racing an in-flight batch, or rows reset by hand).
+        if ( get_post_meta( $row->campaign_id, '_snel_nl_send_status', true ) === 'cancelled' ) {
+            $wpdb->update( $queue, array( 'status' => 'cancelled' ), array( 'id' => $row->id ) );
+            return;
+        }
+
+        // Automation sends from its own domain so a bad flow never burns the broadcast reputation.
+        $lane = in_array( (int) $row->campaign_id, $workflow_ids, true )
+            ? \Snel\Newsletter\Warmup\Settings::LANE_AUTOMATION
+            : \Snel\Newsletter\Warmup\Settings::LANE_BROADCAST;
+
+        if ( $lane_budget[ $lane ] !== null && $lane_budget[ $lane ] <= 0 ) {
+            // Lane cap reached mid-batch — leave this row pending for tomorrow.
+            return;
+        }
+
+        $identity      = \Snel\Newsletter\Lanes\Lane::identity( $lane );
+        $row_from      = $identity['from_email'] ?: $from_email;
+        $row_from_name = $identity['from_name'] ?: $from_name;
+        $row_reply_to  = $identity['reply_to'];
+
+        $content = apply_filters( 'the_content', $post->post_content );
+        $preview = get_post_meta( $row->campaign_id, '_snel_nl_preview_text', true ) ?: '';
+        $unsub   = rest_url( "snel-newsletter/v1/t/unsubscribe?token={$row->unsubscribe_token}" );
+
+        $html = \Snel\Newsletter\Sender\EmailTemplate::render( $content, $row_from_name, $unsub, $preview );
+
+        if ( ! $adapter->handles_open_tracking() ) {
+            $pixel_url = rest_url( "snel-newsletter/v1/t/open?c={$row->campaign_id}&s={$row->subscriber_id}" );
+            $pixel     = '<img src="' . esc_url( $pixel_url ) . '" width="1" height="1" style="display:block;width:1px;height:1px;border:0;" alt="">';
+            $html      = str_replace( '</body>', $pixel . '</body>', $html );
+        }
+
+        if ( ! $adapter->handles_click_tracking() ) {
+            $html = self::rewrite_links( $html, $row->campaign_id, $row->subscriber_id );
+        }
+
+        $text    = \Snel\Newsletter\Sender\EmailTemplate::to_plain_text( $html );
+        $subject = $post->post_title;
+
+        $headers = array(
+            'List-Unsubscribe'      => '<' . $unsub . '>',
+            'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
+        );
+
+        $result = $adapter->send( $row_from, $row_from_name, $row->email, $subject, $html, $text, $row_reply_to, $headers );
+
+        self::record_result( $row, $result, $lane, $lane_budget );
+    }
+
+    private static function record_result( object $row, array $result, string $lane, array &$lane_budget ): void {
+        global $wpdb;
+        $queue = self::table();
+
+        if ( $result['success'] ) {
+            $wpdb->update( $queue, array(
+                'status'     => 'sent',
+                'message_id' => $result['message_id'] ?? '',
+                'sent_at'    => current_time( 'mysql' ),
+            ), array( 'id' => $row->id ) );
+
+            $wpdb->query( $wpdb->prepare(
+                "UPDATE {$wpdb->postmeta} SET meta_value = meta_value + 1 WHERE post_id = %d AND meta_key = '_snel_nl_sent_count'",
+                $row->campaign_id
+            ) );
+
+            if ( \Snel\Newsletter\Warmup\Settings::is_enabled( $lane ) ) {
+                \Snel\Newsletter\Warmup\Guard::increment_daily( $lane );
+                if ( $lane_budget[ $lane ] !== null ) {
+                    $lane_budget[ $lane ]--;
+                }
+            }
+            return;
+        }
+
+        $retries = $row->retries + 1;
+        $status  = $retries >= self::MAX_RETRIES ? 'failed' : 'retrying';
+        $error   = $result['error'] ?? 'Unknown error';
+
+        $wpdb->update( $queue, array(
+            'status'        => $status,
+            'retries'       => $retries,
+            'error_message' => $error,
+        ), array( 'id' => $row->id ) );
+
+        $level = $status === 'failed' ? 'error' : 'warning';
+        \Snel\Newsletter\Logger\Logger::$level( 'queue', 'Send ' . $status, array(
+            'to'          => $row->email,
+            'campaign_id' => $row->campaign_id,
+            'retries'     => $retries,
+            'error'       => $error,
+        ) );
+    }
+
+    private static function refresh_campaign_stats( array $rows ): void {
+        $campaign_ids = array_unique( array_column( $rows, 'campaign_id' ) );
         foreach ( $campaign_ids as $cid ) {
             $stats = \Snel\Newsletter\Tracking\Model::campaign_stats( $cid );
             update_post_meta( $cid, '_snel_nl_opened', $stats['opens'] );
             update_post_meta( $cid, '_snel_nl_clicked', $stats['unique_clicks'] );
         }
-
-        // Schedule next batch.
-        wp_schedule_single_event( time() + self::CRON_INTERVAL, self::CRON_HOOK );
     }
 
-    /**
-     * Rewrite links in HTML for click tracking.
-     */
-    private static function rewrite_links( $html, $campaign_id, $subscriber_id ) {
+    private static function rewrite_links( string $html, $campaign_id, $subscriber_id ): string {
         return preg_replace_callback(
             '/<a\s+([^>]*?)href="([^"]*?)"([^>]*?)>/i',
             function ( $matches ) use ( $campaign_id, $subscriber_id ) {
                 $url = $matches[2];
 
-                // Don't track unsubscribe links or anchors.
                 if ( strpos( $url, 'unsubscribe' ) !== false || strpos( $url, '#' ) === 0 ) {
                     return $matches[0];
                 }
@@ -432,21 +419,17 @@ class Processor {
         );
     }
 
-    /**
-     * Check for campaigns with no more pending emails and mark as sent.
-     */
-    private static function finalize_campaigns() {
+    // Mark campaigns with no unsent rows as sent. Unfired 'delayed' rows still
+    // count as active work.
+    private static function finalize_campaigns(): void {
         global $wpdb;
 
         $queue = self::table();
 
-        // Find campaigns that still have active (unsent) queue rows.
-        // 'delayed' rows that haven't fired yet count as active.
         $campaign_ids = $wpdb->get_col(
             "SELECT DISTINCT campaign_id FROM $queue WHERE status IN ('pending', 'retrying', 'delayed')"
         );
 
-        // Get all campaigns currently marked as sending.
         $sending = get_posts( array(
             'post_type'   => 'snel_newsletter',
             'post_status' => 'publish',
@@ -459,11 +442,7 @@ class Processor {
         foreach ( $sending as $cid ) {
             if ( ! in_array( $cid, $campaign_ids ) ) {
                 update_post_meta( $cid, '_snel_nl_send_status', 'sent' );
-
-                // Update final stats from tracking table.
-                $stats = \Snel\Newsletter\Tracking\Model::campaign_stats( $cid );
-                update_post_meta( $cid, '_snel_nl_opened', $stats['opens'] );
-                update_post_meta( $cid, '_snel_nl_clicked', $stats['unique_clicks'] );
+                self::refresh_campaign_stats( array( (object) array( 'campaign_id' => $cid ) ) );
             }
         }
     }
