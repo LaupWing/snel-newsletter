@@ -26,7 +26,7 @@ Volgorde is de route van een e-mail: binnenkomen, opslaan, versturen, terugmeten
 - [x] **1. Subscribers** `inc/subscribers/`: tabellen `snel_subscribers`, `snel_subscriber_tags`, `snel_tag_rules`; statussen; import; dynamic tags
 - [x] **2. Bronnen** `inc/cpt-sources/`: hoe stromen subscribers binnen vanuit andere post types; auto-sync
 - [x] **3. Campaigns** `inc/campaigns/` + CPT-meta `_snel_nl_*`: wat is een campaign, welke meta, audience-keuze
-- [ ] **4. Queue** `inc/queue/`: tabel `snel_send_queue`, statussen, publish → queue → batch, cron + watchdog
+- [~] **4. Queue** (doorlopen ✅, process_batch gesplitst ✅; fixes b en a nog) `inc/queue/`: tabel `snel_send_queue`, statussen, publish → queue → batch, cron + watchdog
 - [ ] **5. Warmup + lanes** `inc/warmup/`, `inc/lanes/`: daily cap, cooldown, broadcast vs automation lane
 - [ ] **6. Verzenden** `inc/sender/`, `inc/adapters/`, `inc/ses/`: template, adapter-keuze, SES-call, headers
 - [ ] **7. Tracking** `inc/tracking/`: tabel `snel_tracking`, pixel, click, unsubscribe, bounce-webhook
@@ -85,3 +85,4 @@ Niet doen (bewust)
 - 2026-08-26: autoloader + Plugin::boot. Bootstrap is 3 regels; alle require_once uit de index-bestanden. Getest op de lokale site.
 - 2026-08-26: cpt-sources doorlopen en opgeschoond (258 regels comments weg, types). SOT:IMPORT, docs bijgewerkt. Dubbele-mail-melding onderzocht: vals alarm (broadcast + automation op dezelfde dag). Frequency-guard op oranje gezet.
 - 2026-08-26: campaigns doorlopen en opgeschoond. Cancel simpel in Model, resume-logica woont bij de queue. Morgen: stap 4, de queue.
+- 2026-08-27: queue doorlopen (watchdog, shutdown-queueing, ensure_soon begrepen). process_batch gesplitst in benoemde stappen, has_pending_work ontdubbeld, commit c58e2fc (push door Loc). Volgende sessie: fix b (status=active + cancel-opruiming), dan fix a (row-claiming), dan CLI neutraliseren.
