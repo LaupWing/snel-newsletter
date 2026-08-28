@@ -172,6 +172,8 @@ class Processor {
             return;
         }
 
+        self::cancel_inactive_rows();
+
         $workflow_ids = \Snel\Newsletter\Campaigns\Model::workflow_ids();
         $lane_budget  = self::lane_budgets();
         $rows         = self::fetch_batch( self::capped_lane_sql( $workflow_ids, $lane_budget ) );
@@ -238,6 +240,21 @@ class Processor {
         return $exclude_sql;
     }
 
+    // Unsubscribed/bounced after queueing must never receive the campaign (invariant 2).
+    // Cancelling here also stops their rows from keeping a campaign on 'sending' forever.
+    private static function cancel_inactive_rows(): void {
+        global $wpdb;
+        $queue = self::table();
+
+        $wpdb->query(
+            "UPDATE $queue q
+             INNER JOIN {$wpdb->prefix}snel_subscribers s ON s.id = q.subscriber_id
+             SET q.status = 'cancelled', q.error_message = 'Subscriber no longer active'
+             WHERE q.status IN ('pending', 'retrying', 'delayed')
+               AND s.status != 'active'"
+        );
+    }
+
     private static function fetch_batch( string $exclude_sql ): array {
         global $wpdb;
         $queue = self::table();
@@ -246,7 +263,8 @@ class Processor {
             "SELECT q.*, s.email, s.name, s.unsubscribe_token
              FROM $queue q
              INNER JOIN {$wpdb->prefix}snel_subscribers s ON s.id = q.subscriber_id
-             WHERE ( q.status IN ('pending', 'retrying')
+             WHERE s.status = 'active'
+               AND ( q.status IN ('pending', 'retrying')
                 OR (q.status = 'delayed' AND q.delayed_until <= %s) )
                 $exclude_sql
              ORDER BY q.id ASC
