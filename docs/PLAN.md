@@ -46,9 +46,9 @@ Eindproduct van doel 1
 ## Doel 2: fixen (pas na doel 1)
 
 Rood, voor de volgende campaign
-- [ ] CLI `test-send` neutraliseren
-- [ ] Queue-rows claimen (geen dubbel-verzend)
-- [ ] Batch filtert op `status = active`; unsubscribe/bounce cancelt queue-rows
+- [x] CLI `test-send` geneutraliseerd: weigert op productie, queuet alleen nep-subscribers
+- [x] Queue-rows claimen (geen dubbel-verzend)
+- [x] Batch filtert op `status = active`; sweep cancelt rows van inactieve subscribers
 - [ ] SNS-webhook: signature vóór SubscribeURL
 - [ ] Preview-tekst opslaan
 

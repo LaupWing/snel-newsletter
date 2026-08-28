@@ -40,6 +40,11 @@ class Snel_Newsletter_CLI {
      * @when after_wp_load
      */
     public function test_send( $args, $assoc_args ) {
+        // This command inserts fake subscribers and runs the real pipeline; never on production.
+        if ( function_exists( 'wp_get_environment_type' ) && wp_get_environment_type() === 'production' ) {
+            WP_CLI::error( 'test-send refuses to run on a production environment.' );
+        }
+
         global $wpdb;
 
         $fail  = isset( $assoc_args['fail'] );
@@ -109,7 +114,15 @@ class Snel_Newsletter_CLI {
         WP_CLI::log( '' );
         WP_CLI::log( 'Queuing campaign for all test subscribers...' );
 
-        $total = \Snel\Newsletter\Queue\Processor::queue_campaign( $campaign_id );
+        // Insert rows for the fake subscribers directly; queue_campaign() would
+        // resolve the real audience and mass-mail the whole list.
+        foreach ( $sub_ids as $sid ) {
+            $wpdb->insert( $wpdb->prefix . 'snel_send_queue', array(
+                'campaign_id'   => $campaign_id,
+                'subscriber_id' => $sid,
+            ), array( '%d', '%d' ) );
+        }
+        $total = count( $sub_ids );
         WP_CLI::log( "  Queued: $total emails" );
 
         // Verify queue state.
