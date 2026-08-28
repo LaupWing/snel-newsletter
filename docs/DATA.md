@@ -6,6 +6,23 @@ the code cannot show.
 
 Rule: change a table, meta key or flow, update this file in the same change.
 
+## Invariants (never break these)
+
+Enforced in the database where possible; the line notes where each one lives.
+
+1. A subscriber receives a campaign at most once.
+   UNIQUE (campaign_id, subscriber_id) on `snel_send_queue` + INSERT IGNORE.
+2. Only `active` subscribers are ever mailed.
+   Audience queries filter on status; the batch fetch must too (fix b).
+3. A cancelled campaign never sends, even with rows still pending.
+   Checked per row in `Processor::send_row()`.
+4. A subscriber enters an automation at most once.
+   UNIQUE (automation_id, subscriber_id) on `snel_automation_runs` + INSERT IGNORE.
+5. A campaign in tags-mode with no saved tags queues NOBODY, never everyone.
+   Guard in `Processor::audience_ids()` (the July race).
+6. One queue row is sent by exactly one process.
+   Row claiming in the batch fetch (fix a).
+
 ## Core flows
 
 _Filled in as we walk through each folder._
