@@ -22,10 +22,13 @@ class Install {
             error_message varchar(500) DEFAULT '',
             created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
             sent_at datetime DEFAULT NULL,
+            delayed_until datetime DEFAULT NULL,
+            claimed_at datetime DEFAULT NULL,
             PRIMARY KEY (id),
             UNIQUE KEY campaign_subscriber (campaign_id, subscriber_id),
             KEY status (status),
-            KEY campaign_status (campaign_id, status)
+            KEY campaign_status (campaign_id, status),
+            KEY delayed_status (status, delayed_until)
         ) $charset;";
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';

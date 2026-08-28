@@ -173,10 +173,11 @@ class Processor {
         }
 
         self::cancel_inactive_rows();
+        self::release_stale_claims();
 
         $workflow_ids = \Snel\Newsletter\Campaigns\Model::workflow_ids();
         $lane_budget  = self::lane_budgets();
-        $rows         = self::fetch_batch( self::capped_lane_sql( $workflow_ids, $lane_budget ) );
+        $rows         = self::claim_batch( self::capped_lane_sql( $workflow_ids, $lane_budget ) );
 
         if ( empty( $rows ) ) {
             self::handle_empty_batch();
@@ -255,23 +256,45 @@ class Processor {
         );
     }
 
-    private static function fetch_batch( string $exclude_sql ): array {
+    // Claim before send (invariant 6): the UPDATE flips rows to 'processing' atomically,
+    // so two overlapping batches can never pick up the same row.
+    private static function claim_batch( string $exclude_sql ): array {
         global $wpdb;
         $queue = self::table();
+        $token = uniqid( 'claim-', true );
+
+        $wpdb->query( $wpdb->prepare(
+            "UPDATE $queue q
+             SET q.status = 'processing', q.message_id = %s, q.claimed_at = NOW()
+             WHERE ( q.status IN ('pending', 'retrying')
+                OR (q.status = 'delayed' AND q.delayed_until <= %s) )
+                $exclude_sql
+             ORDER BY q.id ASC
+             LIMIT %d",
+            $token,
+            current_time( 'mysql' ),
+            self::BATCH_SIZE
+        ) );
 
         return $wpdb->get_results( $wpdb->prepare(
             "SELECT q.*, s.email, s.name, s.unsubscribe_token
              FROM $queue q
              INNER JOIN {$wpdb->prefix}snel_subscribers s ON s.id = q.subscriber_id
-             WHERE s.status = 'active'
-               AND ( q.status IN ('pending', 'retrying')
-                OR (q.status = 'delayed' AND q.delayed_until <= %s) )
-                $exclude_sql
-             ORDER BY q.id ASC
-             LIMIT %d",
-            current_time( 'mysql' ),
-            self::BATCH_SIZE
+             WHERE q.status = 'processing' AND q.message_id = %s AND s.status = 'active'",
+            $token
         ) );
+    }
+
+    // A batch that dies mid-run leaves rows stuck on 'processing'; give them back after 15 min.
+    private static function release_stale_claims(): void {
+        global $wpdb;
+        $queue = self::table();
+
+        $wpdb->query(
+            "UPDATE $queue
+             SET status = 'retrying', message_id = '', claimed_at = NULL
+             WHERE status = 'processing' AND claimed_at < NOW() - INTERVAL 15 MINUTE"
+        );
     }
 
     // Nothing fetchable now != done: rows may be cap-blocked or future-delayed.
@@ -279,6 +302,13 @@ class Processor {
     private static function handle_empty_batch(): void {
         global $wpdb;
         $queue = self::table();
+
+        // Another batch is mid-flight; let it finish, just keep the chain alive.
+        $processing = (int) $wpdb->get_var( "SELECT COUNT(*) FROM $queue WHERE status = 'processing'" );
+        if ( $processing > 0 ) {
+            wp_schedule_single_event( time() + self::CRON_INTERVAL, self::CRON_HOOK );
+            return;
+        }
 
         $pending = (int) $wpdb->get_var(
             "SELECT COUNT(*) FROM $queue WHERE status IN ('pending', 'retrying')"
@@ -327,7 +357,8 @@ class Processor {
             : \Snel\Newsletter\Warmup\Settings::LANE_BROADCAST;
 
         if ( $lane_budget[ $lane ] !== null && $lane_budget[ $lane ] <= 0 ) {
-            // Lane cap reached mid-batch — leave this row pending for tomorrow.
+            // Lane cap reached mid-batch — release the claim so the row sends tomorrow.
+            $wpdb->update( $queue, array( 'status' => 'pending', 'message_id' => '', 'claimed_at' => null ), array( 'id' => $row->id ) );
             return;
         }
 
@@ -397,6 +428,7 @@ class Processor {
         $wpdb->update( $queue, array(
             'status'        => $status,
             'retries'       => $retries,
+            'message_id'    => '',
             'error_message' => $error,
         ), array( 'id' => $row->id ) );
 
@@ -445,7 +477,7 @@ class Processor {
         $queue = self::table();
 
         $campaign_ids = $wpdb->get_col(
-            "SELECT DISTINCT campaign_id FROM $queue WHERE status IN ('pending', 'retrying', 'delayed')"
+            "SELECT DISTINCT campaign_id FROM $queue WHERE status IN ('pending', 'retrying', 'delayed', 'processing')"
         );
 
         $sending = get_posts( array(

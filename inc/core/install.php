@@ -12,7 +12,6 @@ function snel_newsletter_install() {
     Snel\Newsletter\Queue\Install::create_tables();
     Snel\Newsletter\Logger\Install::create_tables();
     Snel\Newsletter\Automations\Install::create_tables();
-    Snel\Newsletter\Warmup\Install::maybe_add_columns();
 }
 
 register_activation_hook( SNEL_NEWSLETTER_PLUGIN_DIR . 'snel-newsletter.php', 'snel_newsletter_install' );
