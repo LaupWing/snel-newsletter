@@ -20,6 +20,17 @@ defined( 'ABSPATH' ) || exit;
 
 class Model {
 
+    // Runs still in flight for an active automation; used by the cron self-heal.
+    public static function has_active_runs(): bool {
+        global $wpdb;
+        return (bool) $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}snel_automation_runs r
+             INNER JOIN {$wpdb->prefix}snel_automations a ON a.id = r.automation_id AND a.status = 'active'
+             WHERE r.status IN ('active', 'waiting')"
+        );
+    }
+
+
     public static function table() {
         global $wpdb;
         return $wpdb->prefix . 'snel_automations';

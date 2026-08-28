@@ -198,6 +198,23 @@ class Processor {
     }
 
     // Per-lane warmup budget: int remaining, null = unlimited.
+    // Watchdog body: re-arm the drainer if its chain died, or pull a far-parked
+    // event forward while sendable rows wait. Registered in core/cron.php.
+    public static function watchdog(): void {
+        $next = wp_next_scheduled( self::CRON_HOOK );
+
+        if ( $next && $next <= time() + 120 ) {
+            return;
+        }
+
+        if ( self::has_pending_work() ) {
+            self::ensure_soon();
+            \Snel\Newsletter\Logger\Logger::info( 'queue', 'Watchdog armed the drainer', array(
+                'was_next' => $next ? gmdate( 'c', $next ) : null,
+            ) );
+        }
+    }
+
     // Single source for "is there queue work"; watchdog and self-heal both use it.
     public static function has_pending_work(): bool {
         global $wpdb;

@@ -22,6 +22,10 @@ files that always run, and one `index.php` per domain that wires its hooks.
 **Updater.** `inc/core/updater.php`: update checks go through GitHub releases,
 not wordpress.org. Needs `vendor/` from `composer install`.
 
+**Cron.** `inc/core/cron.php`: the map of every background task (queue drainer,
+watchdog, self-heals, automations tick, sources sync) and all their wiring.
+Domain logic stays in the domains; this file only points at it.
+
 **Install.** `inc/core/install.php` (`SOT:INSTALL`): one function calls every
 module's `Install::create_tables()`. Runs on activation and on every version
 bump (`snel_newsletter_db_version` option, checked on `admin_init`). dbDelta

@@ -86,3 +86,4 @@ Niet doen (bewust)
 - 2026-08-26: cpt-sources doorlopen en opgeschoond (258 regels comments weg, types). SOT:IMPORT, docs bijgewerkt. Dubbele-mail-melding onderzocht: vals alarm (broadcast + automation op dezelfde dag). Frequency-guard op oranje gezet.
 - 2026-08-26: campaigns doorlopen en opgeschoond. Cancel simpel in Model, resume-logica woont bij de queue. Morgen: stap 4, de queue.
 - 2026-08-27: queue doorlopen (watchdog, shutdown-queueing, ensure_soon begrepen). process_batch gesplitst in benoemde stappen, has_pending_work ontdubbeld, commit c58e2fc (push door Loc). Volgende sessie: eerst Invariants-blok bovenin DATA.md (de 5 nooit-breken-regels), dan fix b (status=active + cancel-opruiming), fix a (row-claiming), CLI neutraliseren.
+- 2026-08-28: invariants-blok in DATA.md. Fix b + fix a gebouwd en begrepen (claim = atomische UPDATE + token). Cron-bedrading gecentraliseerd met ADR. Versie 1.9.12. Nog: CLI neutraliseren.
