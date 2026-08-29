@@ -17,3 +17,4 @@ Plan and progress: `docs/PLAN.md`. Read it first.
 
 ## Git
 - Commit per finished block, push right after. Only when Loc says so.
+- Plain commit messages: no attribution footers, no session links.
