@@ -53,7 +53,7 @@ Rood, voor de volgende campaign
 - [ ] Preview-tekst opslaan
 
 Oranje, deze maand
-- [ ] Publish-timeout: cooldown set-based + index
+- [x] Publish-timeout: cooldown set-based + index (subscriber_status)
 - [ ] Stats live uit tracking; `admin.php` N+1 weg
 - [ ] Log-level + pruning
 - [ ] Unsubscribe via POST-confirm
@@ -88,3 +88,4 @@ Niet doen (bewust)
 - 2026-08-27: queue doorlopen (watchdog, shutdown-queueing, ensure_soon begrepen). process_batch gesplitst in benoemde stappen, has_pending_work ontdubbeld, commit c58e2fc (push door Loc). Volgende sessie: eerst Invariants-blok bovenin DATA.md (de 5 nooit-breken-regels), dan fix b (status=active + cancel-opruiming), fix a (row-claiming), CLI neutraliseren.
 - 2026-08-28: invariants-blok in DATA.md. Fix b + fix a gebouwd en begrepen (claim = atomische UPDATE + token). Cron-bedrading gecentraliseerd met ADR. Versie 1.9.12. Nog: CLI neutraliseren.
 - 2026-08-28 (later): warmup + lanes doorlopen en opgeschoond. SOT:CLAIM op claim_batch. Docs bijgewerkt. Volgende: timeout-fix (cooldown-loop -> 1 query), dan stap 6 verzenden.
+- 2026-08-28 (avond): timeout-fix af: cooldown in 1 query + index. Oranje punt 1 dicht.

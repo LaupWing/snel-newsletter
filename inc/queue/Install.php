@@ -28,7 +28,8 @@ class Install {
             UNIQUE KEY campaign_subscriber (campaign_id, subscriber_id),
             KEY status (status),
             KEY campaign_status (campaign_id, status),
-            KEY delayed_status (status, delayed_until)
+            KEY delayed_status (status, delayed_until),
+            KEY subscriber_status (subscriber_id, status, sent_at)
         ) $charset;";
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
