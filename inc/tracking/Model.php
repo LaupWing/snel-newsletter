@@ -1,9 +1,4 @@
 <?php
-/**
- * Tracking database queries.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Tracking;
 
@@ -11,25 +6,21 @@ defined( 'ABSPATH' ) || exit;
 
 class Model {
 
-    private static function table() {
+    private static function table(): string {
         global $wpdb;
         return $wpdb->prefix . 'snel_tracking';
     }
 
-    /**
-     * Sign a click-tracking URL so the redirect target can't be forged.
-     */
-    public static function sign( $campaign_id, $subscriber_id, $url ) {
+    // HMAC ties the redirect URL to campaign + subscriber so click targets
+    // can't be forged. Must match at send time and click time.
+    public static function sign( int $campaign_id, int $subscriber_id, string $url ): string {
         return hash_hmac( 'sha256', $campaign_id . '|' . $subscriber_id . '|' . $url, wp_salt( 'auth' ) );
     }
 
-    /**
-     * Log a tracking event.
-     */
-    public static function log( $campaign_id, $subscriber_id, $type, $url = '' ) {
+    public static function log( int $campaign_id, int $subscriber_id, string $type, string $url = '' ): void {
         global $wpdb;
 
-        // Prevent duplicate open events (one per subscriber per campaign).
+        // Invariant: at most one open row per subscriber per campaign.
         if ( $type === 'open' ) {
             $exists = $wpdb->get_var( $wpdb->prepare(
                 "SELECT id FROM " . self::table() . " WHERE campaign_id = %d AND subscriber_id = %d AND type = 'open' LIMIT 1",
@@ -46,10 +37,7 @@ class Model {
         ), array( '%d', '%d', '%s', '%s' ) );
     }
 
-    /**
-     * Get stats for a campaign.
-     */
-    public static function campaign_stats( $campaign_id ) {
+    public static function campaign_stats( int $campaign_id ): array {
         global $wpdb;
         $table = self::table();
 
@@ -60,10 +48,7 @@ class Model {
         );
     }
 
-    /**
-     * Get stats for a subscriber.
-     */
-    public static function subscriber_stats( $subscriber_id ) {
+    public static function subscriber_stats( int $subscriber_id ): array {
         global $wpdb;
         $table = self::table();
 

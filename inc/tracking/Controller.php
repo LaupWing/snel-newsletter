@@ -1,23 +1,14 @@
 <?php
-/**
- * Tracking controller — handles pixel, click redirect, unsubscribe, webhooks.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Tracking;
 
 defined( 'ABSPATH' ) || exit;
 
+// Handlers behind the public tracking routes: open pixel, click redirect,
+// unsubscribe, and adapter webhooks. Routes are registered in Rest.php.
 class Controller {
 
-    /**
-     * Open tracking pixel.
-     * URL: /wp-json/snel-newsletter/v1/t/open?c={campaign_id}&s={subscriber_id}
-     *
-     * Returns a 1x1 transparent GIF.
-     */
-    public function open( \WP_REST_Request $request ) {
+    public function open( \WP_REST_Request $request ): void {
         $campaign_id   = (int) $request->get_param( 'c' );
         $subscriber_id = (int) $request->get_param( 's' );
 
@@ -25,7 +16,7 @@ class Controller {
             Model::log( $campaign_id, $subscriber_id, 'open' );
         }
 
-        // Return 1x1 transparent GIF.
+        // 1x1 transparent GIF.
         $gif = base64_decode( 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' );
 
         header( 'Content-Type: image/gif' );
@@ -36,19 +27,13 @@ class Controller {
         exit;
     }
 
-    /**
-     * Click tracking redirect.
-     * URL: /wp-json/snel-newsletter/v1/t/click?c={campaign_id}&s={subscriber_id}&url={encoded_url}
-     *
-     * Logs the click and redirects to the actual URL.
-     */
-    public function click( \WP_REST_Request $request ) {
+    public function click( \WP_REST_Request $request ): void {
         $campaign_id   = (int) $request->get_param( 'c' );
         $subscriber_id = (int) $request->get_param( 's' );
         $url           = $request->get_param( 'url' );
         $hash          = (string) $request->get_param( 'h' );
 
-        // Reject forged URLs — only links we signed at send time may redirect.
+        // Only links we signed at send time may redirect; anything else goes home.
         if ( ! $url || ! hash_equals( Model::sign( $campaign_id, $subscriber_id, $url ), $hash ) ) {
             header( 'Location: ' . esc_url_raw( home_url() ), true, 302 );
             exit;
@@ -62,13 +47,7 @@ class Controller {
         exit;
     }
 
-    /**
-     * Unsubscribe endpoint.
-     * URL: /wp-json/snel-newsletter/v1/t/unsubscribe?token={unsubscribe_token}
-     *
-     * Marks the subscriber as unsubscribed and shows a confirmation page.
-     */
-    public function unsubscribe( \WP_REST_Request $request ) {
+    public function unsubscribe( \WP_REST_Request $request ): void {
         global $wpdb;
 
         $token = sanitize_text_field( $request->get_param( 'token' ) );
@@ -84,10 +63,8 @@ class Controller {
             wp_die( 'Invalid unsubscribe link.', 'Unsubscribe', array( 'response' => 400 ) );
         }
 
-        // Mark as unsubscribed.
         $wpdb->update( $table, array( 'status' => 'unsubscribed' ), array( 'id' => $subscriber->id ), array( '%s' ), array( '%d' ) );
 
-        // Show a simple confirmation page.
         $settings  = get_option( 'snel_newsletter_settings', array() );
         $site_name = $settings['from_name'] ?? get_bloginfo( 'name' );
 
@@ -102,11 +79,9 @@ class Controller {
         );
     }
 
-    /**
-     * Webhook endpoint — receives bounce/complaint notifications from the adapter.
-     * URL: /wp-json/snel-newsletter/v1/webhook/{adapter_slug}
-     */
-    public function webhook( \WP_REST_Request $request ) {
+    // Bounce/complaint events from the active mail adapter. Hard bounces and
+    // complaints flip subscriber status; soft bounces are logged only.
+    public function webhook( \WP_REST_Request $request ): \WP_REST_Response {
         global $wpdb;
 
         $adapter = \Snel\Newsletter\Adapters\Manager::get_active();

@@ -1,9 +1,4 @@
 <?php
-/**
- * Tracking database table creation.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Tracking;
 
@@ -11,7 +6,7 @@ defined( 'ABSPATH' ) || exit;
 
 class Install {
 
-    public static function create_tables() {
+    public static function create_tables(): void {
         global $wpdb;
 
         $charset = $wpdb->get_charset_collate();
