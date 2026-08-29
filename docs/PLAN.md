@@ -49,10 +49,11 @@ Rood, voor de volgende campaign
 - [x] CLI `test-send` geneutraliseerd: weigert op productie, queuet alleen nep-subscribers
 - [x] Queue-rows claimen (geen dubbel-verzend)
 - [x] Batch filtert op `status = active`; sweep cancelt rows van inactieve subscribers
-- [ ] SNS-webhook: signature vóór SubscribeURL
-- [ ] Preview-tekst opslaan
+- [x] SNS-webhook: signature vóór SubscribeURL + URL gepind op amazonaws.com
+- [x] Preview-tekst opslaan (meta geregistreerd + sidebar schrijft via editPost)
 
 Oranje, deze maand
+- [ ] Build via GitHub Actions + release assets; daarna build/ uit git
 - [x] Publish-timeout: cooldown set-based + index (subscriber_status)
 - [ ] Stats live uit tracking; `admin.php` N+1 weg
 - [ ] Log-level + pruning
@@ -89,3 +90,4 @@ Niet doen (bewust)
 - 2026-08-28: invariants-blok in DATA.md. Fix b + fix a gebouwd en begrepen (claim = atomische UPDATE + token). Cron-bedrading gecentraliseerd met ADR. Versie 1.9.12. Nog: CLI neutraliseren.
 - 2026-08-28 (later): warmup + lanes doorlopen en opgeschoond. SOT:CLAIM op claim_batch. Docs bijgewerkt. Volgende: timeout-fix (cooldown-loop -> 1 query), dan stap 6 verzenden.
 - 2026-08-28 (avond): timeout-fix af: cooldown in 1 query + index. Oranje punt 1 dicht.
+- 2026-08-29: ALLE 5 rode punten dicht. SSRF-fix, preview-text-fix, sender/adapters/ses opgeschoond, SOT:ADAPTER, invariant 7, .gitattributes tegen build-ruis. Walkthrough sender/ses voor Loc staat nog open (stap 6).
