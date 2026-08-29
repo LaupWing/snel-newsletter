@@ -78,6 +78,17 @@ add_action( 'init', function () {
         },
     ) );
 
+    // Inbox preview text, read by the queue and sender when building the email.
+    register_post_meta( 'snel_newsletter', '_snel_nl_preview_text', array(
+        'type'          => 'string',
+        'single'        => true,
+        'default'       => '',
+        'show_in_rest'  => true,
+        'auth_callback' => function () {
+            return current_user_can( 'edit_posts' );
+        },
+    ) );
+
     // Workflow emails stay drafts: the broadcast pipeline fires on publish,
     // the automation engine sends the draft content directly.
     register_post_meta( 'snel_newsletter', '_snel_nl_is_workflow', array(

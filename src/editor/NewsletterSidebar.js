@@ -269,8 +269,16 @@ function SendPanel() {
     const [ testSending, setTestSending ] = useState( false );
     const [ testSent, setTestSent ] = useState( false );
     const [ testError, setTestError ] = useState( '' );
-    const [ previewText, setPreviewText ] = useState( '' );
     const [ showPreview, setShowPreview ] = useState( false );
+
+    // Preview text lives in post meta so it saves with the campaign.
+    const { editPost } = useDispatch( 'core/editor' );
+    const meta = useSelect(
+        ( select ) => select( 'core/editor' ).getEditedPostAttribute( 'meta' ),
+        []
+    ) || {};
+    const previewText = meta._snel_nl_preview_text || '';
+    const setPreviewText = ( value ) => editPost( { meta: { _snel_nl_preview_text: value } } );
 
     const postId = useSelect( ( select ) => select( 'core/editor' ).getCurrentPostId(), [] );
     const postTitle = useSelect( ( select ) => select( 'core/editor' ).getEditedPostAttribute( 'title' ), [] );

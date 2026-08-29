@@ -1,0 +1,3 @@
+build/** -diff linguist-generated
+package-lock.json -diff
+composer.lock -diff
