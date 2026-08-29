@@ -29,10 +29,10 @@ Volgorde is de route van een e-mail: binnenkomen, opslaan, versturen, terugmeten
 - [~] **4. Queue** (doorlopen ✅, process_batch gesplitst ✅; fixes b en a nog) `inc/queue/`: tabel `snel_send_queue`, statussen, publish → queue → batch, cron + watchdog
 - [x] **5. Warmup + lanes** `inc/warmup/`, `inc/lanes/`: daily cap, cooldown, broadcast vs automation lane
 - [x] **6. Verzenden** `inc/sender/`, `inc/adapters/`, `inc/ses/`: template, adapter-keuze, SES-call, headers
-- [ ] **7. Tracking** `inc/tracking/`: tabel `snel_tracking`, pixel, click, unsubscribe, bounce-webhook
+- [x] **7. Tracking**: doorlopen + opgeschoond; stats live via SOT:LIVE-STATS
 - [ ] **8. Automations** `inc/automations/`: tabellen runs/events, enrollment, tick, stappen
 - [x] **9. Rest**: logger, settings, cli doorlopen en opgeschoond
-- [ ] **10. Frontend** `src/`: welke pagina's, hoe praten ze met de REST-routes, editor-sidebar
+- [~] **10. Frontend** (code klaar: TypeScript + preview-fix; klik-test door Loc nog) `src/`: welke pagina's, hoe praten ze met de REST-routes, editor-sidebar
 
 Per map, tijdens het doorlopen
 - [ ] Comments opschonen: overbodige weg, goede "waarom"-comments laten staan. Dit hoort bij het begrijpen, niet bij het fixen.
@@ -42,6 +42,10 @@ Eindproduct van doel 1
 - [ ] `docs/DATA.md` compleet (tabellen + de 3 flows: campaign, automation, tracking)
 - [ ] `docs/adr/SUMMARY.md` gestart
 - [ ] `CLAUDE.md` in de plugin met werkregels (incl. de comment-regel hierboven)
+
+## Vragen voor de automations-sessie (stap 8)
+- Moeten subscriber-cijfers (opens e.d.) realtime updaten in de UI?
+- Broadcasts naar mensen die middenin een automation zitten: meteen meesturen, of wachten tot de automation klaar is? (raakt de frequency-guard op oranje)
 
 ## Doel 2: fixen (pas na doel 1)
 
@@ -94,3 +98,4 @@ Niet doen (bewust)
 - 2026-08-29 (later): 3 core flows in DATA.md gezet. LOC MOET DEZE NOG CHECKEN (volgende sessie eerst doen).
 - 2026-08-29 (avond): stap 9 klaar (logger/settings/cli). Automations bewust geparkeerd: samen doen. Stats-fix, tracking, TS-fundament gecommit.
 - 2026-08-29 (avond 2): stap 6 leesrondje gedaan; inc/ses/ opgegaan in adapters als SESClient. Eén map bezit het versturen; een nieuwe provider is straks één extra adapter-klasse.
+- 2026-08-29 (slot): frontend volledig naar TypeScript (41 bestanden, gedrag identiek). Tracking-vinkje gezet. Open: flows-check, automations-sessie, klik-test.
