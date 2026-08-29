@@ -27,7 +27,7 @@ Volgorde is de route van een e-mail: binnenkomen, opslaan, versturen, terugmeten
 - [x] **2. Bronnen** `inc/cpt-sources/`: hoe stromen subscribers binnen vanuit andere post types; auto-sync
 - [x] **3. Campaigns** `inc/campaigns/` + CPT-meta `_snel_nl_*`: wat is een campaign, welke meta, audience-keuze
 - [~] **4. Queue** (doorlopen ✅, process_batch gesplitst ✅; fixes b en a nog) `inc/queue/`: tabel `snel_send_queue`, statussen, publish → queue → batch, cron + watchdog
-- [ ] **5. Warmup + lanes** `inc/warmup/`, `inc/lanes/`: daily cap, cooldown, broadcast vs automation lane
+- [x] **5. Warmup + lanes** `inc/warmup/`, `inc/lanes/`: daily cap, cooldown, broadcast vs automation lane
 - [ ] **6. Verzenden** `inc/sender/`, `inc/adapters/`, `inc/ses/`: template, adapter-keuze, SES-call, headers
 - [ ] **7. Tracking** `inc/tracking/`: tabel `snel_tracking`, pixel, click, unsubscribe, bounce-webhook
 - [ ] **8. Automations** `inc/automations/`: tabellen runs/events, enrollment, tick, stappen
@@ -87,3 +87,4 @@ Niet doen (bewust)
 - 2026-08-26: campaigns doorlopen en opgeschoond. Cancel simpel in Model, resume-logica woont bij de queue. Morgen: stap 4, de queue.
 - 2026-08-27: queue doorlopen (watchdog, shutdown-queueing, ensure_soon begrepen). process_batch gesplitst in benoemde stappen, has_pending_work ontdubbeld, commit c58e2fc (push door Loc). Volgende sessie: eerst Invariants-blok bovenin DATA.md (de 5 nooit-breken-regels), dan fix b (status=active + cancel-opruiming), fix a (row-claiming), CLI neutraliseren.
 - 2026-08-28: invariants-blok in DATA.md. Fix b + fix a gebouwd en begrepen (claim = atomische UPDATE + token). Cron-bedrading gecentraliseerd met ADR. Versie 1.9.12. Nog: CLI neutraliseren.
+- 2026-08-28 (later): warmup + lanes doorlopen en opgeschoond. SOT:CLAIM op claim_batch. Docs bijgewerkt. Volgende: timeout-fix (cooldown-loop -> 1 query), dan stap 6 verzenden.

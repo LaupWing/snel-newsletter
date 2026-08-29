@@ -1,10 +1,4 @@
 <?php
-/**
- * Warmup REST routes.
- *
- * @package SnelNewsletter
- */
-
 namespace Snel\Newsletter\Warmup;
 
 defined( 'ABSPATH' ) || exit;
@@ -43,10 +37,7 @@ class Rest {
         ) );
     }
 
-    /**
-     * Status for every lane, keyed by lane name.
-     */
-    public function status() {
+    public function status(): array {
         $out = array();
         foreach ( Settings::lanes() as $lane ) {
             $enabled = Settings::is_enabled( $lane );

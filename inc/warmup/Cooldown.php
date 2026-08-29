@@ -1,9 +1,4 @@
 <?php
-/**
- * Per-subscriber cooldown check.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Warmup;
 
@@ -11,10 +6,7 @@ defined( 'ABSPATH' ) || exit;
 
 class Cooldown {
 
-    /**
-     * Returns the datetime until which this subscriber is in cooldown,
-     * or null if they're free to receive an email right now.
-     */
+    // Datetime until which this subscriber is in cooldown; null = free now.
     public static function locked_until( int $subscriber_id ): ?string {
         global $wpdb;
 

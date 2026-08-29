@@ -1,9 +1,4 @@
 <?php
-/**
- * Warmup guard — daily-cap accounting per sending lane.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Warmup;
 
@@ -23,9 +18,7 @@ class Guard {
         return 'snel_warmup_' . $lane . '_daily_date';
     }
 
-    /**
-     * How many emails can still go out today on this lane. null = unlimited.
-     */
+    // null = unlimited (warmup complete).
     public static function daily_remaining( string $lane = Settings::LANE_BROADCAST ): ?int {
         $day = Settings::current_day( $lane );
         $cap = Ramp::cap_for_day( $day );
@@ -40,27 +33,19 @@ class Guard {
         return max( 0, $cap - $sent );
     }
 
-    /**
-     * Record one successful send against a lane's daily counter.
-     */
     public static function increment_daily( string $lane = Settings::LANE_BROADCAST ): void {
         self::maybe_reset_daily_counter( $lane );
         $sent = (int) get_option( self::opt_daily_sent( $lane ), 0 );
         update_option( self::opt_daily_sent( $lane ), $sent + 1, false );
     }
 
-    /**
-     * Emails sent today on this lane.
-     */
     public static function sent_today( string $lane = Settings::LANE_BROADCAST ): int {
         self::maybe_reset_daily_counter( $lane );
         return (int) get_option( self::opt_daily_sent( $lane ), 0 );
     }
 
-    /**
-     * After queue_campaign() inserts rows, mark cooldown subscribers as delayed.
-     * Cooldown is per-subscriber and lane-agnostic. Returns rows delayed.
-     */
+    // Runs after queue_campaign() inserts rows; marks cooldown subscribers as
+    // delayed. Cooldown is per-subscriber and lane-agnostic. Returns rows delayed.
     public static function apply_cooldowns( int $campaign_id ): int {
         global $wpdb;
 
@@ -117,9 +102,6 @@ class Guard {
         return $delayed;
     }
 
-    /**
-     * Reset a lane's daily counter when the date has changed.
-     */
     private static function maybe_reset_daily_counter( string $lane ): void {
         $today     = current_time( 'Y-m-d' );
         $last_date = get_option( self::opt_daily_date( $lane ), '' );

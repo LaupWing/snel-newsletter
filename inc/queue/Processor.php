@@ -273,8 +273,8 @@ class Processor {
         );
     }
 
-    // Claim before send (invariant 6): the UPDATE flips rows to 'processing' atomically,
-    // so two overlapping batches can never pick up the same row.
+    // SOT:CLAIM — claim before send (invariant 6): the UPDATE flips rows to 'processing'
+    // atomically with a unique token, so overlapping runs can never pick up the same row.
     private static function claim_batch( string $exclude_sql ): array {
         global $wpdb;
         $queue = self::table();

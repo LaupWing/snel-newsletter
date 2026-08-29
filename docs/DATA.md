@@ -54,6 +54,16 @@ Columns are documented per table as we walk through each module.
 | `snel_subscriber_tags` | `subscriber_id`, `tag` | unique per pair; one subscriber, many tags |
 | `snel_tag_rules` | `tag` (unique), `type`, `metric`, `operator`, `threshold` | `type` `static` = assigned by hand; `dynamic` = auto-assigned when `metric operator threshold` holds, e.g. `open_rate > 50` |
 
+## Warmup options (`wp_options`)
+
+Per lane (`broadcast`, `automation`): `snel_warmup_{lane}_enabled`,
+`snel_warmup_{lane}_started_at` (date the ramp began),
+`snel_warmup_{lane}_daily_sent` + `_daily_date` (today's counter).
+Queue statuses driven by warmup: `delayed` (+ `delayed_until`), and the
+claim adds `processing` (+ `claimed_at`). Lifecycle of a queue row:
+pending → processing → sent | retrying (3x) → failed; or delayed → pending;
+or cancelled (unsubscribed, campaign cancelled).
+
 ## Source configs
 
 One option (`snel_newsletter_cpt_sources`) holds every configured source, keyed

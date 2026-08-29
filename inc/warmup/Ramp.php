@@ -1,9 +1,4 @@
 <?php
-/**
- * Warmup ramp schedule.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Warmup;
 
@@ -11,9 +6,7 @@ defined( 'ABSPATH' ) || exit;
 
 class Ramp {
 
-    /**
-     * Max emails per day per warmup day. null = unlimited (warmup complete).
-     */
+    // Max sends per warmup day.
     private static $schedule = array(
         1 => 200,
         2 => 500,
@@ -24,9 +17,7 @@ class Ramp {
         7 => 5000,
     );
 
-    /**
-     * Returns the send cap for a given warmup day, or null when unlimited.
-     */
+    // null = unlimited (warmup complete); gaps in the schedule fall back to 200.
     public static function cap_for_day( int $day ): ?int {
         if ( $day >= 8 ) {
             return null;
