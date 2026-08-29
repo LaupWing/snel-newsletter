@@ -40,21 +40,6 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
         return;
     }
 
-    // Stats refresh lives here for now; moves to tracking once stats are read live (see PLAN.md).
-    $sent_ids = get_posts( array(
-        'post_type'      => 'snel_newsletter',
-        'post_status'    => 'publish',
-        'meta_key'       => '_snel_nl_send_status',
-        'meta_value'     => 'sent',
-        'fields'         => 'ids',
-        'numberposts'    => -1,
-    ) );
-    foreach ( $sent_ids as $cid ) {
-        $stats = \Snel\Newsletter\Tracking\Model::campaign_stats( $cid );
-        update_post_meta( $cid, '_snel_nl_opened', $stats['opens'] );
-        update_post_meta( $cid, '_snel_nl_clicked', $stats['unique_clicks'] );
-    }
-
     $asset_file = SNEL_NEWSLETTER_PLUGIN_DIR . 'build/index.asset.php';
 
     if ( ! file_exists( $asset_file ) ) {

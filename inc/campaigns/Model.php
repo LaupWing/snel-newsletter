@@ -71,9 +71,11 @@ class Model {
         $query = new \WP_Query( $query_args );
         $posts = $query->posts;
 
+        $live_stats = \Snel\Newsletter\Tracking\Model::stats_for_campaigns( wp_list_pluck( $posts, 'ID' ) );
+
         $campaigns = array();
         foreach ( $posts as $post ) {
-            $campaigns[] = self::format( $post, $workflow_map );
+            $campaigns[] = self::format( $post, $workflow_map, $live_stats );
         }
 
         return array(
@@ -129,24 +131,24 @@ class Model {
     public static function performance(): array {
         global $wpdb;
 
-        $row = $wpdb->get_row( $wpdb->prepare(
-            "SELECT
-                COALESCE( SUM( CAST( r.meta_value AS UNSIGNED ) ), 0 ) AS recipients,
-                COALESCE( SUM( CAST( o.meta_value AS UNSIGNED ) ), 0 ) AS opened,
-                COALESCE( SUM( CAST( c.meta_value AS UNSIGNED ) ), 0 ) AS clicked
+        $recipients = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COALESCE( SUM( CAST( r.meta_value AS UNSIGNED ) ), 0 )
              FROM {$wpdb->posts} p
-             LEFT JOIN {$wpdb->postmeta} r ON r.post_id = p.ID AND r.meta_key = '_snel_nl_total_recipients'
-             LEFT JOIN {$wpdb->postmeta} o ON o.post_id = p.ID AND o.meta_key = '_snel_nl_opened'
-             LEFT JOIN {$wpdb->postmeta} c ON c.post_id = p.ID AND c.meta_key = '_snel_nl_clicked'
+             INNER JOIN {$wpdb->postmeta} r ON r.post_id = p.ID AND r.meta_key = '_snel_nl_total_recipients'
              WHERE p.post_type = %s AND p.post_status = 'publish'",
             self::$post_type
         ) );
 
-        $recipients = (int) ( $row->recipients ?? 0 );
+        $tracking = $wpdb->prefix . 'snel_tracking';
+        $row      = $wpdb->get_row(
+            "SELECT COUNT(DISTINCT CASE WHEN type = 'open'  THEN CONCAT(campaign_id, '-', subscriber_id) END) AS opened,
+                    COUNT(DISTINCT CASE WHEN type = 'click' THEN CONCAT(campaign_id, '-', subscriber_id) END) AS clicked
+             FROM $tracking"
+        );
 
         return array(
-            'avg_open_rate'  => $recipients > 0 ? (int) round( (int) $row->opened / $recipients * 100 ) : 0,
-            'avg_click_rate' => $recipients > 0 ? (int) round( (int) $row->clicked / $recipients * 100 ) : 0,
+            'avg_open_rate'  => $recipients > 0 ? (int) round( (int) ( $row->opened ?? 0 ) / $recipients * 100 ) : 0,
+            'avg_click_rate' => $recipients > 0 ? (int) round( (int) ( $row->clicked ?? 0 ) / $recipients * 100 ) : 0,
         );
     }
 
@@ -155,7 +157,7 @@ class Model {
         if ( ! $post || $post->post_type !== self::$post_type ) {
             return null;
         }
-        return self::format( $post );
+        return self::format( $post, self::workflow_map(), \Snel\Newsletter\Tracking\Model::stats_for_campaigns( array( $post->ID ) ) );
     }
 
     public static function delete( int $id ): bool {
@@ -218,13 +220,14 @@ class Model {
         return $new_id;
     }
 
-    private static function format( \WP_Post $post, array $workflow_map = array() ): array {
+    private static function format( \WP_Post $post, array $workflow_map = array(), array $live_stats = array() ): array {
         $send_status = get_post_meta( $post->ID, '_snel_nl_send_status', true );
         $sent_count  = (int) get_post_meta( $post->ID, '_snel_nl_sent_count', true );
         $total       = (int) get_post_meta( $post->ID, '_snel_nl_total_recipients', true );
         $tags        = get_post_meta( $post->ID, '_snel_nl_tags', true ) ?: array();
-        $opened      = (int) get_post_meta( $post->ID, '_snel_nl_opened', true );
-        $clicked     = (int) get_post_meta( $post->ID, '_snel_nl_clicked', true );
+        // Live from snel_tracking; the old cached postmeta froze once sending finished.
+        $opened      = (int) ( $live_stats[ $post->ID ]['opened'] ?? 0 );
+        $clicked     = (int) ( $live_stats[ $post->ID ]['clicked'] ?? 0 );
 
         $is_workflow     = array_key_exists( $post->ID, $workflow_map );
         $automation_name = $is_workflow ? $workflow_map[ $post->ID ] : '';

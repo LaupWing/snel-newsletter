@@ -192,8 +192,6 @@ class Processor {
 
         \Snel\Newsletter\Logger\Logger::info( 'queue', 'Batch finished', array( 'count' => count( $rows ) ) );
 
-        self::refresh_campaign_stats( $rows );
-
         wp_schedule_single_event( time() + self::CRON_INTERVAL, self::CRON_HOOK );
     }
 
@@ -458,15 +456,6 @@ class Processor {
         ) );
     }
 
-    private static function refresh_campaign_stats( array $rows ): void {
-        $campaign_ids = array_unique( array_column( $rows, 'campaign_id' ) );
-        foreach ( $campaign_ids as $cid ) {
-            $stats = \Snel\Newsletter\Tracking\Model::campaign_stats( $cid );
-            update_post_meta( $cid, '_snel_nl_opened', $stats['opens'] );
-            update_post_meta( $cid, '_snel_nl_clicked', $stats['unique_clicks'] );
-        }
-    }
-
     private static function rewrite_links( string $html, $campaign_id, $subscriber_id ): string {
         return preg_replace_callback(
             '/<a\s+([^>]*?)href="([^"]*?)"([^>]*?)>/i',
@@ -509,7 +498,6 @@ class Processor {
         foreach ( $sending as $cid ) {
             if ( ! in_array( $cid, $campaign_ids ) ) {
                 update_post_meta( $cid, '_snel_nl_send_status', 'sent' );
-                self::refresh_campaign_stats( array( (object) array( 'campaign_id' => $cid ) ) );
             }
         }
     }

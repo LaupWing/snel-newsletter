@@ -37,6 +37,35 @@ class Model {
         ), array( '%d', '%d', '%s', '%s' ) );
     }
 
+    // SOT:LIVE-STATS — stats come from this table, live and batched per page;
+    // never from cached postmeta, which freezes the moment sending stops.
+    public static function stats_for_campaigns( array $campaign_ids ): array {
+        global $wpdb;
+        if ( empty( $campaign_ids ) ) {
+            return array();
+        }
+        $ids = implode( ',', array_map( 'intval', $campaign_ids ) );
+
+        $rows = $wpdb->get_results(
+            "SELECT campaign_id,
+                    COUNT(DISTINCT CASE WHEN type = 'open'  THEN subscriber_id END) AS opened,
+                    COUNT(DISTINCT CASE WHEN type = 'click' THEN subscriber_id END) AS clicked
+             FROM " . self::table() . "
+             WHERE campaign_id IN ($ids)
+             GROUP BY campaign_id",
+            OBJECT_K
+        );
+
+        $out = array();
+        foreach ( $campaign_ids as $cid ) {
+            $out[ $cid ] = array(
+                'opened'  => (int) ( $rows[ $cid ]->opened ?? 0 ),
+                'clicked' => (int) ( $rows[ $cid ]->clicked ?? 0 ),
+            );
+        }
+        return $out;
+    }
+
     public static function campaign_stats( int $campaign_id ): array {
         global $wpdb;
         $table = self::table();
