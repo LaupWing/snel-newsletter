@@ -6,6 +6,7 @@ defined( 'ABSPATH' ) || exit;
 
 // Every email provider (SES, SendGrid, ...) implements this. The adapter
 // decides what WE build (tracking, stats) vs what the provider gives us.
+// SOT:ADAPTER — a new provider implements this and registers in Manager; nothing else changes.
 interface AdapterInterface {
 
     // Returns { success: bool, message_id: string|null, error: string|null }.

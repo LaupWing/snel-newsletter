@@ -43,20 +43,21 @@ class SESAdapter implements AdapterInterface {
             return array();
         }
 
-        // SNS sends a SubscriptionConfirmation first: auto-confirm it.
-        if ( isset( $data['Type'] ) && $data['Type'] === 'SubscriptionConfirmation' ) {
-            if ( isset( $data['SubscribeURL'] ) ) {
-                wp_remote_get( $data['SubscribeURL'] );
-            }
-            return array();
-        }
-
-        // Verify the SNS signature before processing any notification.
+        // Signature first, always: this endpoint is public, and following any URL
+        // from an unverified body would let anyone make this server fetch it (SSRF).
         if ( ! $this->verify_sns_signature( $data ) ) {
             \Snel\Newsletter\Logger\Logger::warning( 'webhook', 'SNS signature verification failed — request rejected', array(
                 'type'     => $data['Type'] ?? 'unknown',
                 'cert_url' => $data['SignatureCertURL'] ?? 'missing',
             ) );
+            return array();
+        }
+
+        if ( isset( $data['Type'] ) && $data['Type'] === 'SubscriptionConfirmation' ) {
+            $url = $data['SubscribeURL'] ?? '';
+            if ( preg_match( '#^https://sns\.[a-z0-9-]+\.amazonaws\.com/#', $url ) ) {
+                wp_remote_get( $url );
+            }
             return array();
         }
 

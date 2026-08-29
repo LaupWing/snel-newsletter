@@ -21,7 +21,9 @@ Enforced in the database where possible; the line notes where each one lives.
 5. A campaign in tags-mode with no saved tags queues NOBODY, never everyone.
    Guard in `Processor::audience_ids()` (the July race).
 6. One queue row is sent by exactly one process.
-   Row claiming in the batch fetch (fix a).
+   Row claiming in the batch fetch (`SOT:CLAIM`).
+7. A public endpoint verifies the sender before acting on the payload.
+   SNS signature check first in `SESAdapter::parse_webhook()`.
 
 ## Core flows
 
