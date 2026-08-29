@@ -1,7 +1,7 @@
 <?php
 // Minimal SES client, SigV4-signed directly; no AWS SDK dependency.
 
-namespace Snel\Newsletter\SES;
+namespace Snel\Newsletter\Adapters\SES;
 
 defined( 'ABSPATH' ) || exit;
 

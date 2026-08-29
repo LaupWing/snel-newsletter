@@ -28,7 +28,7 @@ Volgorde is de route van een e-mail: binnenkomen, opslaan, versturen, terugmeten
 - [x] **3. Campaigns** `inc/campaigns/` + CPT-meta `_snel_nl_*`: wat is een campaign, welke meta, audience-keuze
 - [~] **4. Queue** (doorlopen ✅, process_batch gesplitst ✅; fixes b en a nog) `inc/queue/`: tabel `snel_send_queue`, statussen, publish → queue → batch, cron + watchdog
 - [x] **5. Warmup + lanes** `inc/warmup/`, `inc/lanes/`: daily cap, cooldown, broadcast vs automation lane
-- [ ] **6. Verzenden** `inc/sender/`, `inc/adapters/`, `inc/ses/`: template, adapter-keuze, SES-call, headers
+- [x] **6. Verzenden** `inc/sender/`, `inc/adapters/`, `inc/ses/`: template, adapter-keuze, SES-call, headers
 - [ ] **7. Tracking** `inc/tracking/`: tabel `snel_tracking`, pixel, click, unsubscribe, bounce-webhook
 - [ ] **8. Automations** `inc/automations/`: tabellen runs/events, enrollment, tick, stappen
 - [x] **9. Rest**: logger, settings, cli doorlopen en opgeschoond
@@ -93,3 +93,4 @@ Niet doen (bewust)
 - 2026-08-29: ALLE 5 rode punten dicht. SSRF-fix, preview-text-fix, sender/adapters/ses opgeschoond, SOT:ADAPTER, invariant 7, .gitattributes tegen build-ruis. Walkthrough sender/ses voor Loc staat nog open (stap 6).
 - 2026-08-29 (later): 3 core flows in DATA.md gezet. LOC MOET DEZE NOG CHECKEN (volgende sessie eerst doen).
 - 2026-08-29 (avond): stap 9 klaar (logger/settings/cli). Automations bewust geparkeerd: samen doen. Stats-fix, tracking, TS-fundament gecommit.
+- 2026-08-29 (avond 2): stap 6 leesrondje gedaan; inc/ses/ opgegaan in adapters als SESClient. Eén map bezit het versturen; een nieuwe provider is straks één extra adapter-klasse.

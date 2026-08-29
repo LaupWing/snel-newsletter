@@ -9,7 +9,7 @@ defined( 'ABSPATH' ) || exit;
 class Manager {
 
     private static $adapters = array(
-        'ses' => SESAdapter::class,
+        'ses' => SES\Adapter::class,
     );
 
     // Unknown or missing slug falls back to SES.

@@ -13,7 +13,6 @@ class Plugin {
         'logger',
         'subscribers',
         'campaigns',
-        'ses',
         'adapters',
         'sender',
         'tracking',

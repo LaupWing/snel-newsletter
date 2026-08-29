@@ -41,7 +41,7 @@ class Controller {
             return new \WP_Error( 'not_found', 'Campaign not found.', array( 'status' => 404 ) );
         }
 
-        $client = \Snel\Newsletter\SES\Client::from_settings();
+        $client = \Snel\Newsletter\Adapters\SES\Client::from_settings();
         if ( ! $client ) {
             return new \WP_Error( 'no_credentials', 'SES not configured.', array( 'status' => 400 ) );
         }

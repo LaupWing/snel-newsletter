@@ -1,19 +1,21 @@
 <?php
 
-namespace Snel\Newsletter\Adapters;
+namespace Snel\Newsletter\Adapters\SES;
+
+use Snel\Newsletter\Adapters\AdapterInterface;
 
 defined( 'ABSPATH' ) || exit;
 
 // SES is the "build it yourself" adapter: we do open/click tracking, take
 // bounces/complaints as raw SNS webhooks, and compute stats from our table.
-class SESAdapter implements AdapterInterface {
+class Adapter implements AdapterInterface {
 
     public function get_name(): string {
         return 'Amazon SES';
     }
 
     public function send( string $from_email, string $from_name, string $to_email, string $subject, string $html, string $text = '', string $reply_to = '', array $headers = array() ): array {
-        $client = \Snel\Newsletter\SES\Client::from_settings();
+        $client = Client::from_settings();
 
         if ( ! $client ) {
             return array( 'success' => false, 'message_id' => null, 'error' => 'SES not configured.' );

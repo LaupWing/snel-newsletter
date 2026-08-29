@@ -60,7 +60,7 @@ class Controller {
             return new \WP_Error( 'invalid_email', 'Invalid email address.', array( 'status' => 400 ) );
         }
 
-        $client = \Snel\Newsletter\SES\Client::from_settings();
+        $client = \Snel\Newsletter\Adapters\SES\Client::from_settings();
 
         if ( ! $client ) {
             return new \WP_Error( 'no_credentials', 'SES credentials not configured. Save your settings first.', array( 'status' => 400 ) );
