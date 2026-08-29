@@ -91,3 +91,4 @@ Niet doen (bewust)
 - 2026-08-28 (later): warmup + lanes doorlopen en opgeschoond. SOT:CLAIM op claim_batch. Docs bijgewerkt. Volgende: timeout-fix (cooldown-loop -> 1 query), dan stap 6 verzenden.
 - 2026-08-28 (avond): timeout-fix af: cooldown in 1 query + index. Oranje punt 1 dicht.
 - 2026-08-29: ALLE 5 rode punten dicht. SSRF-fix, preview-text-fix, sender/adapters/ses opgeschoond, SOT:ADAPTER, invariant 7, .gitattributes tegen build-ruis. Walkthrough sender/ses voor Loc staat nog open (stap 6).
+- 2026-08-29 (later): 3 core flows in DATA.md gezet. LOC MOET DEZE NOG CHECKEN (volgende sessie eerst doen).

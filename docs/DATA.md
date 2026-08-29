@@ -27,7 +27,53 @@ Enforced in the database where possible; the line notes where each one lives.
 
 ## Core flows
 
-_Filled in as we walk through each folder._
+### 1. Broadcast: publish to inbox
+
+```mermaid
+flowchart LR
+    A[Publish in editor] --> B["shutdown: queue_campaign()"]
+    B --> C["audience_ids() — filters win over tags, active only"]
+    C --> D["one pending row per recipient (INSERT IGNORE)"]
+    D --> E["apply_cooldowns() — one UPDATE, recent receivers to delayed"]
+    E --> F["cron every minute: process_batch()"]
+    F --> G["claim_batch() SOT:CLAIM — rows to processing"]
+    G --> H["send_row(): EmailTemplate::render -> adapter -> SES"]
+    H --> I["row sent + message_id; finalize when queue empties"]
+```
+
+Guards on the way: `cancel_inactive_rows()` (invariant 2), campaign-cancelled
+check per row (invariant 3), lane budget from `Warmup\Guard::daily_remaining()`.
+
+### 2. Automation: tag to sequence
+
+```mermaid
+flowchart LR
+    A["tag added (import, UI, rule)"] --> B["snel_newsletter_tags_added action"]
+    B --> C["Engine::enroll() — INSERT IGNORE run (invariant 4)"]
+    C --> D["cron: Engine::tick() picks due runs"]
+    D --> E["email step: queue row via INSERT IGNORE (invariant 1)"]
+    E --> F["wait step: next_run_at set; condition step: branch"]
+    F --> D
+```
+
+Automation emails ride the same send queue as broadcasts, on the `automation`
+lane (own sender domain, own warmup budget).
+
+### 3. Tracking: the way back
+
+```mermaid
+flowchart LR
+    A[Recipient] -->|opens pixel| B["/t/open — one row per subscriber per campaign"]
+    A -->|clicks| C["/t/click — HMAC-checked, then redirect"]
+    A -->|unsubscribes| D["/t/unsubscribe — status=unsubscribed"]
+    SES -->|bounce/complaint| E["/webhook/ses — SNS signature first (invariant 7)"]
+    B & C --> F[(snel_tracking)]
+    D & E --> G[(snel_subscribers.status)]
+    G --> H["next batch: cancel_inactive_rows()"]
+```
+
+Stats shown in the UI come from cached postmeta refreshed during batches;
+`snel_tracking` is the source of truth (see PLAN.md, stale-stats fix).
 
 ## Tables
 
