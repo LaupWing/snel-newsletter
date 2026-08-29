@@ -1,12 +1,5 @@
 <?php
-/**
- * Lightweight AWS SES API client.
- *
- * Uses AWS Signature V4 to sign requests directly — no SDK needed.
- * Only implements SendEmail action.
- *
- * @package SnelNewsletter
- */
+// Minimal SES client, SigV4-signed directly; no AWS SDK dependency.
 
 namespace Snel\Newsletter\SES;
 
@@ -25,11 +18,7 @@ class Client {
         $this->region     = $region;
     }
 
-    /**
-     * Create a client from saved plugin settings.
-     *
-     * @return self|null Null if credentials are missing.
-     */
+    // Null when credentials are missing.
     public static function from_settings() {
         $settings = get_option( 'snel_newsletter_settings', array() );
 
@@ -44,25 +33,8 @@ class Client {
         return new self( $access_key, $secret_key, $region );
     }
 
-    /**
-     * Send an email via SES.
-     *
-     * Uses the SendRawEmail action so we can attach custom headers such as
-     * List-Unsubscribe — the plain SendEmail action silently ignores headers,
-     * and Gmail/Yahoo bulk rules require List-Unsubscribe or the mail is
-     * spam-foldered. See build_raw_message() for the MIME assembly.
-     *
-     * @param string $from_email  Sender email (must be verified in SES).
-     * @param string $from_name   Sender display name.
-     * @param string $to_email    Recipient email.
-     * @param string $subject     Email subject.
-     * @param string $html_body   HTML content.
-     * @param string $text_body   Plain text fallback (optional).
-     * @param string $reply_to    Reply-to address (optional).
-     * @param array  $headers     Extra headers, e.g. List-Unsubscribe (optional).
-     *
-     * @return array { success: bool, message_id: string|null, error: string|null }
-     */
+    // SendRawEmail so custom headers survive: Gmail/Yahoo bulk rules demand
+    // List-Unsubscribe, and the plain SendEmail action silently drops headers.
     public function send( $from_email, $from_name, $to_email, $subject, $html_body, $text_body = '', $reply_to = '', $headers = array() ) {
         $raw = $this->build_raw_message( $from_email, $from_name, $to_email, $subject, $html_body, $text_body, $reply_to, $headers );
 
@@ -108,13 +80,7 @@ class Client {
         );
     }
 
-    /**
-     * Build a raw RFC 5322 MIME message.
-     *
-     * If a text body is present we send multipart/alternative (text + html),
-     * which also helps deliverability; otherwise a single html part.
-     * Custom headers (List-Unsubscribe etc.) are written verbatim.
-     */
+    // multipart/alternative (text + html) when a text body exists; helps deliverability.
     private function build_raw_message( $from_email, $from_name, $to_email, $subject, $html_body, $text_body, $reply_to, $headers ) {
         $eol      = "\r\n";
         $from     = $from_name
@@ -164,9 +130,6 @@ class Client {
         return implode( $eol, $lines );
     }
 
-    /**
-     * Make a signed request to the SES API.
-     */
     private function request( $params ) {
         $host     = "email.{$this->region}.amazonaws.com";
         $endpoint = "https://{$host}/";
@@ -234,9 +197,6 @@ class Client {
         return $body;
     }
 
-    /**
-     * Derive the signing key for AWS Signature V4.
-     */
     private function get_signature_key( $datestamp ) {
         $k_date    = hash_hmac( 'sha256', $datestamp, 'AWS4' . $this->secret_key, true );
         $k_region  = hash_hmac( 'sha256', $this->region, $k_date, true );

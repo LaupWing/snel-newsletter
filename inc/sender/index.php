@@ -1,9 +1,4 @@
 <?php
-/**
- * Sender feature — entry point.
- *
- * @package SnelNewsletter
- */
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -11,9 +6,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 new Snel\Newsletter\Sender\Rest();
 
-/**
- * Register server-side render for newsletter blocks.
- */
 add_action( 'init', function () {
     register_block_type( SNEL_NEWSLETTER_PLUGIN_DIR . 'src/blocks/newsletter-button/block.json', array(
         'render_callback' => function ( $attributes ) {

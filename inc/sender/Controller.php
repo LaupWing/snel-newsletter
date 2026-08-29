@@ -1,9 +1,4 @@
 <?php
-/**
- * Sender controller — preview and send campaigns.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Sender;
 
@@ -11,9 +6,6 @@ defined( 'ABSPATH' ) || exit;
 
 class Controller {
 
-    /**
-     * Preview the email HTML for a campaign.
-     */
     public function preview( \WP_REST_Request $request ) {
         $id   = (int) $request->get_param( 'id' );
         $post = get_post( $id );
@@ -35,9 +27,6 @@ class Controller {
         ) );
     }
 
-    /**
-     * Send a test email for a campaign to a single address.
-     */
     public function send_test( \WP_REST_Request $request ) {
         $id = (int) $request->get_param( 'id' );
         $params = $request->get_json_params();

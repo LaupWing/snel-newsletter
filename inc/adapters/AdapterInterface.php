@@ -1,114 +1,38 @@
 <?php
-/**
- * Email Adapter Interface.
- *
- * Every email provider (SES, SendGrid, Postmark, etc.) implements this.
- * The adapter decides what WE build vs what the provider gives us.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Adapters;
 
 defined( 'ABSPATH' ) || exit;
 
+// Every email provider (SES, SendGrid, ...) implements this. The adapter
+// decides what WE build (tracking, stats) vs what the provider gives us.
 interface AdapterInterface {
 
-    // ─── Sending ─────────────────────────────────────────────────────────────────
+    // Returns { success: bool, message_id: string|null, error: string|null }.
+    public function send( string $from_email, string $from_name, string $to_email, string $subject, string $html, string $text = '', string $reply_to = '', array $headers = array() ): array;
 
-    /**
-     * Send a single email.
-     *
-     * @param string $from_email  Verified sender email.
-     * @param string $from_name   Sender display name.
-     * @param string $to_email    Recipient email.
-     * @param string $subject     Email subject.
-     * @param string $html        HTML body.
-     * @param string $text        Plain text body.
-     * @param string $reply_to    Reply-to address.
-     * @param array  $headers     Extra headers (e.g. List-Unsubscribe).
-     *
-     * @return array { success: bool, message_id: string|null, error: string|null }
-     */
-    public function send( $from_email, $from_name, $to_email, $subject, $html, $text = '', $reply_to = '', $headers = array() );
+    // True means the provider tracks opens itself, so we skip our pixel.
+    public function handles_open_tracking(): bool;
 
-    // ─── Tracking ────────────────────────────────────────────────────────────────
+    // True means the provider rewrites links itself, so we don't.
+    public function handles_click_tracking(): bool;
 
-    /**
-     * Does this adapter handle open tracking itself?
-     * If true, we don't inject tracking pixels — the provider does it.
-     *
-     * @return bool
-     */
-    public function handles_open_tracking();
+    // Slug for /wp-json/snel-newsletter/v1/webhook/{slug}.
+    public function get_webhook_slug(): string;
 
-    /**
-     * Does this adapter handle click tracking itself?
-     * If true, we don't rewrite links — the provider does it.
-     *
-     * @return bool
-     */
-    public function handles_click_tracking();
+    // Normalizes a webhook payload into events: { type: 'bounce'|'complaint'|..., email, ... }.
+    public function parse_webhook( \WP_REST_Request $request ): array;
 
-    // ─── Webhooks ────────────────────────────────────────────────────────────────
+    // False means stats are calculated from our own tracking table.
+    public function has_stats_api(): bool;
 
-    /**
-     * Get the webhook endpoint slug for this adapter.
-     * Used to register: /wp-json/snel-newsletter/v1/webhook/{slug}
-     *
-     * @return string
-     */
-    public function get_webhook_slug();
+    // Returns { opens: int, clicks: int, bounces: int, complaints: int }.
+    public function fetch_stats( $message_id ): array;
 
-    /**
-     * Parse an incoming webhook payload into a standard format.
-     *
-     * @param \WP_REST_Request $request The incoming webhook request.
-     *
-     * @return array[] Array of events, each: { type: 'bounce'|'complaint'|'open'|'click', email: string, ... }
-     */
-    public function parse_webhook( \WP_REST_Request $request );
+    // Field defs for the settings UI: { key, label, type, options? }.
+    public function get_settings_fields(): array;
 
-    // ─── Stats ───────────────────────────────────────────────────────────────────
+    public function is_configured(): bool;
 
-    /**
-     * Does this adapter provide stats via API?
-     * If true, we fetch from provider. If false, we calculate from our tracking table.
-     *
-     * @return bool
-     */
-    public function has_stats_api();
-
-    /**
-     * Fetch stats from the provider API (if has_stats_api() is true).
-     *
-     * @param string $message_id The provider's message ID.
-     *
-     * @return array { opens: int, clicks: int, bounces: int, complaints: int }
-     */
-    public function fetch_stats( $message_id );
-
-    // ─── Configuration ───────────────────────────────────────────────────────────
-
-    /**
-     * Get the settings fields this adapter needs.
-     * Used to dynamically render the settings UI.
-     *
-     * @return array[] Each: { key: string, label: string, type: 'text'|'password'|'select', options?: array }
-     */
-    public function get_settings_fields();
-
-    /**
-     * Validate that the adapter is properly configured.
-     *
-     * @return bool
-     */
-    public function is_configured();
-
-    /**
-     * Get the human-readable name of this adapter.
-     *
-     * @return string
-     */
-    public function get_name();
+    public function get_name(): string;
 }

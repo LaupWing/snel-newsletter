@@ -1,27 +1,18 @@
 <?php
-/**
- * Amazon SES Adapter.
- *
- * SES is the "build everything yourself" adapter:
- * - We handle open tracking (pixel)
- * - We handle click tracking (link rewriting)
- * - We handle bounces/complaints via SNS webhooks (raw JSON)
- * - We calculate stats from our own tracking table
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Adapters;
 
 defined( 'ABSPATH' ) || exit;
 
+// SES is the "build it yourself" adapter: we do open/click tracking, take
+// bounces/complaints as raw SNS webhooks, and compute stats from our table.
 class SESAdapter implements AdapterInterface {
 
-    public function get_name() {
+    public function get_name(): string {
         return 'Amazon SES';
     }
 
-    public function send( $from_email, $from_name, $to_email, $subject, $html, $text = '', $reply_to = '', $headers = array() ) {
+    public function send( string $from_email, string $from_name, string $to_email, string $subject, string $html, string $text = '', string $reply_to = '', array $headers = array() ): array {
         $client = \Snel\Newsletter\SES\Client::from_settings();
 
         if ( ! $client ) {
@@ -31,23 +22,20 @@ class SESAdapter implements AdapterInterface {
         return $client->send( $from_email, $from_name, $to_email, $subject, $html, $text, $reply_to, $headers );
     }
 
-    // ─── Tracking: SES doesn't do this, so WE handle it ─────────────────────────
-
-    public function handles_open_tracking() {
-        return false; // We inject our own tracking pixel.
+    // SES tracks nothing itself: we inject the pixel and rewrite links.
+    public function handles_open_tracking(): bool {
+        return false;
     }
 
-    public function handles_click_tracking() {
-        return false; // We rewrite links ourselves.
+    public function handles_click_tracking(): bool {
+        return false;
     }
 
-    // ─── Webhooks: SES sends raw SNS notifications ──────────────────────────────
-
-    public function get_webhook_slug() {
+    public function get_webhook_slug(): string {
         return 'ses';
     }
 
-    public function parse_webhook( \WP_REST_Request $request ) {
+    public function parse_webhook( \WP_REST_Request $request ): array {
         $body = $request->get_body();
         $data = json_decode( $body, true );
 
@@ -55,7 +43,7 @@ class SESAdapter implements AdapterInterface {
             return array();
         }
 
-        // SNS sends a SubscriptionConfirmation first — auto-confirm it.
+        // SNS sends a SubscriptionConfirmation first: auto-confirm it.
         if ( isset( $data['Type'] ) && $data['Type'] === 'SubscriptionConfirmation' ) {
             if ( isset( $data['SubscribeURL'] ) ) {
                 wp_remote_get( $data['SubscribeURL'] );
@@ -63,7 +51,7 @@ class SESAdapter implements AdapterInterface {
             return array();
         }
 
-        // Verify SNS signature before processing any notification.
+        // Verify the SNS signature before processing any notification.
         if ( ! $this->verify_sns_signature( $data ) ) {
             \Snel\Newsletter\Logger\Logger::warning( 'webhook', 'SNS signature verification failed — request rejected', array(
                 'type'     => $data['Type'] ?? 'unknown',
@@ -72,7 +60,7 @@ class SESAdapter implements AdapterInterface {
             return array();
         }
 
-        // Actual notification — the Message field is a JSON string.
+        // The Message field is itself a JSON string.
         if ( ! isset( $data['Message'] ) ) {
             return array();
         }
@@ -112,16 +100,14 @@ class SESAdapter implements AdapterInterface {
         return $events;
     }
 
-    /**
-     * Verify AWS SNS message signature.
-     * Prevents fake bounce/complaint events from external attackers.
-     */
-    private function verify_sns_signature( $data ) {
+    // Verifies the AWS SNS message signature so external attackers cannot
+    // inject fake bounce/complaint events.
+    private function verify_sns_signature( array $data ): bool {
         if ( empty( $data['SignatureCertURL'] ) || empty( $data['Signature'] ) ) {
             return false;
         }
 
-        // Certificate must come from AWS SNS.
+        // The signing certificate must come from AWS SNS itself.
         if ( ! preg_match( '#^https://sns\.[a-z0-9\-]+\.amazonaws\.com/#', $data['SignatureCertURL'] ) ) {
             return false;
         }
@@ -136,7 +122,7 @@ class SESAdapter implements AdapterInterface {
             return false;
         }
 
-        // Fields to sign differ by message type.
+        // The fields included in the signed string differ by message type.
         $type = $data['Type'] ?? '';
         if ( $type === 'Notification' ) {
             $fields = array( 'Message', 'MessageId', 'Subject', 'Timestamp', 'TopicArn', 'Type' );
@@ -159,19 +145,15 @@ class SESAdapter implements AdapterInterface {
         return $valid === 1;
     }
 
-    // ─── Stats: SES has no stats API — we calculate from our tracking table ─────
-
-    public function has_stats_api() {
+    public function has_stats_api(): bool {
         return false;
     }
 
-    public function fetch_stats( $message_id ) {
+    public function fetch_stats( $message_id ): array {
         return array( 'opens' => 0, 'clicks' => 0, 'bounces' => 0, 'complaints' => 0 );
     }
 
-    // ─── Configuration ──────────────────────────────────────────────────────────
-
-    public function get_settings_fields() {
+    public function get_settings_fields(): array {
         return array(
             array( 'key' => 'ses_access_key', 'label' => 'Access Key ID', 'type' => 'text' ),
             array( 'key' => 'ses_secret_key', 'label' => 'Secret Access Key', 'type' => 'password' ),
@@ -192,7 +174,7 @@ class SESAdapter implements AdapterInterface {
         );
     }
 
-    public function is_configured() {
+    public function is_configured(): bool {
         $settings = get_option( 'snel_newsletter_settings', array() );
 
         return ! empty( $settings['ses_access_key'] )

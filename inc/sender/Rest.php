@@ -1,9 +1,4 @@
 <?php
-/**
- * Sender REST route definitions.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Sender;
 

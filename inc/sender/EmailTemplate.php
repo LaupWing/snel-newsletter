@@ -1,12 +1,6 @@
 <?php
-/**
- * Converts Gutenberg HTML content into email-safe HTML.
- *
- * Wraps content in a table-based email template with inline styles.
- * Strips Gutenberg-specific classes/comments and converts to inline CSS.
- *
- * @package SnelNewsletter
- */
+// Gutenberg HTML in, email-safe HTML out: table layout, inline styles,
+// because mail clients ignore stylesheets and modern CSS.
 
 namespace Snel\Newsletter\Sender;
 
@@ -14,16 +8,6 @@ defined( 'ABSPATH' ) || exit;
 
 class EmailTemplate {
 
-    /**
-     * Render a full email from post content.
-     *
-     * @param string $content      Gutenberg rendered HTML.
-     * @param string $brand_name   Sender/brand name for header.
-     * @param string $unsubscribe_url  One-click unsubscribe URL.
-     * @param string $preview_text Preview text shown in inbox.
-     *
-     * @return string Full email HTML.
-     */
     public static function render( $content, $brand_name = '', $unsubscribe_url = '#', $preview_text = '' ) {
         $body = self::convert_content( $content );
 
@@ -116,9 +100,6 @@ class EmailTemplate {
 </html>';
     }
 
-    /**
-     * Render a newsletter-button block as email-safe HTML.
-     */
     public static function render_button_block( $attributes ) {
         $text       = esc_html( $attributes['text'] ?? 'Click here' );
         $url        = esc_url( $attributes['url'] ?? '#' );
@@ -138,9 +119,6 @@ class EmailTemplate {
         </table>';
     }
 
-    /**
-     * Render a newsletter-download block as email-safe HTML.
-     */
     public static function render_download_block( $attributes ) {
         $title      = esc_html( $attributes['title'] ?? 'Free Download' );
         $desc       = esc_html( $attributes['description'] ?? '' );
@@ -163,9 +141,6 @@ class EmailTemplate {
         </table>';
     }
 
-    /**
-     * Convert Gutenberg HTML to email-safe inline CSS.
-     */
     private static function convert_content( $html ) {
         // Remove Gutenberg comments.
         $html = preg_replace( '/<!--\s*\/?wp:.*?-->/s', '', $html );
@@ -243,9 +218,6 @@ class EmailTemplate {
         return trim( $html );
     }
 
-    /**
-     * Generate plain text version from HTML.
-     */
     public static function to_plain_text( $html ) {
         // Remove style/script tags.
         $text = preg_replace( '/<(style|script)[^>]*>.*?<\/\1>/si', '', $html );
