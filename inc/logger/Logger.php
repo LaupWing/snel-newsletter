@@ -1,14 +1,4 @@
 <?php
-/**
- * Plugin-wide logger.
- *
- * Usage:
- *   Logger::info( 'queue', 'Batch started', [ 'count' => 50 ] );
- *   Logger::warning( 'webhook', 'Signature failed' );
- *   Logger::error( 'ses', 'Send failed', [ 'to' => $email, 'error' => $msg ] );
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Logger;
 
@@ -16,23 +6,23 @@ defined( 'ABSPATH' ) || exit;
 
 class Logger {
 
-    public static function debug( $context, $message, $data = array() ) {
+    public static function debug( string $context, string $message, array $data = array() ): void {
         self::write( 'debug', $context, $message, $data );
     }
 
-    public static function info( $context, $message, $data = array() ) {
+    public static function info( string $context, string $message, array $data = array() ): void {
         self::write( 'info', $context, $message, $data );
     }
 
-    public static function warning( $context, $message, $data = array() ) {
+    public static function warning( string $context, string $message, array $data = array() ): void {
         self::write( 'warning', $context, $message, $data );
     }
 
-    public static function error( $context, $message, $data = array() ) {
+    public static function error( string $context, string $message, array $data = array() ): void {
         self::write( 'error', $context, $message, $data );
     }
 
-    public static function exception( $context, $message, \Throwable $e, $data = array() ) {
+    public static function exception( string $context, string $message, \Throwable $e, array $data = array() ): void {
         self::write( 'error', $context, $message, array_merge( $data, array(
             'exception' => get_class( $e ),
             'message'   => $e->getMessage(),
@@ -42,7 +32,7 @@ class Logger {
         ) ) );
     }
 
-    private static function write( $level, $context, $message, $data = array() ) {
+    private static function write( string $level, string $context, string $message, array $data = array() ): void {
         global $wpdb;
 
         $wpdb->insert(

@@ -1,9 +1,4 @@
 <?php
-/**
- * Settings REST route definitions.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Settings;
 
@@ -11,15 +6,15 @@ defined( 'ABSPATH' ) || exit;
 
 class Rest {
 
-    private $controller;
-    private $namespace = 'snel-newsletter/v1';
+    private Controller $controller;
+    private string $namespace = 'snel-newsletter/v1';
 
     public function __construct() {
         $this->controller = new Controller();
         add_action( 'rest_api_init', array( $this, 'register_routes' ) );
     }
 
-    public function register_routes() {
+    public function register_routes(): void {
         register_rest_route( $this->namespace, '/settings', array(
             'methods'             => 'GET',
             'callback'            => array( $this->controller, 'get' ),
@@ -51,7 +46,7 @@ class Rest {
         ) );
     }
 
-    public function permission_check() {
+    public function permission_check(): bool {
         return current_user_can( 'manage_options' );
     }
 }

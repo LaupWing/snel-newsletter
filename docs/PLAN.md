@@ -31,7 +31,7 @@ Volgorde is de route van een e-mail: binnenkomen, opslaan, versturen, terugmeten
 - [ ] **6. Verzenden** `inc/sender/`, `inc/adapters/`, `inc/ses/`: template, adapter-keuze, SES-call, headers
 - [ ] **7. Tracking** `inc/tracking/`: tabel `snel_tracking`, pixel, click, unsubscribe, bounce-webhook
 - [ ] **8. Automations** `inc/automations/`: tabellen runs/events, enrollment, tick, stappen
-- [ ] **9. Rest** `inc/logger/`, `inc/settings/`, `inc/cli.php`
+- [x] **9. Rest**: logger, settings, cli doorlopen en opgeschoond
 - [ ] **10. Frontend** `src/`: welke pagina's, hoe praten ze met de REST-routes, editor-sidebar
 
 Per map, tijdens het doorlopen
@@ -92,3 +92,4 @@ Niet doen (bewust)
 - 2026-08-28 (avond): timeout-fix af: cooldown in 1 query + index. Oranje punt 1 dicht.
 - 2026-08-29: ALLE 5 rode punten dicht. SSRF-fix, preview-text-fix, sender/adapters/ses opgeschoond, SOT:ADAPTER, invariant 7, .gitattributes tegen build-ruis. Walkthrough sender/ses voor Loc staat nog open (stap 6).
 - 2026-08-29 (later): 3 core flows in DATA.md gezet. LOC MOET DEZE NOG CHECKEN (volgende sessie eerst doen).
+- 2026-08-29 (avond): stap 9 klaar (logger/settings/cli). Automations bewust geparkeerd: samen doen. Stats-fix, tracking, TS-fundament gecommit.

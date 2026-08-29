@@ -1,9 +1,4 @@
 <?php
-/**
- * Settings business logic.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Settings;
 
@@ -11,15 +6,12 @@ defined( 'ABSPATH' ) || exit;
 
 class Controller {
 
-    private static $option_key = 'snel_newsletter_settings';
+    private static string $option_key = 'snel_newsletter_settings';
 
-    /**
-     * Get settings (masks secret key).
-     */
     public function get() {
         $settings = get_option( self::$option_key, array() );
 
-        // Mask the secret key.
+        // Never expose the secret key; only the last 4 chars leave the server.
         if ( ! empty( $settings['ses_secret_key'] ) ) {
             $key = $settings['ses_secret_key'];
             $settings['ses_secret_key'] = str_repeat( '*', max( 0, strlen( $key ) - 4 ) ) . substr( $key, -4 );
@@ -28,9 +20,6 @@ class Controller {
         return rest_ensure_response( $settings );
     }
 
-    /**
-     * Save settings.
-     */
     public function save( \WP_REST_Request $request ) {
         $params   = $request->get_json_params();
         $settings = get_option( self::$option_key, array() );
@@ -41,7 +30,7 @@ class Controller {
             'from_name'      => 'sanitize_text_field',
             'from_email'     => 'sanitize_email',
             'reply_to'       => 'sanitize_email',
-            // Automation lane sender (optional — falls back to the above).
+            // Automation lane sender is optional; falls back to the broadcast sender.
             'auto_from_name'  => 'sanitize_text_field',
             'auto_from_email' => 'sanitize_email',
             'auto_reply_to'   => 'sanitize_email',
@@ -53,7 +42,7 @@ class Controller {
             }
         }
 
-        // Secret key: only update if not masked.
+        // A masked value is the UI echoing our own mask back; never store it.
         if ( isset( $params['ses_secret_key'] ) && strpos( $params['ses_secret_key'], '*' ) === false ) {
             $settings['ses_secret_key'] = sanitize_text_field( $params['ses_secret_key'] );
         }
@@ -63,9 +52,6 @@ class Controller {
         return rest_ensure_response( array( 'success' => true ) );
     }
 
-    /**
-     * Send a test email via SES.
-     */
     public function test_email( \WP_REST_Request $request ) {
         $params = $request->get_json_params();
         $to     = sanitize_email( $params['email'] ?? '' );
@@ -82,7 +68,7 @@ class Controller {
 
         $settings = get_option( self::$option_key, array() );
 
-        // Which sending lane to test — broadcast (default) or automation.
+        // Which sending lane to test: broadcast (default) or automation.
         $lane     = in_array( $params['lane'] ?? 'broadcast', array( 'broadcast', 'automation' ), true )
                     ? $params['lane']
                     : 'broadcast';
@@ -129,9 +115,6 @@ class Controller {
         ) );
     }
 
-    /**
-     * Get logs with optional level/context filters.
-     */
     public function get_logs( \WP_REST_Request $request ) {
         global $wpdb;
 
@@ -161,9 +144,7 @@ class Controller {
         return rest_ensure_response( array( 'logs' => $rows ?: array() ) );
     }
 
-    /**
-     * Download all logs as CSV.
-     */
+    // Streams CSV and exits; bypasses the REST response cycle on purpose.
     public function download_logs( \WP_REST_Request $request ) {
         global $wpdb;
 
