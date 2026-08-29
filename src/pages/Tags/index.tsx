@@ -2,11 +2,23 @@ import { useState, useEffect, useCallback } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { Tag, Pencil, Trash2, Zap, RefreshCw, Plus } from 'lucide-react';
 import TagEditModal from './TagEditModal';
+import type { TagRule, MetricField, MetricOperator } from '../../types';
 
-const API_URL = window.snelNewsletter?.restUrl;
-const NONCE   = window.snelNewsletter?.nonce;
+const API_URL = window.snelNewsletter?.restUrl ?? '';
+const NONCE   = window.snelNewsletter?.nonce ?? '';
 
-function api( path, opts = {} ) {
+// Save payload from the modal; WP_Error responses arrive as { code, message }.
+type TagSavePayload = {
+    new_tag: string;
+    type: 'static' | 'dynamic';
+    metric: MetricField | null;
+    operator: MetricOperator | null;
+    threshold: number | null;
+};
+
+type SaveResponse = { code?: string; message?: string; synced?: number | null };
+
+function api< T >( path: string, opts: RequestInit = {} ): Promise< T > {
     return fetch( `${ API_URL }${ path }`, {
         headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
         ...opts,
@@ -14,15 +26,15 @@ function api( path, opts = {} ) {
 }
 
 export default function Tags() {
-    const [ tags, setTags ]           = useState( [] );
+    const [ tags, setTags ]           = useState< TagRule[] >( [] );
     const [ loading, setLoading ]     = useState( true );
-    const [ editingTag, setEditingTag ] = useState( null );
+    const [ editingTag, setEditingTag ] = useState< TagRule | null >( null );
     const [ creating, setCreating ]   = useState( false );
-    const [ syncing, setSyncing ]     = useState( null );
+    const [ syncing, setSyncing ]     = useState< string | null >( null );
 
     const loadTags = useCallback( () => {
         setLoading( true );
-        api( '/tags' ).then( ( data ) => {
+        api< TagRule[] >( '/tags' ).then( ( data ) => {
             setTags( data || [] );
             setLoading( false );
         } );
@@ -31,15 +43,15 @@ export default function Tags() {
     useEffect( () => { loadTags(); }, [ loadTags ] );
 
     // The modal serves both flows; a null oldTag means we're creating one.
-    const handleSave = async ( oldTag, payload ) => {
+    const handleSave = async ( oldTag: string | null, payload: TagSavePayload ) => {
         const { new_tag: name, ...rule } = payload;
 
         const result = oldTag
-            ? await api( `/tags/${ encodeURIComponent( oldTag ) }`, {
+            ? await api< SaveResponse >( `/tags/${ encodeURIComponent( oldTag ) }`, {
                 method: 'PUT',
                 body: JSON.stringify( payload ),
             } )
-            : await api( '/tags', {
+            : await api< SaveResponse >( '/tags', {
                 method: 'POST',
                 body: JSON.stringify( { tag: name, ...rule } ),
             } );
@@ -51,14 +63,14 @@ export default function Tags() {
         return result;
     };
 
-    const handleDelete = ( tag ) => {
+    const handleDelete = ( tag: string ) => {
         if ( ! confirm( `${ __( 'Delete tag', 'snel-newsletter' ) } "${ tag }"? ${ __( 'It will be removed from all subscribers.', 'snel-newsletter' ) }` ) ) return;
         api( `/tags/${ encodeURIComponent( tag ) }`, { method: 'DELETE' } ).then( () => loadTags() );
     };
 
-    const handleSync = ( tag ) => {
+    const handleSync = ( tag: string ) => {
         setSyncing( tag );
-        api( `/tags/${ encodeURIComponent( tag ) }/sync`, { method: 'POST' } ).then( ( res ) => {
+        api< { success: boolean; matched: number } >( `/tags/${ encodeURIComponent( tag ) }/sync`, { method: 'POST' } ).then( ( res ) => {
             setSyncing( null );
             loadTags();
             alert( `${ res.matched } ${ __( 'subscriber(s) matched', 'snel-newsletter' ) }` );
@@ -68,7 +80,7 @@ export default function Tags() {
     const staticTags  = tags.filter( ( t ) => t.type !== 'dynamic' );
     const dynamicTags = tags.filter( ( t ) => t.type === 'dynamic' );
 
-    const METRIC_LABELS = {
+    const METRIC_LABELS: Record< MetricField, string > = {
         open_rate:       'Open rate',
         click_rate:      'Click rate',
         opens:           'Total opens',
@@ -76,11 +88,11 @@ export default function Tags() {
         emails_received: 'Emails received',
     };
 
-    const OPERATOR_LABELS = {
+    const OPERATOR_LABELS: Record< MetricOperator, string > = {
         gt: '>', gte: '≥', lt: '<', lte: '≤', eq: '=',
     };
 
-    const renderTable = ( rows ) => (
+    const renderTable = ( rows: TagRule[] ) => (
         <table className="w-full">
             <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/50">
@@ -106,7 +118,7 @@ export default function Tags() {
                             <span className="text-sm text-gray-600">{ t.count }</span>
                         </td>
                         <td className="px-5 py-3">
-                            { t.type === 'dynamic' && t.metric ? (
+                            { t.type === 'dynamic' && t.metric && t.operator ? (
                                 <span className="text-xs text-gray-500">
                                     { METRIC_LABELS[ t.metric ] } { OPERATOR_LABELS[ t.operator ] } { t.threshold }{ ( t.metric === 'open_rate' || t.metric === 'click_rate' ) ? '%' : '' }
                                 </span>
