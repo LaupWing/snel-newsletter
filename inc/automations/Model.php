@@ -1,23 +1,11 @@
 <?php
-/**
- * Automations database queries.
- *
- * Steps are stored as a JSON array. Supported step shapes:
- *   { "type": "email",     "campaign_id": 123 }
- *   { "type": "wait",      "days": 3 }
- *   { "type": "condition", "yes": [ ...steps ], "no": [ ...steps ] }
- *   { "type": "label",     "tag": "engaged" }
- *
- * A condition checks whether the subscriber opened the nearest email step
- * ABOVE it in the same list. Conditions can't be nested inside branches.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Automations;
 
 defined( 'ABSPATH' ) || exit;
 
+// Steps are a JSON array: email {campaign_id}, wait {days, hours}, label {tag},
+// condition {mode, threshold, yes: [...], no: [...]}. Conditions can't nest inside branches.
 class Model {
 
     // Runs still in flight for an active automation; used by the cron self-heal.
@@ -30,30 +18,24 @@ class Model {
         );
     }
 
-
-    public static function table() {
+    public static function table(): string {
         global $wpdb;
         return $wpdb->prefix . 'snel_automations';
     }
 
-    public static function runs_table() {
+    public static function runs_table(): string {
         global $wpdb;
         return $wpdb->prefix . 'snel_automation_runs';
     }
 
-    public static function events_table() {
+    public static function events_table(): string {
         global $wpdb;
         return $wpdb->prefix . 'snel_automation_events';
     }
 
-    /**
-     * The automation's log — every event the engine recorded, newest first.
-     *
-     * This is the same events table the node inspector reads; here it's just ordered by
-     * time instead of by step, which is what you want when you're chasing "why did this
-     * subscriber get that email".
-     */
-    public static function logs( $automation_id, $limit = 500 ) {
+    // Same events table the node inspector reads, but ordered by time instead of by step:
+    // that's what you want when chasing "why did this subscriber get that email".
+    public static function logs( int $automation_id, int $limit = 500 ): array {
         global $wpdb;
 
         $subs   = $wpdb->prefix . 'snel_subscribers';
@@ -74,14 +56,9 @@ class Model {
         return $rows ?: array();
     }
 
-    /**
-     * Every subscriber enrolled in this automation and where they stand right now.
-     *
-     * `position` is the step the run will execute NEXT — so for a waiting run it's the
-     * step that fires once next_run_at passes, not the wait itself. The UI resolves the
-     * path against the automation's steps to name it.
-     */
-    public static function runs_list( $automation_id ) {
+    // Everyone enrolled and where they stand. `position` is the step the run executes NEXT,
+    // so for a waiting run it's the step that fires once next_run_at passes, not the wait itself.
+    public static function runs_list( int $automation_id ): array {
         global $wpdb;
 
         $subs = $wpdb->prefix . 'snel_subscribers';
@@ -106,19 +83,9 @@ class Model {
         }, $rows ?: array() );
     }
 
-    /**
-     * Who passed through one node, and what happened to them there.
-     *
-     * The trigger node reads the runs table (enrolment time is the run's created_at).
-     * Every other node reads the events table, which the engine writes one row to each
-     * time a subscriber executes a step. Email nodes additionally join the send queue
-     * and tracking table so we can show delivery and opens.
-     *
-     * @param string $path JSON path of the step, e.g. "[2]" or "[2,\"yes\",0]".
-     *                     The literal string "trigger" means the enrolment node.
-     * @return array{type: string, subscribers: array}
-     */
-    public static function step_subscribers( $automation_id, $path ) {
+    // Who passed through one node. The trigger node reads the runs table (enrolment = created_at);
+    // every other node reads events. $path is a JSON step path like "[2]", or the literal "trigger".
+    public static function step_subscribers( int $automation_id, string $path ): array {
         global $wpdb;
 
         $subs   = $wpdb->prefix . 'snel_subscribers';
@@ -192,10 +159,7 @@ class Model {
         return array( 'type' => $type, 'subscribers' => $rows );
     }
 
-    /**
-     * All automations with run counts.
-     */
-    public static function all() {
+    public static function all(): array {
         global $wpdb;
         $table = self::table();
         $runs  = self::runs_table();
@@ -214,13 +178,13 @@ class Model {
         return array_map( array( __CLASS__, 'format' ), $rows ?: array() );
     }
 
-    public static function get( $id ) {
+    public static function get( int $id ): ?array {
         global $wpdb;
         $row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . self::table() . ' WHERE id = %d', $id ) );
         return $row ? self::format( $row ) : null;
     }
 
-    public static function create( $data ) {
+    public static function create( array $data ): int {
         global $wpdb;
 
         $wpdb->insert( self::table(), array(
@@ -234,7 +198,7 @@ class Model {
         return $wpdb->insert_id;
     }
 
-    public static function update( $id, $data ) {
+    public static function update( int $id, array $data ): bool {
         global $wpdb;
 
         $fields  = array( 'updated_at' => current_time( 'mysql' ) );
@@ -254,17 +218,14 @@ class Model {
         return false !== $wpdb->update( self::table(), $fields, array( 'id' => $id ), $formats, array( '%d' ) );
     }
 
-    public static function delete( $id ) {
+    public static function delete( int $id ): bool {
         global $wpdb;
         $wpdb->delete( self::runs_table(), array( 'automation_id' => $id ), array( '%d' ) );
         $wpdb->delete( self::events_table(), array( 'automation_id' => $id ), array( '%d' ) );
         return false !== $wpdb->delete( self::table(), array( 'id' => $id ), array( '%d' ) );
     }
 
-    /**
-     * Run counts for one automation.
-     */
-    public static function run_counts( $id ) {
+    public static function run_counts( int $id ): array {
         global $wpdb;
         $runs = self::runs_table();
 
@@ -283,11 +244,8 @@ class Model {
         );
     }
 
-    /**
-     * Sent/opened counts for every email step's campaign, scoped to this
-     * automation's enrolled subscribers.
-     */
-    public static function email_stats( $automation ) {
+    // Sent/opened per email step's campaign, scoped to this automation's enrolled subscribers.
+    public static function email_stats( array $automation ): array {
         global $wpdb;
 
         $queue    = $wpdb->prefix . 'snel_send_queue';
@@ -315,7 +273,7 @@ class Model {
         return $stats;
     }
 
-    private static function collect_campaign_ids( $steps ) {
+    private static function collect_campaign_ids( $steps ): array {
         $ids = array();
         foreach ( (array) $steps as $step ) {
             if ( ( $step['type'] ?? '' ) === 'email' && ! empty( $step['campaign_id'] ) ) {
@@ -327,7 +285,7 @@ class Model {
         return array_unique( $ids );
     }
 
-    private static function format( $row ) {
+    private static function format( object $row ): array {
         return array(
             'id'           => (int) $row->id,
             'name'         => $row->name,

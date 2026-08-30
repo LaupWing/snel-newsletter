@@ -1,9 +1,4 @@
 <?php
-/**
- * Automations REST controller.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Automations;
 
@@ -30,9 +25,7 @@ class Controller {
         return rest_ensure_response( $automation );
     }
 
-    /**
-     * Backfill — enroll everyone already carrying the trigger tag.
-     */
+    // Backfill: enroll everyone already carrying the trigger tag.
     public function backfill( \WP_REST_Request $request ) {
         $id         = (int) $request->get_param( 'id' );
         $automation = Model::get( $id );
@@ -121,9 +114,6 @@ class Controller {
         return rest_ensure_response( array( 'success' => true, 'enrolled' => $enrolled ) );
     }
 
-    /**
-     * Logs tab — what the engine actually did, newest first.
-     */
     public function logs( \WP_REST_Request $request ) {
         $id = (int) $request->get_param( 'id' );
 
@@ -134,9 +124,6 @@ class Controller {
         return rest_ensure_response( array( 'logs' => Model::logs( $id ) ) );
     }
 
-    /**
-     * Subscribers tab — everyone in the automation and the step they're sitting on.
-     */
     public function subscribers( \WP_REST_Request $request ) {
         $id = (int) $request->get_param( 'id' );
 
@@ -147,10 +134,7 @@ class Controller {
         return rest_ensure_response( array( 'subscribers' => Model::runs_list( $id ) ) );
     }
 
-    /**
-     * Node inspector — the subscribers who passed through one step.
-     * `path` is the step's JSON path ("[2]", "[2,\"yes\",0]") or "trigger".
-     */
+    // Node inspector. `path` is the step's JSON path ("[2]", "[2,\"yes\",0]") or "trigger".
     public function step( \WP_REST_Request $request ) {
         $id   = (int) $request->get_param( 'id' );
         $path = (string) $request->get_param( 'path' );
@@ -165,14 +149,12 @@ class Controller {
         return rest_ensure_response( Model::step_subscribers( $id, $path ) );
     }
 
-    private function sanitize_trigger_type( $type ) {
+    private function sanitize_trigger_type( $type ): string {
         return in_array( $type, array( 'tag', 'manual' ), true ) ? $type : 'tag';
     }
 
-    /**
-     * Whitelist step types and their fields. Conditions only at root level.
-     */
-    private function sanitize_steps( $steps, $allow_condition = true ) {
+    // Whitelist step types and their fields. Conditions only at root level.
+    private function sanitize_steps( $steps, bool $allow_condition = true ): array {
         $clean = array();
 
         foreach ( (array) $steps as $step ) {

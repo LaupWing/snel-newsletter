@@ -1,9 +1,4 @@
 <?php
-/**
- * Automations database table creation.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Automations;
 

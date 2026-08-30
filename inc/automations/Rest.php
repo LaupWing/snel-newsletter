@@ -1,9 +1,4 @@
 <?php
-/**
- * Automations REST route definitions.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Automations;
 

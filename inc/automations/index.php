@@ -1,9 +1,4 @@
 <?php
-/**
- * Automations feature — entry point.
- *
- * @package SnelNewsletter
- */
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;

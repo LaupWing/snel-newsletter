@@ -1,21 +1,11 @@
 <?php
-/**
- * Automation engine — enrolls subscribers and walks them through steps.
- *
- * A run's position is a JSON path into the steps array:
- *   [2]           → root step index 2
- *   [2,"yes",0]   → first step inside the "yes" branch of the condition at root index 2
- *
- * Email steps reuse the send queue, so tracking, unsubscribe, and warmup
- * caps all apply to automation emails exactly like campaign sends.
- *
- * @package SnelNewsletter
- */
 
 namespace Snel\Newsletter\Automations;
 
 defined( 'ABSPATH' ) || exit;
 
+// A run's position is a JSON path into steps: [2] = root index 2, [2,"yes",0] = inside that condition's yes branch.
+// Email steps go through the send queue, so tracking, unsubscribe and warmup caps apply exactly like campaign sends.
 class Engine {
 
     const CRON_HOOK     = 'snel_newsletter_automations_tick';
@@ -23,13 +13,8 @@ class Engine {
     const BATCH_SIZE    = 100;
     const MAX_STEPS     = 50; // Safety cap per run per tick.
 
-    /**
-     * Enroll subscribers into an automation. Only active subscribers enter;
-     * a subscriber can only be enrolled once per automation.
-     *
-     * @return int Number of subscribers newly enrolled.
-     */
-    public static function enroll( $automation_id, $subscriber_ids ) {
+    // Only active subscribers enter; a subscriber enrolls once per automation. Returns how many are new.
+    public static function enroll( int $automation_id, $subscriber_ids ): int {
         global $wpdb;
 
         $subscriber_ids = array_filter( array_map( 'intval', (array) $subscriber_ids ) );
@@ -101,10 +86,8 @@ class Engine {
         return $enrolled;
     }
 
-    /**
-     * Tag-added trigger — enroll into any active automation watching one of these tags.
-     */
-    public static function on_tags_added( $subscriber_id, $tags ) {
+    // Tag-added trigger: enroll into any active automation watching one of these tags.
+    public static function on_tags_added( $subscriber_id, $tags ): void {
         global $wpdb;
 
         $tags = array_filter( array_map( 'strval', (array) $tags ) );
@@ -124,15 +107,9 @@ class Engine {
         }
     }
 
-    /**
-     * Everyone who carries the trigger tag but never entered the automation.
-     *
-     * Enrollment only happens the moment a tag is applied, so anyone tagged
-     * while the automation was paused is stranded. This is who they are.
-     *
-     * @return int[] Subscriber IDs.
-     */
-    public static function pending_by_tag( $automation_id ) {
+    // Carries the trigger tag but never entered: enrollment only fires the moment a tag is
+    // applied, so anyone tagged while the automation was paused is stranded. This finds them.
+    public static function pending_by_tag( int $automation_id ): array {
         global $wpdb;
 
         $automation = Model::get( $automation_id );
@@ -156,21 +133,15 @@ class Engine {
         ) ) );
     }
 
-    /**
-     * Backfill: enroll everyone already carrying the trigger tag.
-     *
-     * @return int Number newly enrolled.
-     */
-    public static function enroll_by_tag( $automation_id ) {
+    // Backfill: enroll everyone already carrying the trigger tag.
+    public static function enroll_by_tag( int $automation_id ): int {
         $ids = self::pending_by_tag( $automation_id );
 
         return $ids ? self::enroll( $automation_id, $ids ) : 0;
     }
 
-    /**
-     * Process due runs. Called by WP Cron.
-     */
-    public static function tick() {
+    // Cron entry point: process due runs.
+    public static function tick(): void {
         global $wpdb;
 
         $runs_table = Model::runs_table();
@@ -205,25 +176,23 @@ class Engine {
         }
     }
 
-    public static function ensure_scheduled( $delay = 5 ) {
+    public static function ensure_scheduled( int $delay = 5 ): void {
         if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
             wp_schedule_single_event( time() + $delay, self::CRON_HOOK );
         }
     }
 
-    /**
-     * Execute steps for one run until it waits, exits, or completes.
-     */
-    private static function process_run( $run, $automation ) {
+    // Execute steps for one run until it waits, exits, or completes.
+    private static function process_run( object $run, ?array $automation ): void {
         global $wpdb;
 
         if ( ! $automation ) {
             self::log_event( $run, null, 'exit', '', 'Automation was deleted — run stopped', 'warning' );
-            self::update_run( $run->id, array( 'status' => 'exited' ) );
+            self::update_run( (int) $run->id, array( 'status' => 'exited' ) );
             return;
         }
 
-        // Unsubscribed/bounced mid-flow → stop, never email them again.
+        // Unsubscribed/bounced mid-flow: stop, never email them again.
         $sub_status = $wpdb->get_var( $wpdb->prepare(
             "SELECT status FROM {$wpdb->prefix}snel_subscribers WHERE id = %d",
             $run->subscriber_id
@@ -234,7 +203,7 @@ class Engine {
                 sprintf( 'Left the automation — subscriber is %s, no further emails', $sub_status ),
                 'warning'
             );
-            self::update_run( $run->id, array( 'status' => 'exited' ) );
+            self::update_run( (int) $run->id, array( 'status' => 'exited' ) );
             return;
         }
 
@@ -249,18 +218,18 @@ class Engine {
 
             if ( null === $step ) {
                 if ( count( $path ) === 3 ) {
-                    // Branch finished → continue after the condition.
+                    // Branch finished: continue after the condition.
                     $path = array( $path[0] + 1 );
                     continue;
                 }
                 self::log_event( $run, null, 'complete', '', 'Reached the end of the automation' );
-                self::update_run( $run->id, array( 'status' => 'completed', 'position' => wp_json_encode( $path ), 'next_run_at' => null ) );
+                self::update_run( (int) $run->id, array( 'status' => 'completed', 'position' => wp_json_encode( $path ), 'next_run_at' => null ) );
                 return;
             }
 
             switch ( $step['type'] ?? '' ) {
                 case 'email':
-                    // Logs its own outcome — queued, duplicate, or missing campaign.
+                    // Logs its own outcome: queued, duplicate, or missing campaign.
                     self::send_step_email( $step, $run, $path );
                     $path = self::advance( $path );
                     break;
@@ -292,7 +261,7 @@ class Engine {
                         )
                     );
 
-                    self::update_run( $run->id, array(
+                    self::update_run( (int) $run->id, array(
                         'status'      => 'waiting',
                         'position'    => wp_json_encode( self::advance( $path ) ),
                         'next_run_at' => $resume,
@@ -301,7 +270,7 @@ class Engine {
 
                 case 'condition':
                     if ( count( $path ) === 3 ) {
-                        // Nested conditions aren't supported — skip.
+                        // Nested conditions aren't supported: skip.
                         self::log_event( $run, $path, 'condition', '', 'Nested condition is not supported — skipped', 'warning' );
                         $path = self::advance( $path );
                         break;
@@ -329,18 +298,13 @@ class Engine {
             }
         }
 
-        // Safety cap hit — persist position and pick up next tick.
-        self::update_run( $run->id, array( 'position' => wp_json_encode( $path ) ) );
+        // Safety cap hit: persist position and pick up next tick.
+        self::update_run( (int) $run->id, array( 'position' => wp_json_encode( $path ) ) );
     }
 
-    /**
-     * Queue one email step. Returns the log line describing what happened, so the caller
-     * records exactly one event per attempt — queued, suppressed as a duplicate, or failed.
-     *
-     * The send queue has a UNIQUE(campaign_id, subscriber_id), so a subscriber can never be
-     * sent the same campaign twice. INSERT IGNORE swallows that silently; we surface it.
-     */
-    private static function send_step_email( $step, $run, $path ) {
+    // The send queue has UNIQUE(campaign_id, subscriber_id), so a subscriber can never get the same
+    // campaign twice. INSERT IGNORE swallows that silently; we surface exactly one event per attempt.
+    private static function send_step_email( array $step, object $run, array $path ): void {
         global $wpdb;
 
         $campaign_id = (int) ( $step['campaign_id'] ?? 0 );
@@ -366,7 +330,7 @@ class Engine {
             $run->subscriber_id
         ) );
 
-        // 0 rows means the UNIQUE key rejected it — this subscriber already has this campaign.
+        // 0 rows means the UNIQUE key rejected it: this subscriber already has this campaign.
         if ( 0 === (int) $wpdb->rows_affected ) {
             self::log_event(
                 $run, $path, 'email', (string) $campaign_id,
@@ -384,10 +348,8 @@ class Engine {
         \Snel\Newsletter\Queue\Processor::ensure_soon();
     }
 
-    /**
-     * Did the subscriber open the nearest email step above this condition?
-     */
-    private static function opened_previous_email( $steps, $condition_index, $subscriber_id ) {
+    // Did the subscriber open the nearest email step above this condition?
+    private static function opened_previous_email( array $steps, int $condition_index, int $subscriber_id ): bool {
         global $wpdb;
 
         $campaign_id = 0;
@@ -410,11 +372,8 @@ class Engine {
         ) );
     }
 
-    /**
-     * Is the subscriber's lifetime open rate above the threshold (percent)?
-     * Same formula as dynamic tag rules: opens / distinct campaigns received.
-     */
-    private static function open_rate_above( $subscriber_id, $threshold ) {
+    // Same formula as dynamic tag rules: opens / distinct campaigns received, in percent.
+    private static function open_rate_above( int $subscriber_id, float $threshold ): bool {
         global $wpdb;
 
         $tracking = $wpdb->prefix . 'snel_tracking';
@@ -427,7 +386,7 @@ class Engine {
         return null !== $rate && (float) $rate > $threshold;
     }
 
-    private static function human_wait( $days, $hours ) {
+    private static function human_wait( int $days, int $hours ): string {
         $parts = array();
         if ( $days ) {
             $parts[] = sprintf( _n( '%d day', '%d days', $days, 'snel-newsletter' ), $days );
@@ -438,7 +397,7 @@ class Engine {
         return $parts ? implode( ' ', $parts ) : '1 minute (minimum)';
     }
 
-    private static function step_at( $steps, $path ) {
+    private static function step_at( array $steps, array $path ) {
         if ( count( $path ) === 1 ) {
             return $steps[ $path[0] ] ?? null;
         }
@@ -449,25 +408,20 @@ class Engine {
         return null;
     }
 
-    private static function advance( $path ) {
+    private static function advance( array $path ): array {
         $path[ count( $path ) - 1 ]++;
         return $path;
     }
 
-    private static function update_run( $run_id, $fields ) {
+    private static function update_run( int $run_id, array $fields ): void {
         global $wpdb;
         $fields['updated_at'] = current_time( 'mysql' );
         $wpdb->update( Model::runs_table(), $fields, array( 'id' => $run_id ) );
     }
 
-    /**
-     * Record that a subscriber executed a step. This is the only history we keep —
-     * the run row itself holds just the current position — so it's what the node
-     * inspector reads to answer "who went through here, and what happened".
-     *
-     * @param string $detail Step-specific: campaign id, tag, resume time, or yes/no.
-     */
-    private static function log_event( $run, $path, $type, $detail = '', $message = '', $level = 'info' ) {
+    // Events are the only history kept (the run row holds just the current position), so this
+    // is what the node inspector reads. Detail is step-specific: campaign id, tag, resume time, yes/no.
+    private static function log_event( object $run, ?array $path, string $type, string $detail = '', string $message = '', string $level = 'info' ): void {
         global $wpdb;
 
         $wpdb->insert(
