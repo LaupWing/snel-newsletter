@@ -147,14 +147,30 @@ class Engine {
         $runs_table = Model::runs_table();
         $auto_table = Model::table();
 
-        $rows = $wpdb->get_results( $wpdb->prepare(
-            "SELECT r.* FROM $runs_table r
-             INNER JOIN $auto_table a ON a.id = r.automation_id AND a.status = 'active'
+        // Same pattern as SOT:CLAIM in the queue: overlapping ticks must never
+        // process the same run, so claim atomically before working.
+        $wpdb->query(
+            "UPDATE $runs_table
+             SET status = 'waiting', claim = ''
+             WHERE status = 'processing' AND updated_at < NOW() - INTERVAL 15 MINUTE"
+        );
+
+        $token = uniqid( 'tick-', true );
+        $wpdb->query( $wpdb->prepare(
+            "UPDATE $runs_table r
+             SET r.status = 'processing', r.claim = %s, r.updated_at = NOW()
              WHERE r.status IN ('active', 'waiting') AND r.next_run_at <= %s
+               AND r.automation_id IN (SELECT id FROM $auto_table WHERE status = 'active')
              ORDER BY r.next_run_at ASC
              LIMIT %d",
+            $token,
             current_time( 'mysql' ),
             self::BATCH_SIZE
+        ) );
+
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT * FROM $runs_table WHERE status = 'processing' AND claim = %s",
+            $token
         ) );
 
         $automations = array();
@@ -169,7 +185,7 @@ class Engine {
         $pending = $wpdb->get_var(
             "SELECT COUNT(*) FROM $runs_table r
              INNER JOIN $auto_table a ON a.id = r.automation_id AND a.status = 'active'
-             WHERE r.status IN ('active', 'waiting')"
+             WHERE r.status IN ('active', 'waiting', 'processing')"
         );
         if ( $pending ) {
             self::ensure_scheduled( self::CRON_INTERVAL );
@@ -416,6 +432,8 @@ class Engine {
     private static function update_run( int $run_id, array $fields ): void {
         global $wpdb;
         $fields['updated_at'] = current_time( 'mysql' );
+        // Every transition releases the claim; only tick() sets one.
+        $fields += array( 'claim' => '' );
         $wpdb->update( Model::runs_table(), $fields, array( 'id' => $run_id ) );
     }
 

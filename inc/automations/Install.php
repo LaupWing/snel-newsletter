@@ -38,6 +38,7 @@ class Install {
             next_run_at datetime DEFAULT NULL,
             created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            claim varchar(64) NOT NULL DEFAULT '',
             PRIMARY KEY (id),
             UNIQUE KEY automation_subscriber (automation_id, subscriber_id),
             KEY due (status, next_run_at)

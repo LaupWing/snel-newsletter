@@ -30,7 +30,7 @@ Volgorde is de route van een e-mail: binnenkomen, opslaan, versturen, terugmeten
 - [x] **5. Warmup + lanes** `inc/warmup/`, `inc/lanes/`: daily cap, cooldown, broadcast vs automation lane
 - [x] **6. Verzenden** `inc/sender/`, `inc/adapters/`, `inc/ses/`: template, adapter-keuze, SES-call, headers
 - [x] **7. Tracking**: doorlopen + opgeschoond; stats live via SOT:LIVE-STATS
-- [ ] **8. Automations** `inc/automations/`: tabellen runs/events, enrollment, tick, stappen
+- [x] **8. Automations** (doorlopen; tick-claim gefixt, v1.9.13) `inc/automations/`: tabellen runs/events, enrollment, tick, stappen
 - [x] **9. Rest**: logger, settings, cli doorlopen en opgeschoond
 - [~] **10. Frontend** (code klaar: TypeScript + preview-fix; klik-test door Loc nog) `src/`: welke pagina's, hoe praten ze met de REST-routes, editor-sidebar
 
@@ -99,3 +99,4 @@ Niet doen (bewust)
 - 2026-08-29 (avond): stap 9 klaar (logger/settings/cli). Automations bewust geparkeerd: samen doen. Stats-fix, tracking, TS-fundament gecommit.
 - 2026-08-29 (avond 2): stap 6 leesrondje gedaan; inc/ses/ opgegaan in adapters als SESClient. Eén map bezit het versturen; een nieuwe provider is straks één extra adapter-klasse.
 - 2026-08-29 (slot): frontend volledig naar TypeScript (41 bestanden, gedrag identiek). Tracking-vinkje gezet. Open: flows-check, automations-sessie, klik-test.
+- 2026-08-30: automations opgeschoond en doorlopen. Tick-claim gebouwd (SOT:CLAIM-patroon, kolom claim, v1.9.13). Laatste bekende race dicht.

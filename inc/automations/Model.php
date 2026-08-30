@@ -14,7 +14,7 @@ class Model {
         return (bool) $wpdb->get_var(
             "SELECT COUNT(*) FROM {$wpdb->prefix}snel_automation_runs r
              INNER JOIN {$wpdb->prefix}snel_automations a ON a.id = r.automation_id AND a.status = 'active'
-             WHERE r.status IN ('active', 'waiting')"
+             WHERE r.status IN ('active', 'waiting', 'processing')"
         );
     }
 
