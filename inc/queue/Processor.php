@@ -214,14 +214,16 @@ class Processor {
     }
 
     // Single source for "is there queue work"; watchdog and self-heal both use it.
+    // WP time, not MySQL NOW(): delayed_until is WP time and the DB server may run in another tz.
     public static function has_pending_work(): bool {
         global $wpdb;
         $queue = self::table();
-        return (bool) $wpdb->get_var(
+        return (bool) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(*) FROM $queue
              WHERE status IN ('pending', 'retrying')
-                OR (status = 'delayed' AND delayed_until <= NOW())"
-        );
+                OR (status = 'delayed' AND delayed_until <= %s)",
+            current_time( 'mysql' )
+        ) );
     }
 
     private static function lane_budgets(): array {
