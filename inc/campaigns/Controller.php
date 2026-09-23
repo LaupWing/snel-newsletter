@@ -103,6 +103,7 @@ class Controller {
         return rest_ensure_response( array_merge( $campaign, array(
             'failed'      => $failed,
             'subscribers' => $subscribers ?: array(),
+            'delivery'    => \Snel\Newsletter\Tracking\Model::delivery_summary( $id ),
         ) ) );
     }
 

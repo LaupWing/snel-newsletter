@@ -59,6 +59,52 @@ class Model {
         ), array( '%d', '%d', '%s', '%s', '%s' ) );
     }
 
+    // Per campaign: counts per event type plus delay reasons (type before ' | ' in detail).
+    public static function delivery_summary( int $campaign_id ): array {
+        global $wpdb;
+        $events = $wpdb->prefix . 'snel_delivery_events';
+
+        $counts = $wpdb->get_results( $wpdb->prepare(
+            "SELECT type, COUNT(DISTINCT subscriber_id) AS n FROM $events WHERE campaign_id = %d GROUP BY type",
+            $campaign_id
+        ), OBJECT_K );
+
+        $delays = $wpdb->get_results( $wpdb->prepare(
+            "SELECT SUBSTRING_INDEX(detail, ' | ', 1) AS reason, COUNT(*) AS n, MAX(created_at) AS last_at
+             FROM $events WHERE campaign_id = %d AND type = 'delay'
+             GROUP BY reason ORDER BY n DESC LIMIT 10",
+            $campaign_id
+        ) );
+
+        return array(
+            'delivered'  => (int) ( $counts['delivery']->n ?? 0 ),
+            'delayed'    => (int) ( $counts['delay']->n ?? 0 ),
+            'bounced'    => (int) ( $counts['bounce']->n ?? 0 ) + (int) ( $counts['soft_bounce']->n ?? 0 ),
+            'complained' => (int) ( $counts['complaint']->n ?? 0 ),
+            'delays'     => array_map( fn( $d ) => array( 'reason' => $d->reason, 'count' => (int) $d->n, 'last_at' => $d->last_at ), $delays ?: array() ),
+        );
+    }
+
+    // Per campaign: number of delay/bounce/complaint events, for the red dot in the list.
+    public static function issues_for_campaigns( array $campaign_ids ): array {
+        global $wpdb;
+        if ( empty( $campaign_ids ) ) {
+            return array();
+        }
+        $events = $wpdb->prefix . 'snel_delivery_events';
+        $ids    = implode( ',', array_map( 'intval', $campaign_ids ) );
+        $rows   = $wpdb->get_results(
+            "SELECT campaign_id, COUNT(*) AS n FROM $events
+             WHERE campaign_id IN ($ids) AND type IN ('delay', 'bounce', 'complaint')
+             GROUP BY campaign_id"
+        );
+        $out = array();
+        foreach ( $rows as $r ) {
+            $out[ (int) $r->campaign_id ] = (int) $r->n;
+        }
+        return $out;
+    }
+
     // SOT:LIVE-STATS — stats come from this table, live and batched per page;
     // never from cached postmeta, which freezes the moment sending stops.
     public static function stats_for_campaigns( array $campaign_ids ): array {

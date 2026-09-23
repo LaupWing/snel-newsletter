@@ -71,6 +71,12 @@ export default function CampaignRow( { campaign, onDelete, onDuplicate, onViewSt
                     { campaign.status === 'sending' && <Loader2 size={ 10 } className="animate-spin" /> }
                     { status.label }
                 </span>
+                { campaign.issues > 0 && (
+                    <span
+                        className="inline-block w-2 h-2 ml-1.5 rounded-full bg-red-500 align-middle"
+                        title={ `${ campaign.issues } ${ __( 'delivery issues (delays, bounces, complaints)', 'snel-newsletter' ) }` }
+                    />
+                ) }
                 { campaign.status === 'sending' && (
                     <div className="mt-1.5 w-20">
                         <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">

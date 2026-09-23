@@ -65,7 +65,9 @@ export default function CampaignDetail( { campaignId, onClose }: Props ) {
         } );
     }, [ campaignId ] );
 
-    const c: any     = { tags: [], subscribers: [], ...( campaign || {} ) };
+    const c: any     = { tags: [], subscribers: [], delivery: { delivered: 0, delayed: 0, bounced: 0, complained: 0, delays: [] }, ...( campaign || {} ) };
+    const d          = c.delivery;
+    const hasFeedback = d.delivered + d.delayed + d.bounced + d.complained > 0;
     const progress   = c.recipients > 0 ? Math.round( ( ( c.sent || 0 ) / c.recipients ) * 100 ) : 0;
     const openRate   = c.sent > 0 ? Math.round( ( ( c.opened  || 0 ) / c.sent ) * 100 ) : 0;
     const clickRate  = c.sent > 0 ? Math.round( ( ( c.clicked || 0 ) / c.sent ) * 100 ) : 0;
@@ -151,6 +153,44 @@ export default function CampaignDetail( { campaignId, onClose }: Props ) {
                         <StatCard icon={ MousePointerClick } label={ __( 'Click rate', 'snel-newsletter' ) }       value={ `${ clickRate }%` }              sub={ `${ c.clicked.toLocaleString() } clicks` } color="purple" />
                         <StatCard icon={ XCircle }           label={ __( 'Failed', 'snel-newsletter' ) }           value={ c.failed }                       sub={ __( 'will retry', 'snel-newsletter' ) }    color="red" />
                     </div>
+
+                    { /* Delivery feedback from SES (snel_delivery_events) */ }
+                    { hasFeedback && (
+                        <div className="bg-white border border-gray-200 rounded-lg">
+                            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                                <p className="text-sm font-medium text-gray-900">{ __( 'Delivery', 'snel-newsletter' ) }</p>
+                                <p className="text-xs text-gray-500">
+                                    <span className="text-emerald-700 font-medium">{ d.delivered.toLocaleString() }</span> { __( 'delivered', 'snel-newsletter' ) }
+                                    <span className="mx-1.5 text-gray-300">·</span>
+                                    <span className={ d.delayed > 0 ? 'text-amber-600 font-medium' : '' }>{ d.delayed }</span> { __( 'delayed', 'snel-newsletter' ) }
+                                    <span className="mx-1.5 text-gray-300">·</span>
+                                    <span className={ d.bounced > 0 ? 'text-red-600 font-medium' : '' }>{ d.bounced }</span> { __( 'bounced', 'snel-newsletter' ) }
+                                    <span className="mx-1.5 text-gray-300">·</span>
+                                    <span className={ d.complained > 0 ? 'text-red-600 font-medium' : '' }>{ d.complained }</span> { __( 'complaints', 'snel-newsletter' ) }
+                                </p>
+                            </div>
+                            { d.delays.length > 0 && (
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="text-left text-gray-400 border-b border-gray-100">
+                                            <th className="px-4 py-2 font-medium">{ __( 'Delay reason', 'snel-newsletter' ) }</th>
+                                            <th className="px-4 py-2 font-medium text-right">{ __( 'Count', 'snel-newsletter' ) }</th>
+                                            <th className="px-4 py-2 font-medium text-right">{ __( 'Last', 'snel-newsletter' ) }</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        { d.delays.map( ( row: any ) => (
+                                            <tr key={ row.reason } className="border-b border-gray-50">
+                                                <td className="px-4 py-2 font-mono text-gray-700">{ row.reason }</td>
+                                                <td className="px-4 py-2 text-right text-gray-700">{ row.count }</td>
+                                                <td className="px-4 py-2 text-right text-gray-400">{ row.last_at }</td>
+                                            </tr>
+                                        ) ) }
+                                    </tbody>
+                                </table>
+                            ) }
+                        </div>
+                    ) }
 
                     { /* Subscriber table */ }
                     <div className="bg-white border border-gray-200 rounded-lg">

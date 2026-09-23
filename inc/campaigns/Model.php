@@ -74,10 +74,11 @@ class Model {
         $ids        = wp_list_pluck( $posts, 'ID' );
         $live_stats = \Snel\Newsletter\Tracking\Model::stats_for_campaigns( $ids );
         $open_rows  = self::open_queue_rows( $ids );
+        $issues     = \Snel\Newsletter\Tracking\Model::issues_for_campaigns( $ids );
 
         $campaigns = array();
         foreach ( $posts as $post ) {
-            $campaigns[] = self::format( $post, $workflow_map, $live_stats, $open_rows );
+            $campaigns[] = self::format( $post, $workflow_map, $live_stats, $open_rows, $issues );
         }
 
         return array(
@@ -163,7 +164,8 @@ class Model {
             $post,
             self::workflow_map(),
             \Snel\Newsletter\Tracking\Model::stats_for_campaigns( array( $post->ID ) ),
-            self::open_queue_rows( array( $post->ID ) )
+            self::open_queue_rows( array( $post->ID ) ),
+            \Snel\Newsletter\Tracking\Model::issues_for_campaigns( array( $post->ID ) )
         );
     }
 
@@ -227,7 +229,7 @@ class Model {
         return $new_id;
     }
 
-    private static function format( \WP_Post $post, array $workflow_map = array(), array $live_stats = array(), array $open_rows = array() ): array {
+    private static function format( \WP_Post $post, array $workflow_map = array(), array $live_stats = array(), array $open_rows = array(), array $issues = array() ): array {
         $send_status = get_post_meta( $post->ID, '_snel_nl_send_status', true );
         $sent_count  = (int) get_post_meta( $post->ID, '_snel_nl_sent_count', true );
         $total       = (int) get_post_meta( $post->ID, '_snel_nl_total_recipients', true );
@@ -238,8 +240,8 @@ class Model {
 
         $is_workflow     = array_key_exists( $post->ID, $workflow_map );
         $automation_name = $is_workflow ? $workflow_map[ $post->ID ] : '';
-        $waiting = (int) ( $open_rows[ $post->ID ]['waiting'] ?? 0 );
-        $active  = (int) ( $open_rows[ $post->ID ]['active'] ?? 0 );
+        $waiting         = (int) ( $open_rows[ $post->ID ]['waiting'] ?? 0 );
+        $active          = (int) ( $open_rows[ $post->ID ]['active'] ?? 0 );
 
         // Cancelled wins over post_status: a cancelled campaign may have been
         // unscheduled back to draft.
@@ -279,6 +281,7 @@ class Model {
             'recipients'      => $total,
             'sent'            => $sent_count,
             'waiting'         => $waiting,
+            'issues'          => (int) ( $issues[ $post->ID ] ?? 0 ),
             'opened'          => $opened,
             'clicked'         => $clicked,
             'tags'            => is_array( $tags ) ? $tags : array(),

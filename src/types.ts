@@ -37,6 +37,7 @@ export interface Campaign {
 	recipients: number;
 	sent: number;
 	waiting: number;
+	issues: number;
 	opened: number;
 	clicked: number;
 	tags: string[];
