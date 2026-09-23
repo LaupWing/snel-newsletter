@@ -25,8 +25,9 @@ class Controller {
         $settings = get_option( self::$option_key, array() );
 
         $fields = array(
-            'ses_access_key' => 'sanitize_text_field',
-            'ses_region'     => 'sanitize_text_field',
+            'ses_access_key'        => 'sanitize_text_field',
+            'ses_region'            => 'sanitize_text_field',
+            'ses_configuration_set' => 'sanitize_text_field',
             'from_name'      => 'sanitize_text_field',
             'from_email'     => 'sanitize_email',
             'reply_to'       => 'sanitize_email',

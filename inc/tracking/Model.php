@@ -37,6 +37,28 @@ class Model {
         ), array( '%d', '%d', '%s', '%s' ) );
     }
 
+    // SOT:DELIVERY-EVENTS — SES feedback lands here, resolved to campaign + subscriber via the
+    // queue's message_id. Unresolvable events (test sends, pre-SNS mail) are kept with zeros.
+    public static function log_delivery_event( string $message_id, string $type, string $detail ): void {
+        global $wpdb;
+
+        $row = null;
+        if ( $message_id ) {
+            $row = $wpdb->get_row( $wpdb->prepare(
+                "SELECT campaign_id, subscriber_id FROM {$wpdb->prefix}snel_send_queue WHERE message_id = %s LIMIT 1",
+                $message_id
+            ) );
+        }
+
+        $wpdb->insert( $wpdb->prefix . 'snel_delivery_events', array(
+            'campaign_id'   => (int) ( $row->campaign_id ?? 0 ),
+            'subscriber_id' => (int) ( $row->subscriber_id ?? 0 ),
+            'message_id'    => substr( $message_id, 0, 100 ),
+            'type'          => $type,
+            'detail'        => mb_substr( $detail, 0, 500 ),
+        ), array( '%d', '%d', '%s', '%s', '%s' ) );
+    }
+
     // SOT:LIVE-STATS — stats come from this table, live and batched per page;
     // never from cached postmeta, which freezes the moment sending stops.
     public static function stats_for_campaigns( array $campaign_ids ): array {

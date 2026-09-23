@@ -29,7 +29,8 @@ class Install {
             KEY status (status),
             KEY campaign_status (campaign_id, status),
             KEY delayed_status (status, delayed_until),
-            KEY subscriber_status (subscriber_id, status, sent_at)
+            KEY subscriber_status (subscriber_id, status, sent_at),
+            KEY message_id (message_id(100))
         ) $charset;";
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';

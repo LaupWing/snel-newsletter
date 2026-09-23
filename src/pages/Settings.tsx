@@ -154,6 +154,20 @@ function SesSettings( { settings, setSettings }: SettingsPanelProps ) {
                         />
                         <p className="text-xs text-gray-400">{ __( 'Choose the region where your SES is configured.', 'snel-newsletter' ) }</p>
                     </div>
+                    <InputField
+                        label={ __( 'Configuration set', 'snel-newsletter' ) }
+                        value={ settings.ses_configuration_set || '' }
+                        onChange={ ( v ) => setSettings( { ...settings, ses_configuration_set: v } ) }
+                        placeholder="snel-newsletter"
+                        hint={ __( 'Optional. Name of the SES configuration set whose event destination points at the webhook below. Needed for delivery and delay events.', 'snel-newsletter' ) }
+                    />
+                    <div className="space-y-1.5">
+                        <label className="block text-xs font-medium text-gray-700">{ __( 'Webhook URL (SNS endpoint)', 'snel-newsletter' ) }</label>
+                        <code className="block px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg text-gray-700 break-all select-all">
+                            { `${ window.snelNewsletter?.restUrl || '' }/webhook/ses` }
+                        </code>
+                        <p className="text-xs text-gray-400">{ __( 'Use this as the HTTPS subscription endpoint of your SNS topic. Bounce, Complaint, Delivery and DeliveryDelay are handled.', 'snel-newsletter' ) }</p>
+                    </div>
                 </div>
 
                 { allFieldsFilled && (
@@ -476,6 +490,7 @@ export default function Settings() {
         ses_access_key: '',
         ses_secret_key: '',
         ses_region: '',
+        ses_configuration_set: '',
         from_name: '',
         from_email: '',
         reply_to: '',

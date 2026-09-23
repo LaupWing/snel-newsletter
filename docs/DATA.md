@@ -66,14 +66,22 @@ flowchart LR
     A[Recipient] -->|opens pixel| B["/t/open — one row per subscriber per campaign"]
     A -->|clicks| C["/t/click — HMAC-checked, then redirect"]
     A -->|unsubscribes| D["/t/unsubscribe — status=unsubscribed"]
-    SES -->|bounce/complaint| E["/webhook/ses — SNS signature first (invariant 7)"]
+    SES -->|bounce/complaint/delivery/delay| E["/webhook/ses — SNS signature first (invariant 7)"]
     B & C --> F[(snel_tracking)]
-    D & E --> G[(snel_subscribers.status)]
+    E --> I[(snel_delivery_events)]
+    D & E -->|bounce, complaint| G[(snel_subscribers.status)]
     G --> H["next batch: cancel_inactive_rows()"]
 ```
 
 Stats shown in the UI come from cached postmeta refreshed during batches;
 `snel_tracking` is the source of truth (see PLAN.md, stale-stats fix).
+
+`snel_delivery_events` (`SOT:DELIVERY-EVENTS`, `inc/tracking/Model.php`) holds every SES
+feedback event per sent message: `campaign_id`, `subscriber_id` (resolved through
+`snel_send_queue.message_id`), `type` (`delivery`, `delay`, `bounce`, `soft_bounce`,
+`complaint`), `detail` (sending MTA + SMTP reply, or delay type + diagnostic). Delivery and
+delay events only arrive when `ses_configuration_set` is set and that set publishes to the
+SNS topic behind `/webhook/ses`.
 
 ## Tables
 

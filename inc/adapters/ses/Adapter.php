@@ -73,19 +73,26 @@ class Adapter implements AdapterInterface {
             return array();
         }
 
-        $events = array();
-        $type   = $message['notificationType'] ?? $message['eventType'] ?? '';
+        return $this->events_from_message( $message );
+    }
+
+    // Flattens one SES notification into per-recipient events. Every event carries the
+    // SES message_id so it can be joined back to the queue row it belongs to.
+    private function events_from_message( array $message ): array {
+        $events     = array();
+        $type       = $message['notificationType'] ?? $message['eventType'] ?? '';
+        $message_id = $message['mail']['messageId'] ?? '';
 
         if ( $type === 'Bounce' && isset( $message['bounce']['bouncedRecipients'] ) ) {
-            // Transient = soft bounce (temporary), Permanent = hard bounce.
             $bounce_type = $message['bounce']['bounceType'] ?? 'Permanent';
             $event_type  = ( strtolower( $bounce_type ) === 'transient' ) ? 'soft_bounce' : 'bounce';
 
             foreach ( $message['bounce']['bouncedRecipients'] as $recipient ) {
                 $events[] = array(
-                    'type'   => $event_type,
-                    'email'  => $recipient['emailAddress'] ?? '',
-                    'reason' => $recipient['diagnosticCode'] ?? 'bounced',
+                    'type'       => $event_type,
+                    'email'      => $recipient['emailAddress'] ?? '',
+                    'message_id' => $message_id,
+                    'reason'     => $recipient['diagnosticCode'] ?? ( $message['bounce']['bounceSubType'] ?? 'bounced' ),
                 );
             }
         }
@@ -93,9 +100,40 @@ class Adapter implements AdapterInterface {
         if ( $type === 'Complaint' && isset( $message['complaint']['complainedRecipients'] ) ) {
             foreach ( $message['complaint']['complainedRecipients'] as $recipient ) {
                 $events[] = array(
-                    'type'   => 'complaint',
-                    'email'  => $recipient['emailAddress'] ?? '',
-                    'reason' => 'spam complaint',
+                    'type'       => 'complaint',
+                    'email'      => $recipient['emailAddress'] ?? '',
+                    'message_id' => $message_id,
+                    'reason'     => $message['complaint']['complaintFeedbackType'] ?? 'spam complaint',
+                );
+            }
+        }
+
+        if ( $type === 'Delivery' && isset( $message['delivery']['recipients'] ) ) {
+            $d      = $message['delivery'];
+            $reason = trim( sprintf(
+                '%s | %s | %sms',
+                $d['reportingMTA'] ?? '',
+                $d['smtpResponse'] ?? '',
+                $d['processingTimeMillis'] ?? ''
+            ) );
+            foreach ( $d['recipients'] as $email ) {
+                $events[] = array(
+                    'type'       => 'delivery',
+                    'email'      => $email,
+                    'message_id' => $message_id,
+                    'reason'     => $reason,
+                );
+            }
+        }
+
+        if ( $type === 'DeliveryDelay' && isset( $message['deliveryDelay']['delayedRecipients'] ) ) {
+            $delay_type = $message['deliveryDelay']['delayType'] ?? 'Undetermined';
+            foreach ( $message['deliveryDelay']['delayedRecipients'] as $recipient ) {
+                $events[] = array(
+                    'type'       => 'delay',
+                    'email'      => $recipient['emailAddress'] ?? '',
+                    'message_id' => $message_id,
+                    'reason'     => $delay_type . ' | ' . ( $recipient['diagnosticCode'] ?? ( $recipient['status'] ?? '' ) ),
                 );
             }
         }

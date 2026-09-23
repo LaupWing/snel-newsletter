@@ -79,8 +79,8 @@ class Controller {
         );
     }
 
-    // Bounce/complaint events from the active mail adapter. Hard bounces and
-    // complaints flip subscriber status; soft bounces are logged only.
+    // SES feedback via the active adapter. Every event is stored per message (SOT:DELIVERY-EVENTS);
+    // hard bounces and complaints also flip subscriber status so they never get mail again.
     public function webhook( \WP_REST_Request $request ): \WP_REST_Response {
         global $wpdb;
 
@@ -97,6 +97,8 @@ class Controller {
         foreach ( $events as $event ) {
             $email = sanitize_email( $event['email'] ?? '' );
             if ( ! $email ) continue;
+
+            Model::log_delivery_event( (string) ( $event['message_id'] ?? '' ), $event['type'], (string) ( $event['reason'] ?? '' ) );
 
             if ( $event['type'] === 'bounce' ) {
                 $wpdb->update( $table, array( 'status' => 'bounced' ), array( 'email' => $email ), array( '%s' ), array( '%s' ) );

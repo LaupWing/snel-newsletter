@@ -10,12 +10,14 @@ class Client {
     private $access_key;
     private $secret_key;
     private $region;
+    private $configuration_set;
     private $service = 'ses';
 
-    public function __construct( $access_key, $secret_key, $region ) {
-        $this->access_key = $access_key;
-        $this->secret_key = $secret_key;
-        $this->region     = $region;
+    public function __construct( $access_key, $secret_key, $region, $configuration_set = '' ) {
+        $this->access_key        = $access_key;
+        $this->secret_key        = $secret_key;
+        $this->region            = $region;
+        $this->configuration_set = $configuration_set;
     }
 
     // Null when credentials are missing.
@@ -30,7 +32,7 @@ class Client {
             return null;
         }
 
-        return new self( $access_key, $secret_key, $region );
+        return new self( $access_key, $secret_key, $region, $settings['ses_configuration_set'] ?? '' );
     }
 
     // SendRawEmail so custom headers survive: Gmail/Yahoo bulk rules demand
@@ -46,6 +48,10 @@ class Client {
             'Source'                             => $from_email,
             'Destinations.member.1'              => $to_email,
         );
+
+        if ( $this->configuration_set ) {
+            $params['ConfigurationSetName'] = $this->configuration_set;
+        }
 
         $result = $this->request( $params );
 
