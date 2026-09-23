@@ -61,8 +61,17 @@ Dynamic tags are rules in `snel_tag_rules`, recomputed by `sync_dynamic_tag()`.
 lanes (broadcast on `mail.`, automation on `auto.`), each with its own sender
 and daily budget. `Ramp` is the schedule (day 1 → 200 … day 8+ → unlimited),
 `Guard` enforces it (daily counter, per-subscriber cooldown of 2 days),
-`Settings` keeps the per-lane options. Known debt: `Guard::apply_cooldowns()`
-loops per subscriber — the publish-timeout fix on the plan.
+`Settings` keeps the per-lane options. `apply_cooldowns()` is one set-based
+UPDATE since the publish-timeout fix.
+
+**Engagement.** `inc/engagement/`: what a mailbox provider sees first, and who
+stops receiving mail. `Waves` (`SOT:WAVES`) runs right after a broadcast is
+queued and parks rows with the same `delayed` mechanic as the cooldown: people
+who opened 4 of the last 5 broadcasts go now, people who opened some go 30 min
+later, people who opened none go 60 min later. `Sunset` (`SOT:SUNSET`) runs
+daily and sets subscribers who received the last 10 broadcasts and neither
+opened nor clicked to `inactive`. Both are generic: no tags, no settings, computed from
+`snel_send_queue` + `snel_tracking`. Automation emails are untouched.
 
 **CPT sources.** `inc/cpt-sources/`: pulls addresses that already live elsewhere
 in WordPress (a post type, a custom table) into `snel_subscribers`. `Scanner`

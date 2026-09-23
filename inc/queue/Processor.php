@@ -85,6 +85,10 @@ class Processor {
             \Snel\Newsletter\Warmup\Guard::apply_cooldowns( $campaign_id );
         }
 
+        if ( ! in_array( $campaign_id, \Snel\Newsletter\Campaigns\Model::workflow_ids(), true ) ) {
+            \Snel\Newsletter\Engagement\Waves::apply( $campaign_id );
+        }
+
         update_post_meta( $campaign_id, '_snel_nl_send_status', 'sending' );
         update_post_meta( $campaign_id, '_snel_nl_total_recipients', $total );
         update_post_meta( $campaign_id, '_snel_nl_sent_count', 0 );

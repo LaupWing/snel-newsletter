@@ -7,6 +7,7 @@
 //   automations tick   every minute, self-arming          Automations\Engine::tick
 //   automations heal   on every admin page                below
 //   sources sync       hourly + on save_post              CptSources\AutoSync (wires itself)
+//   sunset             daily 03:00                        Engagement\Sunset::run (wired in engagement/index.php)
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;

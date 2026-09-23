@@ -21,6 +21,7 @@ class Plugin {
         'cpt-sources',
         'settings',
         'warmup',
+        'engagement',
     );
 
     public static function boot(): void {
