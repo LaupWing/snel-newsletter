@@ -50,6 +50,8 @@ class Adapter implements AdapterInterface {
         if ( ! $this->verify_sns_signature( $data ) ) {
             \Snel\Newsletter\Logger\Logger::warning( 'webhook', 'SNS signature verification failed — request rejected', array(
                 'type'     => $data['Type'] ?? 'unknown',
+                'reason'   => $this->verify_failure,
+                'version'  => $data['SignatureVersion'] ?? '',
                 'cert_url' => $data['SigningCertURL'] ?? 'missing',
             ) );
             return array();
@@ -141,25 +143,38 @@ class Adapter implements AdapterInterface {
         return $events;
     }
 
+    private string $verify_failure = '';
+
     // Verifies the AWS SNS message signature so external attackers cannot
     // inject fake bounce/complaint events. SNS names the field SigningCertURL.
     private function verify_sns_signature( array $data ): bool {
+        $this->verify_failure = '';
         $cert_url = $data['SigningCertURL'] ?? '';
         if ( ! $cert_url || empty( $data['Signature'] ) ) {
+            $this->verify_failure = 'missing cert url or signature';
             return false;
         }
 
         if ( ! preg_match( '#^https://sns\.[a-z0-9\-]+\.amazonaws\.com/#', $cert_url ) ) {
+            $this->verify_failure = 'cert url not on sns.amazonaws.com';
             return false;
         }
 
         $response = wp_remote_get( $cert_url, array( 'timeout' => 10 ) );
         if ( is_wp_error( $response ) ) {
+            $this->verify_failure = 'cert fetch: ' . $response->get_error_message();
             return false;
         }
 
         $cert = wp_remote_retrieve_body( $response );
         if ( ! $cert ) {
+            $this->verify_failure = 'cert fetch: empty body, http ' . wp_remote_retrieve_response_code( $response );
+            return false;
+        }
+
+        $pub_key = openssl_get_publickey( $cert );
+        if ( ! $pub_key ) {
+            $this->verify_failure = 'cert parse: ' . ( openssl_error_string() ?: 'unknown' );
             return false;
         }
 
@@ -178,10 +193,13 @@ class Adapter implements AdapterInterface {
             }
         }
 
-        $pub_key   = openssl_get_publickey( $cert );
         $signature = base64_decode( $data['Signature'] );
         $algorithm = ( ( $data['SignatureVersion'] ?? '1' ) === '2' ) ? OPENSSL_ALGO_SHA256 : OPENSSL_ALGO_SHA1;
         $valid     = openssl_verify( $string_to_sign, $signature, $pub_key, $algorithm );
+
+        if ( $valid !== 1 ) {
+            $this->verify_failure = 'signature mismatch (' . $valid . '), fields: ' . implode( ',', array_keys( $data ) );
+        }
 
         return $valid === 1;
     }
