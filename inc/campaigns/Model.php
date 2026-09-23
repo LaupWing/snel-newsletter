@@ -71,11 +71,13 @@ class Model {
         $query = new \WP_Query( $query_args );
         $posts = $query->posts;
 
-        $live_stats = \Snel\Newsletter\Tracking\Model::stats_for_campaigns( wp_list_pluck( $posts, 'ID' ) );
+        $ids        = wp_list_pluck( $posts, 'ID' );
+        $live_stats = \Snel\Newsletter\Tracking\Model::stats_for_campaigns( $ids );
+        $open_rows  = self::open_queue_rows( $ids );
 
         $campaigns = array();
         foreach ( $posts as $post ) {
-            $campaigns[] = self::format( $post, $workflow_map, $live_stats );
+            $campaigns[] = self::format( $post, $workflow_map, $live_stats, $open_rows );
         }
 
         return array(
@@ -157,7 +159,12 @@ class Model {
         if ( ! $post || $post->post_type !== self::$post_type ) {
             return null;
         }
-        return self::format( $post, self::workflow_map(), \Snel\Newsletter\Tracking\Model::stats_for_campaigns( array( $post->ID ) ) );
+        return self::format(
+            $post,
+            self::workflow_map(),
+            \Snel\Newsletter\Tracking\Model::stats_for_campaigns( array( $post->ID ) ),
+            self::open_queue_rows( array( $post->ID ) )
+        );
     }
 
     public static function delete( int $id ): bool {
@@ -220,7 +227,7 @@ class Model {
         return $new_id;
     }
 
-    private static function format( \WP_Post $post, array $workflow_map = array(), array $live_stats = array() ): array {
+    private static function format( \WP_Post $post, array $workflow_map = array(), array $live_stats = array(), array $open_rows = array() ): array {
         $send_status = get_post_meta( $post->ID, '_snel_nl_send_status', true );
         $sent_count  = (int) get_post_meta( $post->ID, '_snel_nl_sent_count', true );
         $total       = (int) get_post_meta( $post->ID, '_snel_nl_total_recipients', true );
@@ -231,6 +238,8 @@ class Model {
 
         $is_workflow     = array_key_exists( $post->ID, $workflow_map );
         $automation_name = $is_workflow ? $workflow_map[ $post->ID ] : '';
+        $waiting = (int) ( $open_rows[ $post->ID ]['waiting'] ?? 0 );
+        $active  = (int) ( $open_rows[ $post->ID ]['active'] ?? 0 );
 
         // Cancelled wins over post_status: a cancelled campaign may have been
         // unscheduled back to draft.
@@ -241,7 +250,7 @@ class Model {
         } elseif ( $post->post_status === 'future' ) {
             $status = 'scheduled';
         } elseif ( $send_status === 'sending' ) {
-            $status = 'sending';
+            $status = ( $active === 0 && $waiting > 0 ) ? 'sent' : 'sending';
         } elseif ( $send_status === 'failed' ) {
             $status = 'failed';
         } else {
@@ -269,6 +278,7 @@ class Model {
             'automation_name' => $automation_name,
             'recipients'      => $total,
             'sent'            => $sent_count,
+            'waiting'         => $waiting,
             'opened'          => $opened,
             'clicked'         => $clicked,
             'tags'            => is_array( $tags ) ? $tags : array(),
@@ -280,6 +290,31 @@ class Model {
 
     // Live per-campaign stats from snel_send_queue + snel_tracking, used for
     // workflow emails whose sends are logged there rather than in post meta.
+    // Per campaign: rows still to be sent now (active) vs parked by cooldown (waiting).
+    private static function open_queue_rows( array $campaign_ids ): array {
+        global $wpdb;
+        if ( empty( $campaign_ids ) ) {
+            return array();
+        }
+
+        $queue = $wpdb->prefix . 'snel_send_queue';
+        $ids   = implode( ',', array_map( 'intval', $campaign_ids ) );
+        $rows  = $wpdb->get_results(
+            "SELECT campaign_id,
+                    SUM( status IN ('pending', 'retrying', 'processing') ) AS active,
+                    SUM( status = 'delayed' ) AS waiting
+             FROM $queue
+             WHERE campaign_id IN ($ids) AND status IN ('pending', 'retrying', 'processing', 'delayed')
+             GROUP BY campaign_id"
+        );
+
+        $out = array();
+        foreach ( $rows as $r ) {
+            $out[ (int) $r->campaign_id ] = array( 'active' => (int) $r->active, 'waiting' => (int) $r->waiting );
+        }
+        return $out;
+    }
+
     private static function tracking_stats( int $campaign_id ): array {
         global $wpdb;
 

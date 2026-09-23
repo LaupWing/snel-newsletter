@@ -27,7 +27,7 @@ type Props = {
 export default function CampaignRow( { campaign, onDelete, onDuplicate, onViewStats, onCancel, onResume }: Props ) {
     const [ menuOpen, setMenuOpen ] = useState( false );
     const status = STATUS_STYLES[ campaign.status ] || STATUS_STYLES.draft;
-    const canCancel = campaign.status === 'sending' || campaign.status === 'scheduled';
+    const canCancel = campaign.status === 'sending' || campaign.status === 'scheduled' || campaign.waiting > 0;
     const openRate = campaign.sent > 0 ? Math.round( ( campaign.opened / campaign.sent ) * 100 ) : 0;
     const clickRate = campaign.sent > 0 ? Math.round( ( campaign.clicked / campaign.sent ) * 100 ) : 0;
 
@@ -81,6 +81,14 @@ export default function CampaignRow( { campaign, onDelete, onDuplicate, onViewSt
                         </div>
                         <p className="text-[10px] text-gray-400 mt-0.5">{ campaign.sent } / { campaign.recipients }</p>
                     </div>
+                ) }
+                { campaign.status !== 'sending' && campaign.waiting > 0 && (
+                    <p
+                        className="text-[10px] text-amber-600 mt-1"
+                        title={ __( 'These subscribers received another email less than 2 days ago and get this one automatically after their cooldown.', 'snel-newsletter' ) }
+                    >
+                        { campaign.waiting } { __( 'waiting (cooldown)', 'snel-newsletter' ) }
+                    </p>
                 ) }
             </td>
             <td className="px-4 py-3">

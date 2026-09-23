@@ -91,6 +91,14 @@ export default function CampaignDetail( { campaignId, onClose }: Props ) {
                                 { c.status === 'sending' && <Loader2 size={ 10 } className="animate-spin" /> }
                                 { c.status === 'sending' ? 'Sending' : 'Sent' }
                             </span>
+                            { c.waiting > 0 && (
+                                <span
+                                    className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-50 text-amber-700"
+                                    title={ __( 'Received another email less than 2 days ago; sent automatically after cooldown.', 'snel-newsletter' ) }
+                                >
+                                    { c.waiting } { __( 'waiting (cooldown)', 'snel-newsletter' ) }
+                                </span>
+                            ) }
                             { c.tags.map( ( t: any ) => (
                                 <span key={ t } className="px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 text-purple-600 rounded">{ t }</span>
                             ) ) }

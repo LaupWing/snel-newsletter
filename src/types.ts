@@ -36,6 +36,7 @@ export interface Campaign {
 	automation_name: string;
 	recipients: number;
 	sent: number;
+	waiting: number;
 	opened: number;
 	clicked: number;
 	tags: string[];
