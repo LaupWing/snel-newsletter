@@ -50,7 +50,7 @@ class Adapter implements AdapterInterface {
         if ( ! $this->verify_sns_signature( $data ) ) {
             \Snel\Newsletter\Logger\Logger::warning( 'webhook', 'SNS signature verification failed — request rejected', array(
                 'type'     => $data['Type'] ?? 'unknown',
-                'cert_url' => $data['SignatureCertURL'] ?? 'missing',
+                'cert_url' => $data['SigningCertURL'] ?? 'missing',
             ) );
             return array();
         }
@@ -142,18 +142,18 @@ class Adapter implements AdapterInterface {
     }
 
     // Verifies the AWS SNS message signature so external attackers cannot
-    // inject fake bounce/complaint events.
+    // inject fake bounce/complaint events. SNS names the field SigningCertURL.
     private function verify_sns_signature( array $data ): bool {
-        if ( empty( $data['SignatureCertURL'] ) || empty( $data['Signature'] ) ) {
+        $cert_url = $data['SigningCertURL'] ?? '';
+        if ( ! $cert_url || empty( $data['Signature'] ) ) {
             return false;
         }
 
-        // The signing certificate must come from AWS SNS itself.
-        if ( ! preg_match( '#^https://sns\.[a-z0-9\-]+\.amazonaws\.com/#', $data['SignatureCertURL'] ) ) {
+        if ( ! preg_match( '#^https://sns\.[a-z0-9\-]+\.amazonaws\.com/#', $cert_url ) ) {
             return false;
         }
 
-        $response = wp_remote_get( $data['SignatureCertURL'], array( 'timeout' => 10 ) );
+        $response = wp_remote_get( $cert_url, array( 'timeout' => 10 ) );
         if ( is_wp_error( $response ) ) {
             return false;
         }
