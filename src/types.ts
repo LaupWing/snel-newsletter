@@ -38,6 +38,7 @@ export interface Campaign {
 	sent: number;
 	waiting: number;
 	issues: number;
+	issue_level: '' | 'amber' | 'red';
 	opened: number;
 	clicked: number;
 	tags: string[];

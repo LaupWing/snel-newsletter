@@ -85,7 +85,7 @@ class Model {
         );
     }
 
-    // Per campaign: number of delay/bounce/complaint events, for the red dot in the list.
+    // Per campaign: delay / bounce / complaint counts, for the issue dot in the list.
     public static function issues_for_campaigns( array $campaign_ids ): array {
         global $wpdb;
         if ( empty( $campaign_ids ) ) {
@@ -94,13 +94,21 @@ class Model {
         $events = $wpdb->prefix . 'snel_delivery_events';
         $ids    = implode( ',', array_map( 'intval', $campaign_ids ) );
         $rows   = $wpdb->get_results(
-            "SELECT campaign_id, COUNT(*) AS n FROM $events
-             WHERE campaign_id IN ($ids) AND type IN ('delay', 'bounce', 'complaint')
+            "SELECT campaign_id,
+                    SUM( type = 'delay' ) AS delays,
+                    SUM( type IN ('bounce', 'soft_bounce') ) AS bounces,
+                    SUM( type = 'complaint' ) AS complaints
+             FROM $events
+             WHERE campaign_id IN ($ids) AND type IN ('delay', 'bounce', 'soft_bounce', 'complaint')
              GROUP BY campaign_id"
         );
         $out = array();
         foreach ( $rows as $r ) {
-            $out[ (int) $r->campaign_id ] = (int) $r->n;
+            $out[ (int) $r->campaign_id ] = array(
+                'delays'     => (int) $r->delays,
+                'bounces'    => (int) $r->bounces,
+                'complaints' => (int) $r->complaints,
+            );
         }
         return $out;
     }

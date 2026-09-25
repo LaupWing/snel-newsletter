@@ -71,10 +71,12 @@ export default function CampaignRow( { campaign, onDelete, onDuplicate, onViewSt
                     { campaign.status === 'sending' && <Loader2 size={ 10 } className="animate-spin" /> }
                     { status.label }
                 </span>
-                { campaign.issues > 0 && (
+                { campaign.issue_level && (
                     <span
-                        className="inline-block w-2 h-2 ml-1.5 rounded-full bg-red-500 align-middle"
-                        title={ `${ campaign.issues } ${ __( 'delivery issues (delays, bounces, complaints)', 'snel-newsletter' ) }` }
+                        className={ `inline-block w-2 h-2 ml-1.5 rounded-full align-middle ${ campaign.issue_level === 'red' ? 'bg-red-500' : 'bg-amber-400' }` }
+                        title={ campaign.issue_level === 'red'
+                            ? `${ campaign.issues } ${ __( 'delivery issues incl. complaints or many bounces. Open the campaign for details.', 'snel-newsletter' ) }`
+                            : `${ campaign.issues } ${ __( 'bounces or delays. Normal list hygiene, nothing to do.', 'snel-newsletter' ) }` }
                     />
                 ) }
                 { campaign.status === 'sending' && (

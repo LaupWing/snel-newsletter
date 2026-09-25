@@ -242,6 +242,9 @@ class Model {
         $automation_name = $is_workflow ? $workflow_map[ $post->ID ] : '';
         $waiting         = (int) ( $open_rows[ $post->ID ]['waiting'] ?? 0 );
         $active          = (int) ( $open_rows[ $post->ID ]['active'] ?? 0 );
+        $issue           = $issues[ $post->ID ] ?? array( 'delays' => 0, 'bounces' => 0, 'complaints' => 0 );
+        $issue_count     = $issue['delays'] + $issue['bounces'] + $issue['complaints'];
+        $issue_level     = self::issue_level( $issue, $sent_count );
 
         // Cancelled wins over post_status: a cancelled campaign may have been
         // unscheduled back to draft.
@@ -281,7 +284,8 @@ class Model {
             'recipients'      => $total,
             'sent'            => $sent_count,
             'waiting'         => $waiting,
-            'issues'          => (int) ( $issues[ $post->ID ] ?? 0 ),
+            'issues'          => $issue_count,
+            'issue_level'     => $issue_level,
             'opened'          => $opened,
             'clicked'         => $clicked,
             'tags'            => is_array( $tags ) ? $tags : array(),
@@ -293,6 +297,15 @@ class Model {
 
     // Live per-campaign stats from snel_send_queue + snel_tracking, used for
     // workflow emails whose sends are logged there rather than in post meta.
+    // Red = something that hurts reputation (any complaint, or bounces above 2% of sent);
+    // amber = normal hygiene (a few bounces or delays); empty = clean.
+    private static function issue_level( array $issue, int $sent ): string {
+        if ( $issue['complaints'] > 0 || ( $sent > 0 && $issue['bounces'] / $sent > 0.02 ) ) {
+            return 'red';
+        }
+        return ( $issue['delays'] + $issue['bounces'] ) > 0 ? 'amber' : '';
+    }
+
     // Per campaign: rows still to be sent now (active) vs parked by cooldown (waiting).
     private static function open_queue_rows( array $campaign_ids ): array {
         global $wpdb;
