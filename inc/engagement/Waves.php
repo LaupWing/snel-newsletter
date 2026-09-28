@@ -17,7 +17,8 @@ class Waves {
     const LOOKBACK     = 5;
     const STEP_MINUTES = 30;
 
-    // Recovery mode: only the core wave goes out; the rest is cancelled for this campaign.
+    // Recovery mode: within the chosen audience only proven core readers go out; everyone
+    // else, including people who never received a broadcast yet, is cancelled for this campaign.
     public static function recovery_mode(): bool {
         $settings = get_option( 'snel_newsletter_settings', array() );
         return ! empty( $settings['recovery_mode'] );
@@ -52,9 +53,10 @@ class Waves {
         if ( $recovery ) {
             $cancelled = (int) $wpdb->query( $wpdb->prepare(
                 "UPDATE $queue q
-                 INNER JOIN ( $engagement ) e ON e.subscriber_id = q.subscriber_id
+                 LEFT JOIN ( $engagement ) e ON e.subscriber_id = q.subscriber_id
                  SET q.status = 'cancelled', q.error_message = 'Recovery mode: core readers only'
-                 WHERE q.campaign_id = %d AND q.status IN ('pending', 'delayed') AND NOT $is_core",
+                 WHERE q.campaign_id = %d AND q.status IN ('pending', 'delayed')
+                   AND ( e.subscriber_id IS NULL OR NOT $is_core )",
                 $campaign_id
             ) );
             $cold   = 0;

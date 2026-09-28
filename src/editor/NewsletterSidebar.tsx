@@ -19,7 +19,7 @@ export function RecoveryNotice() {
         <div className="snel-nl-recovery">
             <strong>{ __( 'Recovery mode is on.', 'snel-newsletter' ) }</strong>{ ' ' }
             { sprintf(
-                __( 'This broadcast goes only to your core readers (about %s people who open nearly every email), whatever audience you pick here. Turn it off in Settings → Sender.', 'snel-newsletter' ),
+                __( 'Pick your audience as usual; within it, only core readers get this broadcast (about %s people who opened at least 4 of your last 5). Turn it off in Settings → Sender.', 'snel-newsletter' ),
                 CORE_COUNT.toLocaleString()
             ) }
         </div>
@@ -127,11 +127,6 @@ function RecipientPanel() {
         return () => { stale = true; };
     }, [ selectedTags.join( ',' ) ] );
 
-    // Recovery mode overrides the audience anyway; pin it to 'all' so the publish gate opens.
-    useEffect( () => {
-        if ( RECOVERY && audience !== 'all' ) chooseAudience( 'all' );
-    }, [ RECOVERY, audience ] );
-
     // Switching audience clears the other mode's selection so only one applies.
     const chooseAudience = ( mode: string ) => {
         editPost( { meta: { _snel_nl_audience: mode } } );
@@ -183,7 +178,6 @@ function RecipientPanel() {
                     <span className="snel-nl-sender-label">{ __( 'Sends from', 'snel-newsletter' ) }</span>
                     <span className="snel-nl-sender-email">{ SENDERS.broadcast || __( '(set in Settings)', 'snel-newsletter' ) }</span>
                 </div>
-                { ! RECOVERY && (
                 <div className="snel-nl-field">
                     <label className="snel-nl-label">{ __( 'Send to', 'snel-newsletter' ) }</label>
                     <div className="snel-nl-radio-group">
@@ -225,7 +219,6 @@ function RecipientPanel() {
                         </p>
                     ) }
                 </div>
-                ) }
 
                 { audience === 'custom' && (
                     <div className="snel-nl-field">
@@ -451,7 +444,6 @@ function PublishGate() {
         || ( filters.length > 0 ? 'custom' : ( tags.length > 0 ? 'tags' : '' ) );
 
     const valid = isWorkflow
-        || RECOVERY
         || audience === 'all'
         || ( audience === 'tags' && tags.length > 0 )
         || ( audience === 'custom' && filters.length > 0 );
