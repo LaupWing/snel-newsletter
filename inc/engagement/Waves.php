@@ -24,6 +24,27 @@ class Waves {
         return ! empty( $settings['recovery_mode'] );
     }
 
+    // SOT:CORE — one definition of "core reader", used by the editor estimate, the send
+    // selection and recovery mode alike. Subquery alias must be `e`.
+    const IS_CORE = "( (e.received >= 4 AND e.opened >= 4) OR (e.received < 4 AND e.opened >= CEIL(e.received * 0.75)) )";
+
+    private static function engagement_sql( array $campaign_ids ): string {
+        global $wpdb;
+        $queue    = $wpdb->prefix . 'snel_send_queue';
+        $tracking = $wpdb->prefix . 'snel_tracking';
+        $ids_csv  = implode( ',', array_map( 'intval', $campaign_ids ) );
+
+        return "SELECT q2.subscriber_id,
+                       COUNT(*) AS received,
+                       SUM( EXISTS(
+                           SELECT 1 FROM $tracking t
+                           WHERE t.campaign_id = q2.campaign_id AND t.subscriber_id = q2.subscriber_id AND t.type = 'open'
+                       ) ) AS opened
+                FROM $queue q2
+                WHERE q2.campaign_id IN ($ids_csv) AND q2.status = 'sent'
+                GROUP BY q2.subscriber_id";
+    }
+
     public static function apply( int $campaign_id ): array {
         global $wpdb;
 
@@ -32,23 +53,11 @@ class Waves {
             return array( 'core' => 0, 'middle' => 0, 'cold' => 0 );
         }
 
-        $queue    = $wpdb->prefix . 'snel_send_queue';
-        $tracking = $wpdb->prefix . 'snel_tracking';
-        $ids_csv  = implode( ',', array_map( 'intval', $recent ) );
-        $now      = current_time( 'mysql' );
-
-        $engagement = "SELECT q2.subscriber_id,
-                              COUNT(*) AS received,
-                              SUM( EXISTS(
-                                  SELECT 1 FROM $tracking t
-                                  WHERE t.campaign_id = q2.campaign_id AND t.subscriber_id = q2.subscriber_id AND t.type = 'open'
-                              ) ) AS opened
-                       FROM $queue q2
-                       WHERE q2.campaign_id IN ($ids_csv) AND q2.status = 'sent'
-                       GROUP BY q2.subscriber_id";
-
-        $is_core  = "( (e.received >= 4 AND e.opened >= 4) OR (e.received < 4 AND e.opened >= CEIL(e.received * 0.75)) )";
-        $recovery = self::recovery_mode();
+        $queue      = $wpdb->prefix . 'snel_send_queue';
+        $now        = current_time( 'mysql' );
+        $engagement = self::engagement_sql( $recent );
+        $is_core    = self::IS_CORE;
+        $recovery   = self::recovery_mode();
 
         if ( $recovery ) {
             $cancelled = (int) $wpdb->query( $wpdb->prepare(
@@ -104,25 +113,13 @@ class Waves {
             return 0;
         }
 
-        $subs     = $wpdb->prefix . 'snel_subscribers';
-        $queue    = $wpdb->prefix . 'snel_send_queue';
-        $tracking = $wpdb->prefix . 'snel_tracking';
-        $ids_csv  = implode( ',', $recent );
+        $subs = $wpdb->prefix . 'snel_subscribers';
 
         return (int) $wpdb->get_var(
-            "SELECT COUNT(*) FROM (
-                 SELECT q.subscriber_id,
-                        COUNT(*) AS received,
-                        SUM( EXISTS(
-                            SELECT 1 FROM $tracking t
-                            WHERE t.campaign_id = q.campaign_id AND t.subscriber_id = q.subscriber_id AND t.type = 'open'
-                        ) ) AS opened
-                 FROM $queue q
-                 INNER JOIN $subs s ON s.id = q.subscriber_id AND s.status = 'active'
-                 WHERE q.campaign_id IN ($ids_csv) AND q.status = 'sent'
-                 GROUP BY q.subscriber_id
-                 HAVING (received >= 4 AND opened >= 4) OR (received < 4 AND opened >= CEIL(received * 0.75))
-             ) e"
+            "SELECT COUNT(*)
+             FROM ( " . self::engagement_sql( $recent ) . " ) e
+             INNER JOIN $subs s ON s.id = e.subscriber_id AND s.status = 'active'
+             WHERE " . self::IS_CORE
         );
     }
 

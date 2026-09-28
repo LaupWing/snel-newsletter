@@ -16,7 +16,9 @@ const SUB_STATUS: Record< string, { bg: string; label: string } > = {
     sent:     { bg: 'bg-emerald-50 text-emerald-700', label: 'Sent' },
     pending:  { bg: 'bg-gray-100 text-gray-500',      label: 'Pending' },
     failed:   { bg: 'bg-red-50 text-red-600',         label: 'Failed' },
-    retrying: { bg: 'bg-amber-50 text-amber-600',     label: 'Retrying' },
+    retrying:  { bg: 'bg-amber-50 text-amber-600',     label: 'Retrying' },
+    delayed:   { bg: 'bg-amber-50 text-amber-600',     label: 'Waiting' },
+    cancelled: { bg: 'bg-gray-100 text-gray-400',      label: 'Skipped' },
 };
 
 type StatCardProps = {
