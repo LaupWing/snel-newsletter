@@ -93,6 +93,37 @@ class Waves {
         return array( 'core' => $core, 'middle' => $middle, 'cold' => $cold );
     }
 
+    // How many active subscribers currently count as core; shown in the editor as an estimate.
+    public static function core_count(): int {
+        global $wpdb;
+
+        $recent = self::recent_broadcast_ids( 0 );
+        if ( empty( $recent ) ) {
+            return 0;
+        }
+
+        $subs     = $wpdb->prefix . 'snel_subscribers';
+        $queue    = $wpdb->prefix . 'snel_send_queue';
+        $tracking = $wpdb->prefix . 'snel_tracking';
+        $ids_csv  = implode( ',', $recent );
+
+        return (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM (
+                 SELECT q.subscriber_id,
+                        COUNT(*) AS received,
+                        SUM( EXISTS(
+                            SELECT 1 FROM $tracking t
+                            WHERE t.campaign_id = q.campaign_id AND t.subscriber_id = q.subscriber_id AND t.type = 'open'
+                        ) ) AS opened
+                 FROM $queue q
+                 INNER JOIN $subs s ON s.id = q.subscriber_id AND s.status = 'active'
+                 WHERE q.campaign_id IN ($ids_csv) AND q.status = 'sent'
+                 GROUP BY q.subscriber_id
+                 HAVING (received >= 4 AND opened >= 4) OR (received < 4 AND opened >= CEIL(received * 0.75))
+             ) e"
+        );
+    }
+
     // The last LOOKBACK broadcasts that actually went out, newest first, excluding this one and automation emails.
     public static function recent_broadcast_ids( int $exclude_id, int $limit = self::LOOKBACK ): array {
         global $wpdb;

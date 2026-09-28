@@ -125,6 +125,8 @@ declare global {
 				broadcast: string;
 				automation: string;
 			};
+			recoveryMode: boolean;
+			coreCount: number;
 		};
 	}
 }

@@ -4,6 +4,7 @@ import { PluginPrePublishPanel } from '@wordpress/editor';
 import { useSelect } from '@wordpress/data';
 import { Eye, Users, Tag } from 'lucide-react';
 import EmailPreviewModal from './EmailPreviewModal';
+import { RecoveryNotice } from './NewsletterSidebar';
 
 export default function PrePublishPreview() {
     const [ showPreview, setShowPreview ] = useState( false );
@@ -17,6 +18,7 @@ export default function PrePublishPreview() {
             initialOpen={ true }
         >
             <div className="snel-newsletter-panel">
+                <RecoveryNotice />
                 <p className="snel-nl-hint" style={ { marginBottom: '8px' } }>
                     { __( 'Preview how your newsletter will look in email clients before sending.', 'snel-newsletter' ) }
                 </p>

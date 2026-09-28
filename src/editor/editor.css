@@ -57,6 +57,17 @@
     color: #9ca3af;
 }
 
+.snel-nl-recovery {
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
 .snel-nl-hint {
     font-size: 11px;
     color: #9ca3af;

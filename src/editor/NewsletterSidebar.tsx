@@ -9,6 +9,22 @@ import ReviewListModal from '../pages/Subscribers/ReviewListModal';
 import type { FilterRule } from '../types';
 
 const TAGS = window.snelNewsletterEditor?.tags || [];
+const RECOVERY = !! window.snelNewsletterEditor?.recoveryMode;
+const CORE_COUNT = Number( window.snelNewsletterEditor?.coreCount || 0 );
+
+// Shown wherever the audience is chosen: recovery mode overrides every audience choice.
+export function RecoveryNotice() {
+    if ( ! RECOVERY ) return null;
+    return (
+        <div className="snel-nl-recovery">
+            <strong>{ __( 'Recovery mode is on.', 'snel-newsletter' ) }</strong>{ ' ' }
+            { sprintf(
+                __( 'This broadcast goes only to your core readers (about %s people who open nearly every email), whatever audience you pick here. Turn it off in Settings → Sender.', 'snel-newsletter' ),
+                CORE_COUNT.toLocaleString()
+            ) }
+        </div>
+    );
+}
 const TAG_COUNTS = window.snelNewsletterEditor?.tagCounts || {};
 const SUBSCRIBER_COUNT = window.snelNewsletterEditor?.subscriberCount || 0;
 const SENDERS: { broadcast?: string; automation?: string } = window.snelNewsletterEditor?.senders || {};
@@ -157,6 +173,7 @@ function RecipientPanel() {
             initialOpen={ true }
         >
             <div className="snel-newsletter-panel">
+                <RecoveryNotice />
                 <div className="snel-nl-sender">
                     <span className="snel-nl-sender-label">{ __( 'Sends from', 'snel-newsletter' ) }</span>
                     <span className="snel-nl-sender-email">{ SENDERS.broadcast || __( '(set in Settings)', 'snel-newsletter' ) }</span>

@@ -105,6 +105,8 @@ add_action( 'enqueue_block_editor_assets', function () {
             'broadcast'  => $nl_settings['from_email'] ?? '',
             'automation' => $nl_settings['auto_from_email'] ?: ( $nl_settings['from_email'] ?? '' ),
         ),
+        'recoveryMode'    => ! empty( $nl_settings['recovery_mode'] ),
+        'coreCount'       => ! empty( $nl_settings['recovery_mode'] ) ? \Snel\Newsletter\Engagement\Waves::core_count() : 0,
     ) );
 } );
 
