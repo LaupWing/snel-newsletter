@@ -87,6 +87,10 @@ class Processor {
 
         if ( ! in_array( $campaign_id, \Snel\Newsletter\Campaigns\Model::workflow_ids(), true ) ) {
             \Snel\Newsletter\Engagement\Waves::apply( $campaign_id );
+            $total = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM $queue WHERE campaign_id = %d AND status != 'cancelled'",
+                $campaign_id
+            ) );
         }
 
         update_post_meta( $campaign_id, '_snel_nl_send_status', 'sending' );

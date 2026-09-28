@@ -17,6 +17,12 @@ class Waves {
     const LOOKBACK     = 5;
     const STEP_MINUTES = 30;
 
+    // Recovery mode: only the core wave goes out; the rest is cancelled for this campaign.
+    public static function recovery_mode(): bool {
+        $settings = get_option( 'snel_newsletter_settings', array() );
+        return ! empty( $settings['recovery_mode'] );
+    }
+
     public static function apply( int $campaign_id ): array {
         global $wpdb;
 
@@ -40,30 +46,43 @@ class Waves {
                        WHERE q2.campaign_id IN ($ids_csv) AND q2.status = 'sent'
                        GROUP BY q2.subscriber_id";
 
-        $is_core = "( (e.received >= 4 AND e.opened >= 4) OR (e.received < 4 AND e.opened >= CEIL(e.received * 0.75)) )";
+        $is_core  = "( (e.received >= 4 AND e.opened >= 4) OR (e.received < 4 AND e.opened >= CEIL(e.received * 0.75)) )";
+        $recovery = self::recovery_mode();
 
-        $cold = (int) $wpdb->query( $wpdb->prepare(
-            "UPDATE $queue q
-             INNER JOIN ( $engagement ) e ON e.subscriber_id = q.subscriber_id
-             SET q.status = 'delayed', q.delayed_until = DATE_ADD(%s, INTERVAL %d MINUTE)
-             WHERE q.campaign_id = %d AND q.status = 'pending' AND e.opened = 0",
-            $now, self::STEP_MINUTES * 2, $campaign_id
-        ) );
+        if ( $recovery ) {
+            $cancelled = (int) $wpdb->query( $wpdb->prepare(
+                "UPDATE $queue q
+                 INNER JOIN ( $engagement ) e ON e.subscriber_id = q.subscriber_id
+                 SET q.status = 'cancelled', q.error_message = 'Recovery mode: core readers only'
+                 WHERE q.campaign_id = %d AND q.status IN ('pending', 'delayed') AND NOT $is_core",
+                $campaign_id
+            ) );
+            $cold   = 0;
+            $middle = $cancelled;
+        } else {
+            $cold = (int) $wpdb->query( $wpdb->prepare(
+                "UPDATE $queue q
+                 INNER JOIN ( $engagement ) e ON e.subscriber_id = q.subscriber_id
+                 SET q.status = 'delayed', q.delayed_until = DATE_ADD(%s, INTERVAL %d MINUTE)
+                 WHERE q.campaign_id = %d AND q.status = 'pending' AND e.opened = 0",
+                $now, self::STEP_MINUTES * 2, $campaign_id
+            ) );
 
-        $middle = (int) $wpdb->query( $wpdb->prepare(
-            "UPDATE $queue q
-             INNER JOIN ( $engagement ) e ON e.subscriber_id = q.subscriber_id
-             SET q.status = 'delayed', q.delayed_until = DATE_ADD(%s, INTERVAL %d MINUTE)
-             WHERE q.campaign_id = %d AND q.status = 'pending' AND NOT $is_core",
-            $now, self::STEP_MINUTES, $campaign_id
-        ) );
+            $middle = (int) $wpdb->query( $wpdb->prepare(
+                "UPDATE $queue q
+                 INNER JOIN ( $engagement ) e ON e.subscriber_id = q.subscriber_id
+                 SET q.status = 'delayed', q.delayed_until = DATE_ADD(%s, INTERVAL %d MINUTE)
+                 WHERE q.campaign_id = %d AND q.status = 'pending' AND NOT $is_core",
+                $now, self::STEP_MINUTES, $campaign_id
+            ) );
+        }
 
         $core = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(*) FROM $queue WHERE campaign_id = %d AND status = 'pending'",
             $campaign_id
         ) );
 
-        Logger::info( 'engagement', 'Waves applied to campaign', array(
+        Logger::info( 'engagement', $recovery ? 'Recovery mode: campaign limited to core readers' : 'Waves applied to campaign', array(
             'campaign_id' => $campaign_id,
             'core'        => $core,
             'middle'      => $middle,

@@ -43,6 +43,10 @@ class Controller {
             }
         }
 
+        if ( isset( $params['recovery_mode'] ) ) {
+            $settings['recovery_mode'] = ! empty( $params['recovery_mode'] );
+        }
+
         // A masked value is the UI echoing our own mask back; never store it.
         if ( isset( $params['ses_secret_key'] ) && strpos( $params['ses_secret_key'], '*' ) === false ) {
             $settings['ses_secret_key'] = sanitize_text_field( $params['ses_secret_key'] );

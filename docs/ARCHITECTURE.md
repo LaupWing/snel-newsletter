@@ -70,7 +70,9 @@ queued and parks rows with the same `delayed` mechanic as the cooldown: people
 who opened 4 of the last 5 broadcasts go now, people who opened some go 30 min
 later, people who opened none go 60 min later. `Sunset` (`SOT:SUNSET`) runs
 daily and sets subscribers who received the last 10 broadcasts and neither
-opened nor clicked to `inactive`. Both are generic: no tags, no settings, computed from
+opened nor clicked to `inactive`. Setting `recovery_mode` makes `Waves` cancel every non-core row
+instead of parking it, so 2-3 campaigns after a dip reach only sure openers.
+Both are generic: no tags, computed from
 `snel_send_queue` + `snel_tracking`. Automation emails are untouched.
 
 **CPT sources.** `inc/cpt-sources/`: pulls addresses that already live elsewhere

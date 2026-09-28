@@ -340,6 +340,23 @@ function SenderSettings( { settings, setSettings }: SettingsPanelProps ) {
                     />
                 </div>
             </div>
+
+            <div className={ `border rounded-lg p-5 ${ settings.recovery_mode ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-200' }` }>
+                <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        className="mt-0.5"
+                        checked={ !! settings.recovery_mode }
+                        onChange={ ( e ) => setSettings( { ...settings, recovery_mode: e.target.checked } ) }
+                    />
+                    <div>
+                        <p className="text-sm font-semibold text-gray-900">{ __( 'Recovery mode: broadcasts go to core readers only', 'snel-newsletter' ) }</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                            { __( 'Core = opened at least 4 of your last 5 broadcasts. Everyone else is skipped for that campaign (not unsubscribed). Use for 2 to 3 campaigns after a deliverability dip, then switch off.', 'snel-newsletter' ) }
+                        </p>
+                    </div>
+                </label>
+            </div>
         </div>
     );
 }
@@ -491,6 +508,7 @@ export default function Settings() {
         ses_secret_key: '',
         ses_region: '',
         ses_configuration_set: '',
+        recovery_mode: false,
         from_name: '',
         from_email: '',
         reply_to: '',
