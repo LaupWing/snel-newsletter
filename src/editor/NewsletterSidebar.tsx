@@ -127,6 +127,11 @@ function RecipientPanel() {
         return () => { stale = true; };
     }, [ selectedTags.join( ',' ) ] );
 
+    // Recovery mode overrides the audience anyway; pin it to 'all' so the publish gate opens.
+    useEffect( () => {
+        if ( RECOVERY && audience !== 'all' ) chooseAudience( 'all' );
+    }, [ RECOVERY, audience ] );
+
     // Switching audience clears the other mode's selection so only one applies.
     const chooseAudience = ( mode: string ) => {
         editPost( { meta: { _snel_nl_audience: mode } } );
@@ -178,6 +183,7 @@ function RecipientPanel() {
                     <span className="snel-nl-sender-label">{ __( 'Sends from', 'snel-newsletter' ) }</span>
                     <span className="snel-nl-sender-email">{ SENDERS.broadcast || __( '(set in Settings)', 'snel-newsletter' ) }</span>
                 </div>
+                { ! RECOVERY && (
                 <div className="snel-nl-field">
                     <label className="snel-nl-label">{ __( 'Send to', 'snel-newsletter' ) }</label>
                     <div className="snel-nl-radio-group">
@@ -219,6 +225,7 @@ function RecipientPanel() {
                         </p>
                     ) }
                 </div>
+                ) }
 
                 { audience === 'custom' && (
                     <div className="snel-nl-field">
@@ -444,6 +451,7 @@ function PublishGate() {
         || ( filters.length > 0 ? 'custom' : ( tags.length > 0 ? 'tags' : '' ) );
 
     const valid = isWorkflow
+        || RECOVERY
         || audience === 'all'
         || ( audience === 'tags' && tags.length > 0 )
         || ( audience === 'custom' && filters.length > 0 );
